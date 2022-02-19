@@ -8,28 +8,25 @@ use winapi::um::winuser::{MB_OK, MessageBoxW};
 use winapi::shared::minwindef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
-use reqwest;
-
-fn to_wstring(str : &str) -> Vec<u16> {
-    let v : Vec<u16> =
-        OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
-    v
-}
 
 unsafe fn task_init(patch_version: winapi::shared::ntdef::INT) {
-    show_message_box("Init task called.");
+    let init_message = format!("Init task called. Patch Version: {}", patch_version);
+    show_message_box(&init_message);
     ExitProcess(1);
 }
 
 #[no_mangle]
-extern "stdcall" fn DllMain(hInstDll: HINSTANCE, fdwReason: DWORD, lpvReserved: LPVOID) -> bool {
-    if fdwReason != DLL_PROCESS_ATTACH {
+extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_reserved: LPVOID) -> bool {
+    if fdw_reason != DLL_PROCESS_ATTACH {
         return true;
     }
     unsafe {
         let rva0 = GetModuleHandleW(null_mut())
             .cast::<*const u8>()
             .sub(0x400000);
+        let rva0_address = format!("Address: {:p}", rva0);
+        show_message_box(&rva0_address);
+        ExitProcess(1);
         write_address(rva0, 0xdb9060, task_init as *const usize);
         return true;
     }
@@ -44,9 +41,6 @@ unsafe fn show_message_box(message: &str) {
     MessageBoxW(null_mut(), converted_message, null_mut(), MB_OK);
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test() {
-    }
+fn to_wstring(str : &str) -> Vec<u16> {
+    return OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
 }
