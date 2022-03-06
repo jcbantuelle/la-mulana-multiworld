@@ -9,10 +9,9 @@ use winapi::shared::minwindef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-unsafe fn task_init(patch_version: winapi::shared::ntdef::INT) {
+unsafe extern "stdcall" fn task_init(patch_version: winapi::shared::ntdef::INT) {
     let init_message = format!("Init task called. Patch Version: {}", patch_version);
     show_message_box(&init_message);
-    ExitProcess(1);
 }
 
 #[no_mangle]
@@ -21,19 +20,14 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
         return true;
     }
     unsafe {
-        let rva0 = GetModuleHandleW(null_mut())
-            .cast::<*const u8>()
-            .sub(0x400000);
-        let rva0_address = format!("Address: {:p}", rva0);
-        show_message_box(&rva0_address);
-        ExitProcess(1);
+        let rva0 = GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000);
         write_address(rva0, 0xdb9060, task_init as *const usize);
         return true;
     }
 }
 
 unsafe fn write_address(base_address: *mut *const u8, offset: usize, f: *const usize) {
-    base_address.add(offset).cast::<*const usize>().write(f);
+    base_address.add(offset/4).cast::<*const usize>().write(f);
 }
 
 unsafe fn show_message_box(message: &str) {
