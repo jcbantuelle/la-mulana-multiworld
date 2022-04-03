@@ -11,8 +11,11 @@ crate-type = ["cdylib"]
 winapi = { "version" = "0.3.9", "features" = ["ntdef", "minwindef", "winnt", "libloaderapi", "winuser", "processthreadsapi", "timeapi"] }
 tungstenite = { version = "0.17.2", features = ["native-tls"] }
 url = "2.0.0"
+serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 lazy_static = "1.4.0"
+log4rs = { "version" ="1.0.0", "features" = ["file_appender"] }
+log = "0.4.16"
 
 [profile.release]
 opt-level = "z"
