@@ -11,10 +11,11 @@ use winapi::um::timeapi::timeGetTime;
 use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use log::{debug, error, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
+use fragile::Fragile;
 
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
@@ -31,7 +32,15 @@ lazy_static! {
             },
             _ => ()
         };
-        return Mutex::new(ws_connection);
+        Mutex::new(ws_connection)
+    };
+    static ref APPLICATION_ADDRESS: Mutex<Fragile<*mut *const u8>> = {
+        let t = unsafe { GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000) };
+        Mutex::new(
+            Fragile::new(
+                t
+            )
+        )
     };
 }
 
@@ -85,6 +94,12 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
         });
     });
 
+    let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
+    let application_address = fragile_application_address.get();
+    let ptr = application_address.add(0x4d9690/4).cast::<*const ()>();
+    let f: extern "C" fn() = std::mem::transmute(ptr);
+    (f)();
+
     return timeGetTime();
 }
 
@@ -103,14 +118,15 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
     log4rs::init_config(config).unwrap();
 
     unsafe {
-        let rva0 = GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000);
-        write_address(rva0, 0xdb9060, init as *const usize);
-        write_address(rva0, 0xdb9064, game_loop as *const usize);
+        let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
+        let application_address = fragile_application_address.get();
+        write_address( application_address, 0xdb9060, init as *const usize);
+        write_address(application_address, 0xdb9064, game_loop as *const usize);
         return true;
     }
 }
 
-unsafe fn write_address(base_address: *mut *const u8, offset: usize, f: *const usize) {
+unsafe fn write_address(base_address: &*mut *const u8, offset: usize, f: *const usize) {
     base_address.add(offset/4).cast::<*const usize>().write(f);
 }
 
