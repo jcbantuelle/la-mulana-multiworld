@@ -11,7 +11,7 @@ use winapi::um::timeapi::timeGetTime;
 use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use log::{debug, error, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
@@ -19,6 +19,7 @@ use fragile::Fragile;
 
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
+static mut GAME_SERVER_LOOP_COUNTER: u32 = 0;
 
 lazy_static! {
     static ref WEBSOCKET: Mutex<WebSocket<MaybeTlsStream<TcpStream>>> = {
@@ -42,6 +43,7 @@ lazy_static! {
             )
         )
     };
+    static ref GAME_LOOP_COUNTER: Mutex<u32> = Mutex::new(0);
 }
 
 #[derive(Serialize, Deserialize)]
@@ -94,11 +96,14 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
         });
     });
 
-    let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
-    let application_address = fragile_application_address.get();
-    let ptr = application_address.add(0x4d9690/4).cast::<*const ()>();
-    let f: extern "C" fn() = std::mem::transmute(ptr);
-    (f)();
+    if GAME_SERVER_LOOP_COUNTER % 10000 == 0 {
+        let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
+        let application_address = fragile_application_address.get();
+        let ptr = application_address.add(0x4d9690/4).cast::<*const ()>();
+        let f: extern "C" fn() = std::mem::transmute(ptr);
+        (f)();
+    }
+    GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
 
     return timeGetTime();
 }
