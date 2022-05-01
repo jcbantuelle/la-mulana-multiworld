@@ -15,11 +15,11 @@ use std::sync::Mutex;
 use log::{debug, error, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
-use fragile::Fragile;
 
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
-static mut GAME_SERVER_LOOP_COUNTER: u32 = 0;
+static mut GAME_LOOP_COUNTER: u32 = 1;
+static mut APPLICATION_ADDRESS: *mut *const u8 = null_mut();
 
 lazy_static! {
     static ref WEBSOCKET: Mutex<WebSocket<MaybeTlsStream<TcpStream>>> = {
@@ -35,15 +35,6 @@ lazy_static! {
         };
         Mutex::new(ws_connection)
     };
-    static ref APPLICATION_ADDRESS: Mutex<Fragile<*mut *const u8>> = {
-        let t = unsafe { GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000) };
-        Mutex::new(
-            Fragile::new(
-                t
-            )
-        )
-    };
-    static ref GAME_LOOP_COUNTER: Mutex<u32> = Mutex::new(0);
 }
 
 #[derive(Serialize, Deserialize)]
@@ -96,14 +87,10 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
         });
     });
 
-    if GAME_SERVER_LOOP_COUNTER % 10000 == 0 {
-        let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
-        let application_address = fragile_application_address.get();
-        let ptr = application_address.add(0x4d9690/4).cast::<*const ()>();
-        let f: extern "C" fn() = std::mem::transmute(ptr);
-        (f)();
+    if GAME_LOOP_COUNTER % 2000 == 0 {
+        APPLICATION_ADDRESS.add(0x6d5684/4).cast::<i32>().write(158);
     }
-    GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
+    GAME_LOOP_COUNTER += 1;
 
     return timeGetTime();
 }
@@ -123,16 +110,21 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
     log4rs::init_config(config).unwrap();
 
     unsafe {
-        let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
-        let application_address = fragile_application_address.get();
-        write_address( application_address, 0xdb9060, init as *const usize);
-        write_address(application_address, 0xdb9064, game_loop as *const usize);
+        APPLICATION_ADDRESS = GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000);
+        write_address(0xdb9060, init as *const usize);
+        write_address(0xdb9064, game_loop as *const usize);
         return true;
     }
 }
 
-unsafe fn write_address(base_address: &*mut *const u8, offset: usize, f: *const usize) {
-    base_address.add(offset/4).cast::<*const usize>().write(f);
+unsafe fn write_address(offset: usize, f: *const usize) {
+    APPLICATION_ADDRESS.add(offset/4).cast::<*const usize>().write(f);
+}
+
+unsafe fn call_address(offset: usize) {
+    let ptr = APPLICATION_ADDRESS.add(offset/4).cast::<*const ()>();
+    let f: extern "C" fn() = std::mem::transmute(ptr);
+    (f)();
 }
 
 unsafe fn show_message_box(message: &str) {
