@@ -12,7 +12,9 @@ The Binary will need to identify when a player has received an item for someone 
 
 * Read config file for server url, session id, and player id
 * Parse RCD files in a way that understands *who* an item is for
+  * Customize item received message to indicate who's item was obtained
 * Send other player items to server
+    * Read game state for item locations to determine what has been found
 * Listen for items sent to the player and trigger "get item" event
 
 ### Nice to Have
@@ -33,7 +35,7 @@ The Binary will need to identify when a player has received an item for someone 
 
 ### Requirements
 
-* Validate item distribution for winnability across multiple games
+* Validate item distribution for winability across multiple games
 * Generate customized RCD file housing recipient information
 * Allow Server to generate seed
 
