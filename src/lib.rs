@@ -20,6 +20,7 @@ use fragile::Fragile;
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
+static mut APPLICATION_ADDRESS: *mut *const u8 = null_mut();
 static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
 static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
 static OPTION_POS_CX: usize = 0x00db7168;
@@ -40,11 +41,6 @@ lazy_static! {
             _ => ()
         };
         Mutex::new(ws_connection)
-    };
-    static ref APPLICATION_ADDRESS: Fragile<*mut *const u8> = {
-        Fragile::new(
-            unsafe { GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000) }
-        )
     };
 }
 
@@ -134,6 +130,7 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
     log4rs::init_config(config).unwrap();
 
     unsafe {
+        APPLICATION_ADDRESS = GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000);
         write_address(0xdb9060, init as *const usize);
         write_address(0xdb9064, game_loop as *const usize);
         return true;
