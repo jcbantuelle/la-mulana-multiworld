@@ -1,9 +1,6 @@
-use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
-use std::ptr::null_mut;
+use std::ptr::{null_mut};
 use std::net::TcpStream;
 use winapi::um::winnt::DLL_PROCESS_ATTACH;
-use winapi::um::winuser::{MB_OK, MessageBoxW};
 use winapi::shared::minwindef::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
@@ -15,11 +12,20 @@ use std::sync::Mutex;
 use log::{debug, error, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
-use fragile::Fragile;
+
+pub mod application;
+pub mod taskdata;
+pub mod roomcache;
+pub mod hitbox;
+use application::{ Application, show_message_box, SET_VIEW_EVENT_NS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_GET_AREA_BACK_ADDRESS, ROOM_DATA_ADDRESS, ITEM_GET_ADDRESS, ITEM_GET_POS_ADDRESS, ITEM_GET_AREA_HIT_ADDRESS };
+use crate::taskdata::TaskData;
+use crate::roomcache::RoomCache;
+use crate::hitbox::HitBox;
 
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
-static mut GAME_SERVER_LOOP_COUNTER: u32 = 0;
+static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
+static mut APPLICATION: Option<Application> = None;
 
 lazy_static! {
     static ref WEBSOCKET: Mutex<WebSocket<MaybeTlsStream<TcpStream>>> = {
@@ -35,15 +41,6 @@ lazy_static! {
         };
         Mutex::new(ws_connection)
     };
-    static ref APPLICATION_ADDRESS: Mutex<Fragile<*mut *const u8>> = {
-        let t = unsafe { GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000) };
-        Mutex::new(
-            Fragile::new(
-                t
-            )
-        )
-    };
-    static ref GAME_LOOP_COUNTER: Mutex<u32> = Mutex::new(0);
 }
 
 #[derive(Serialize, Deserialize)]
@@ -96,12 +93,10 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
         });
     });
 
-    if GAME_SERVER_LOOP_COUNTER % 10000 == 0 {
-        let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
-        let application_address = fragile_application_address.get();
-        let ptr = application_address.add(0x4d9690/4).cast::<*const ()>();
-        let f: extern "C" fn() = std::mem::transmute(ptr);
-        (f)();
+    if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
+        APPLICATION.as_ref().map(|app| {
+            app.give_item(81);
+        });
     }
     GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
 
@@ -123,23 +118,15 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
     log4rs::init_config(config).unwrap();
 
     unsafe {
-        let fragile_application_address = APPLICATION_ADDRESS.lock().unwrap();
-        let application_address = fragile_application_address.get();
-        write_address( application_address, 0xdb9060, init as *const usize);
-        write_address(application_address, 0xdb9064, game_loop as *const usize);
+        let app = Application {
+            address: GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000)
+        };
+
+        *app.get_address(0xdb9060) = init as *const usize;
+        *app.get_address(0xdb9064) = game_loop as *const usize;
+
+        APPLICATION = Some(app);
         return true;
     }
 }
 
-unsafe fn write_address(base_address: &*mut *const u8, offset: usize, f: *const usize) {
-    base_address.add(offset/4).cast::<*const usize>().write(f);
-}
-
-unsafe fn show_message_box(message: &str) {
-    let converted_message = to_wstring(message).as_ptr();
-    MessageBoxW(null_mut(), converted_message, null_mut(), MB_OK);
-}
-
-fn to_wstring(str : &str) -> Vec<u16> {
-    return OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
-}
