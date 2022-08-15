@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
-use std::ptr::{null_mut, write};
+use std::ptr::{null_mut};
 use std::net::TcpStream;
 use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::winuser::{MB_OK, MessageBoxW};
@@ -15,7 +15,6 @@ use std::sync::Mutex;
 use log::{debug, error, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
-use fragile::Fragile;
 
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
@@ -23,10 +22,10 @@ static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
 static mut APPLICATION_ADDRESS: *mut *const u8 = null_mut();
 static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
 static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
-static OPTION_POS_CX: usize = 0x00db7168;
-static OPTION_POS_CY: usize = 0x00db714c;
-static SET_NS_EVENT_PTR: usize = 0x00507160;
-static SET_ITEM_GET_AREA_INIT_PTR: usize = 0x004b8950;
+static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
+static OPTION_POS_CY_ADDRESS: usize = 0x00db714c;
+static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
+static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
 
 lazy_static! {
     static ref WEBSOCKET: Mutex<WebSocket<MaybeTlsStream<TcpStream>>> = {
@@ -98,16 +97,17 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
     debug!("Game loop counter is {}", GAME_SERVER_LOOP_COUNTER);
     if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
         debug!("About to spawn item...");
-        option_pos(640.0, 480.0);
+        option_pos(0.0, 0.0);
         option_stuck(81);
         option_stuck(32);
         option_stuck(24);
         option_stuck(39);
 
         debug!("Executing setViewEventNs");
-        let ptr = get_address_from_offset(0x4d9690).cast::<*const ()>();
-        let f: extern "C" fn(u16, usize) = std::mem::transmute(ptr);
-        (f)(16, SET_ITEM_GET_AREA_INIT_PTR);
+        let set_view_event_ns = get_address_from_offset(SET_VIEW_EVENT_NS_ADDRESS).cast::<*const ()>();
+        let item_get_area_init = get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
+        let f: extern "C" fn(u16, usize) = std::mem::transmute(set_view_event_ns);
+        (f)(16, item_get_area_init as usize);
         debug!("Finished executing setViewEventNs");
     }
     GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
@@ -138,11 +138,7 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
 }
 
 unsafe fn write_address<T>(offset: usize, f: T) {
-    write_address_with_offset(offset, 0, f);
-}
-
-unsafe fn write_address_with_offset<T>(offset: usize, additional_offset: usize, f: T) {
-    get_address_from_offset(offset).add(additional_offset).cast::<T>().write(f);
+    get_address_from_offset(offset).cast::<T>().write(f);
 }
 
 unsafe fn read_address<T>(offset: usize) -> T {
@@ -150,7 +146,7 @@ unsafe fn read_address<T>(offset: usize) -> T {
 }
 
 unsafe fn get_address_from_offset(offset: usize) -> *mut *const u8 {
-    APPLICATION_ADDRESS.get().add(offset/4)
+    APPLICATION_ADDRESS.add(offset/4)
 }
 
 unsafe fn show_message_box(message: &str) {
@@ -158,17 +154,18 @@ unsafe fn show_message_box(message: &str) {
     MessageBoxW(null_mut(), converted_message, null_mut(), MB_OK);
 }
 
-unsafe fn option_stuck(option_num: u16) {
-    let s_data_num: u16 = read_address(OPTION_SDATA_NUM_ADDRESS);
+unsafe fn option_stuck(option_num: u32) {
+    let s_data_num: u8 = read_address(OPTION_SDATA_NUM_ADDRESS);
     if s_data_num & 0xe0 == 0 {
-        let updated_s_data_num = s_data_num + 1;
-        write_address_with_offset(OPTION_SDATA_NUM_ADDRESS, updated_s_data_num as usize, option_num);
+        let array_offset = (s_data_num as u32 * 0x4) as usize;
+        write_address(OPTION_SDATA_ADDRESS + array_offset, option_num);
+        write_address(OPTION_SDATA_NUM_ADDRESS, s_data_num + 1);
     }
 }
 
 unsafe fn option_pos(x: f32, y: f32) {
-    write_address(OPTION_POS_CX, x);
-    write_address(OPTION_POS_CY, y);
+    write_address(OPTION_POS_CX_ADDRESS, x);
+    write_address(OPTION_POS_CY_ADDRESS, y);
 }
 
 fn to_wstring(str : &str) -> Vec<u16> {
