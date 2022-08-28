@@ -36,7 +36,6 @@ impl Application {
 
     pub unsafe fn option_stuck(&self, option_num: u32) {
         let s_data_num: u8 = self.read_address(OPTION_SDATA_NUM_ADDRESS);
-        debug!("s_data_num is {}", s_data_num);
         if s_data_num < 32 {
             self.write_address_with_additional_offset(OPTION_SDATA_ADDRESS, s_data_num as usize, option_num);
             self.write_address(OPTION_SDATA_NUM_ADDRESS, s_data_num + 1);

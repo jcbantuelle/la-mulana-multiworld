@@ -14,7 +14,10 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
 pub mod application;
+pub mod taskdata;
 use application::{ Application, show_message_box, SET_VIEW_EVENT_NS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS };
+use crate::taskdata::TaskData;
+
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
@@ -87,7 +90,6 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
         });
     });
 
-    // debug!("Game loop counter is {}", GAME_SERVER_LOOP_COUNTER);
     if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
         APPLICATION.as_ref().map(|app| {
             app.option_pos(0.0, 0.0);
@@ -98,13 +100,9 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
 
             debug!("Executing setViewEventNs");
             let set_view_event_ns = app.get_address_from_offset(SET_VIEW_EVENT_NS_ADDRESS).cast::<*const ()>();
-            let item_get_area_init = app.get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
             let f: extern "C" fn(u16, *const usize) = std::mem::transmute(set_view_event_ns);
-            (f)(16, test_setns as *const usize);
+            (f)(16, item_get_area_init_intercept as *const usize);
             debug!("Finished executing setViewEventNs");
-
-            let s_data_num = app.get_sdata_num();
-            debug!("s_data_num is now {}", s_data_num);
         });
     }
     GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
@@ -112,9 +110,16 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
     return timeGetTime();
 }
 
-unsafe fn test_setns(ptr: usize) {
-    let init_message = format!("Success!");
-    show_message_box(&init_message);
+unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
+    APPLICATION.as_ref().map(|app| {
+        debug!("buff - {:?}", taskdata.buff);
+        debug!("buff[0] - {}", taskdata.buff[0]);
+        let item_get_area_init = app.get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
+        let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
+        (f)(taskdata);
+        debug!("after buff - {:?}", taskdata.buff);
+        debug!("after buff[0] - {}", taskdata.buff[0]);
+    });
 }
 
 #[no_mangle]
