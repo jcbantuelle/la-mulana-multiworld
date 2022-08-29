@@ -30,7 +30,6 @@ impl Application {
 
     pub unsafe fn get_address_from_offset(&self, offset: usize) -> *mut *const u8 {
         let address = self.address.add(offset / 4);
-        debug!("Getting address of {:?} with requested offset of {}!", address, offset / 4);
         address
     }
 

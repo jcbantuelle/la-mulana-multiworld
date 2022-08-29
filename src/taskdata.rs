@@ -8,8 +8,32 @@ pub struct Point3d {
     pub z: f32
 }
 
+pub struct VectorColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8
+}
+
+pub struct Clip {
+    pub tx: f32,
+    pub ty: f32,
+    pub bx: f32,
+    pub by: f32
+}
+
 pub struct Image {
-    pub bytes: [i32;24]
+    pub width: f32,
+    pub height: f32,
+    pub vcol: [VectorColor;4],
+    pub vc: u32,
+    pub pc: u32,
+    pub clip: Clip,
+    pub tex_addr: u32,
+    pub base_obj: [u32:6],
+    pub text_f: u32,
+    pub rInvWidth: f32,
+    pub rInvHeight: f32
 }
 
 pub struct TaskId {

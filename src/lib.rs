@@ -63,7 +63,6 @@ struct TestMessage {
 }
 
 unsafe extern "stdcall" fn init(patch_version: winapi::shared::ntdef::INT) {
-    debug!("DLL Start.");
     if patch_version != 1 {
         let init_message = format!("EXE Patch Version does not match DLL. Please re-patch.");
         show_message_box(&init_message);
@@ -112,13 +111,11 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
 
 unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
-        debug!("buff - {:?}", taskdata.buff);
-        debug!("buff[0] - {}", taskdata.buff[0]);
+        debug!("Before pos_x - {}", taskdata.pos.x);
+        debug!("Before pos_y - {}", taskdata.pos.y);
         let item_get_area_init = app.get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
         (f)(taskdata);
-        debug!("after buff - {:?}", taskdata.buff);
-        debug!("after buff[0] - {}", taskdata.buff[0]);
     });
 }
 
