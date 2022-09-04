@@ -111,11 +111,12 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
 
 unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
-        debug!("Before pos_x - {}", taskdata.pos.x);
-        debug!("Before pos_y - {}", taskdata.pos.y);
+        debug!("{}", taskdata);
         let item_get_area_init = app.get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
         (f)(taskdata);
+        debug!("{}", taskdata);
+        show_message_box("Done with Intercept");
     });
 }
 
