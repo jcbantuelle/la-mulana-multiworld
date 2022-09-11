@@ -10,6 +10,7 @@ pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
 pub static OPTION_POS_CY_ADDRESS: usize = 0x00db714c;
 pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
+pub static ITEM_GET_AREA_BACK_ADDRESS: usize = 0x004b8a80;
 
 pub struct Application {
     pub address: *mut *const u8
