@@ -15,7 +15,7 @@ use log4rs::config::{Appender, Config, Root};
 
 pub mod application;
 pub mod taskdata;
-use application::{ Application, show_message_box, SET_VIEW_EVENT_NS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS };
+use application::{ Application, show_message_box, SET_VIEW_EVENT_NS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_GET_AREA_BACK_ADDRESS };
 use crate::taskdata::TaskData;
 
 static LOG_FILE_NAME: &str = "lamulanamw.log";
@@ -94,7 +94,7 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
             app.option_pos(0.0, 0.0);
             app.option_stuck(81);
             app.option_stuck(32);
-            app.option_stuck(2);
+            app.option_stuck(24);
             app.option_stuck(39);
 
             debug!("Executing setViewEventNs");
@@ -111,12 +111,25 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
 
 unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
+        taskdata.sbuff[0] = 81;
+        taskdata.sbuff[1] = 32;
+        taskdata.sbuff[2] = 24;
+        taskdata.sbuff[3] = 39;
         debug!("{}", taskdata);
         let item_get_area_init = app.get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
         (f)(taskdata);
+        taskdata.rfunc = item_get_area_back_intercept as *mut usize;
         debug!("{}", taskdata);
-        show_message_box("Done with Intercept");
+    });
+}
+
+unsafe fn item_get_area_back_intercept(taskdata: &mut TaskData) {
+    APPLICATION.as_ref().map(|app| {
+        taskdata.hit_data = 1;
+        let item_get_area_back = app.get_address_from_offset(ITEM_GET_AREA_BACK_ADDRESS);
+        let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_back);
+        (f)(taskdata);
     });
 }
 
