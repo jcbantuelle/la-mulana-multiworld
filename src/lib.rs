@@ -111,16 +111,12 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
 
 unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
-        taskdata.sbuff[0] = 81;
-        taskdata.sbuff[1] = 32;
-        taskdata.sbuff[2] = 24;
-        taskdata.sbuff[3] = 39;
         debug!("{}", taskdata);
         let item_get_area_init = app.get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
         (f)(taskdata);
-        taskdata.rfunc = item_get_area_back_intercept as *mut usize;
         debug!("{}", taskdata);
+        taskdata.rfunc = item_get_area_back_intercept as *mut usize;
     });
 }
 
@@ -149,7 +145,7 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
 
     unsafe {
         let app = Application {
-            address: GetModuleHandleW(null_mut()).cast::<*const u8>().sub(0x100000)
+            address: GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000)
         };
 
         app.write_address(0xdb9060, init as *const usize);

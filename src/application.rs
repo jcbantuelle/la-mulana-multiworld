@@ -13,7 +13,7 @@ pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
 pub static ITEM_GET_AREA_BACK_ADDRESS: usize = 0x004b8a80;
 
 pub struct Application {
-    pub address: *mut *const u8
+    pub address: *mut u8
 }
 
 impl Application {
@@ -29,8 +29,8 @@ impl Application {
         self.get_address_from_offset(offset).cast::<T>().read()
     }
 
-    pub unsafe fn get_address_from_offset(&self, offset: usize) -> *mut *const u8 {
-        let address = self.address.add(offset / 4);
+    pub unsafe fn get_address_from_offset(&self, offset: usize) -> *mut u8 {
+        let address = self.address.wrapping_add(offset);
         address
     }
 
