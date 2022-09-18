@@ -3,7 +3,6 @@ use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::{null_mut};
 use winapi::um::winuser::{MB_OK, MessageBoxW};
-use log::debug;
 
 pub static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
 pub static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
@@ -12,6 +11,9 @@ pub static OPTION_POS_CY_ADDRESS: usize = 0x00db714c;
 pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
 pub static ITEM_GET_AREA_BACK_ADDRESS: usize = 0x004b8a80;
+pub static ROOM_DATA_ADDRESS: usize = 0x00db59b8;
+pub static ITEM_GET_ADDRESS: usize = 0x006d4f80;
+pub static ITEM_GET_POS_ADDRESS: usize = 0x006d5804;
 
 pub struct Application {
     pub address: *mut u8
@@ -26,7 +28,7 @@ impl Application {
         let s_data_num: &mut u8 = self.get_address(OPTION_SDATA_NUM_ADDRESS);
         if *s_data_num < 32 {
             let s_data: &mut [u32;32] = self.get_address(OPTION_SDATA_ADDRESS);
-            s_data[(*s_data_num) as usize] = option_num;
+            s_data[*s_data_num as usize] = option_num;
             *s_data_num = *s_data_num + 1
         }
     }
