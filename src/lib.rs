@@ -98,10 +98,11 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
             app.option_stuck(39);
 
             debug!("Executing setViewEventNs");
-            let set_view_event_ns = app.get_address_from_offset(SET_VIEW_EVENT_NS_ADDRESS).cast::<*const ()>();
+            let set_view_event_ns: &*const () = app.get_address(SET_VIEW_EVENT_NS_ADDRESS);
             let f: extern "C" fn(u16, *const usize) = std::mem::transmute(set_view_event_ns);
             (f)(16, item_get_area_init_intercept as *const usize);
             debug!("Finished executing setViewEventNs");
+            ExitProcess(1);
         });
     }
     GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
@@ -112,7 +113,7 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
 unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
         debug!("{}", taskdata);
-        let item_get_area_init = app.get_address_from_offset(ITEM_GET_AREA_INIT_ADDRESS);
+        let item_get_area_init: &*const () = app.get_address(ITEM_GET_AREA_INIT_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
         (f)(taskdata);
         debug!("{}", taskdata);
@@ -123,7 +124,7 @@ unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
 unsafe fn item_get_area_back_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
         taskdata.hit_data = 1;
-        let item_get_area_back = app.get_address_from_offset(ITEM_GET_AREA_BACK_ADDRESS);
+        let item_get_area_back: &*const () = app.get_address(ITEM_GET_AREA_BACK_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_back);
         (f)(taskdata);
     });
@@ -148,8 +149,8 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
             address: GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000)
         };
 
-        app.write_address(0xdb9060, init as *const usize);
-        app.write_address(0xdb9064, game_loop as *const usize);
+        *app.get_address(0xdb9060) = init as *const usize;
+        *app.get_address(0xdb9064) = game_loop as *const usize;
 
         APPLICATION = Some(app);
         return true;

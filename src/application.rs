@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::{null_mut};
@@ -17,38 +18,22 @@ pub struct Application {
 }
 
 impl Application {
-    pub unsafe fn write_address<T>(&self, offset: usize, f: T) {
-        self.get_address_from_offset(offset).cast::<T>().write(f);
-    }
-
-    pub unsafe fn write_address_with_additional_offset<T>(&self, offset: usize, additional_offset: usize, f: T) {
-        self.get_address_from_offset(offset).cast::<T>().add(additional_offset).write(f);
-    }
-
-    pub unsafe fn read_address<T>(&self, offset: usize) -> T {
-        self.get_address_from_offset(offset).cast::<T>().read()
-    }
-
-    pub unsafe fn get_address_from_offset(&self, offset: usize) -> *mut u8 {
-        let address = self.address.wrapping_add(offset);
-        address
+    pub unsafe fn get_address<T>(&self, offset: usize) -> &mut T {
+        &mut *self.address.wrapping_add(offset).cast()
     }
 
     pub unsafe fn option_stuck(&self, option_num: u32) {
-        let s_data_num: u8 = self.read_address(OPTION_SDATA_NUM_ADDRESS);
-        if s_data_num < 32 {
-            self.write_address_with_additional_offset(OPTION_SDATA_ADDRESS, s_data_num as usize, option_num);
-            self.write_address(OPTION_SDATA_NUM_ADDRESS, s_data_num + 1);
+        let s_data_num: &mut u8 = self.get_address(OPTION_SDATA_NUM_ADDRESS);
+        if *s_data_num < 32 {
+            let s_data: &mut [u32;32] = self.get_address(OPTION_SDATA_ADDRESS);
+            s_data[(*s_data_num) as usize] = option_num;
+            *s_data_num = *s_data_num + 1
         }
     }
 
     pub unsafe fn option_pos(&self, x: f32, y: f32) {
-        self.write_address(OPTION_POS_CX_ADDRESS, x);
-        self.write_address(OPTION_POS_CY_ADDRESS, y);
-    }
-
-    pub unsafe fn get_sdata_num(&self) -> u8 {
-        return self.read_address(OPTION_SDATA_NUM_ADDRESS);
+        *self.get_address(OPTION_POS_CX_ADDRESS) = x;
+        *self.get_address(OPTION_POS_CY_ADDRESS) = y;
     }
 }
 
