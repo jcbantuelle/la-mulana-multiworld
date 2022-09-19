@@ -17,7 +17,7 @@ pub mod application;
 pub mod taskdata;
 pub mod roomcache;
 pub mod hitbox;
-use application::{ Application, show_message_box, SET_VIEW_EVENT_NS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_GET_AREA_BACK_ADDRESS, ROOM_DATA_ADDRESS, ITEM_GET_ADDRESS, ITEM_GET_POS_ADDRESS };
+use application::{ Application, show_message_box, SET_VIEW_EVENT_NS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_GET_AREA_BACK_ADDRESS, ROOM_DATA_ADDRESS, ITEM_GET_ADDRESS, ITEM_GET_POS_ADDRESS, ITEM_GET_AREA_HIT_ADDRESS };
 use crate::taskdata::TaskData;
 use crate::roomcache::RoomCache;
 use crate::hitbox::HitBox;
@@ -119,25 +119,35 @@ unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
         (f)(taskdata);
         taskdata.rfunc = item_get_area_back_intercept as *mut usize;
+        taskdata.hfunc = item_get_area_hit_intercept as *mut usize;
     });
 }
 
 unsafe fn item_get_area_back_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
-        debug!("{}", taskdata);
-        let room_data: &[RoomCache;2] = app.get_address(ROOM_DATA_ADDRESS);
-        debug!("{}", room_data[0]);
-        debug!("{}", room_data[1]);
-        let item_get_pos: &u32 = app.get_address(ITEM_GET_POS_ADDRESS);
-        debug!("{}", item_get_pos);
-        let itemGet: &[HitBox;40] = app.get_address(ITEM_GET_ADDRESS);
-        debug!("{}", itemGet[0]);
+        debug!("Calling ItemGetAreaBack");
         // taskdata.hit_data = 1;
         let item_get_area_back: &*const () = app.get_address(ITEM_GET_AREA_BACK_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_back);
         (f)(taskdata);
     });
-    ExitProcess(1);
+}
+
+unsafe fn item_get_area_hit_intercept(taskdata: &mut TaskData) {
+    APPLICATION.as_ref().map(|app| {
+        debug!("{}", taskdata);
+        let room_data: &[RoomCache;2] = app.get_address(ROOM_DATA_ADDRESS);
+        debug!("{}", room_data[taskdata.room_pri as usize]);
+
+        let item_get_area_hit: &*const () = app.get_address(ITEM_GET_AREA_HIT_ADDRESS);
+        let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_hit);
+        (f)(taskdata);
+
+        let item_get_pointer: *mut usize = app.get_address(ITEM_GET_ADDRESS);
+        let item_get= (&item_get_pointer).cast::<[HitBox;40]>();
+        debug!("{}", item_get[0]);
+        ExitProcess(1);
+    });
 }
 
 #[no_mangle]

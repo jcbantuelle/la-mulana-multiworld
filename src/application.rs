@@ -14,6 +14,7 @@ pub static ITEM_GET_AREA_BACK_ADDRESS: usize = 0x004b8a80;
 pub static ROOM_DATA_ADDRESS: usize = 0x00db59b8;
 pub static ITEM_GET_ADDRESS: usize = 0x006d4f80;
 pub static ITEM_GET_POS_ADDRESS: usize = 0x006d5804;
+pub static ITEM_GET_AREA_HIT_ADDRESS: usize = 0x004b89c0;
 
 pub struct Application {
     pub address: *mut u8

@@ -1,6 +1,6 @@
 type EventWithBool = *mut usize;
-type Event = *mut *const usize;
-type Void = *mut *const usize;
+type Event = *mut usize;
+type Void = *mut usize;
 
 #[repr(C)]
 pub struct Point3d {
