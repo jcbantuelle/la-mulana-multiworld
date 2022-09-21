@@ -95,56 +95,12 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
 
     if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
         APPLICATION.as_ref().map(|app| {
-            app.option_pos(0.0, 0.0);
-            app.option_stuck(81);
-            app.option_stuck(32);
-            app.option_stuck(24);
-            app.option_stuck(39);
-
-            debug!("Executing setViewEventNs");
-            let set_view_event_ns: &*const () = app.get_address(SET_VIEW_EVENT_NS_ADDRESS);
-            let f: extern "C" fn(u16, *const usize) = std::mem::transmute(set_view_event_ns);
-            (f)(16, item_get_area_init_intercept as *const usize);
-            debug!("Finished executing setViewEventNs");
+            app.give_item(81);
         });
     }
     GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
 
     return timeGetTime();
-}
-
-unsafe fn item_get_area_init_intercept(taskdata: &mut TaskData) {
-    APPLICATION.as_ref().map(|app| {
-        let item_get_area_init: &*const () = app.get_address(ITEM_GET_AREA_INIT_ADDRESS);
-        let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_init);
-        (f)(taskdata);
-        taskdata.rfunc = item_get_area_back_intercept as *mut usize;
-        taskdata.hfunc = item_get_area_hit_intercept as *mut usize;
-    });
-}
-
-unsafe fn item_get_area_back_intercept(taskdata: &mut TaskData) {
-    APPLICATION.as_ref().map(|app| {
-        debug!("Calling ItemGetAreaBack");
-        // taskdata.hit_data = 1;
-        let item_get_area_back: &*const () = app.get_address(ITEM_GET_AREA_BACK_ADDRESS);
-        let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_back);
-        (f)(taskdata);
-    });
-}
-
-unsafe fn item_get_area_hit_intercept(taskdata: &mut TaskData) {
-    APPLICATION.as_ref().map(|app| {
-        debug!("{}", taskdata);
-
-        let item_get_area_hit: &*const () = app.get_address(ITEM_GET_AREA_HIT_ADDRESS);
-        let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_hit);
-
-        let item_get: *mut *mut [HitBox;40] = app.get_address(ITEM_GET_ADDRESS);
-        debug!("{}", (**item_get)[0]);
-
-        ExitProcess(1);
-    });
 }
 
 #[no_mangle]

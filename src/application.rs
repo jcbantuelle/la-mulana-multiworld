@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::{null_mut};
+use log::debug;
 use winapi::um::winuser::{MB_OK, MessageBoxW};
 
 pub static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
@@ -25,7 +26,21 @@ impl Application {
         &mut *self.address.wrapping_add(offset).cast()
     }
 
-    pub unsafe fn option_stuck(&self, option_num: u32) {
+    pub unsafe fn give_item(&self, item: u32) {
+        self.option_pos(0.0, 0.0);
+        self.option_stuck(81);
+        self.option_stuck(160);
+        self.option_stuck(120);
+        self.option_stuck(39);
+
+        let item_get_area_init: *const usize = self.get_address(ITEM_GET_AREA_INIT_ADDRESS);
+
+        let set_view_event_ns: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
+        let set_view_event_ns_func: extern "C" fn(u16, *const usize) = std::mem::transmute(set_view_event_ns);
+        (set_view_event_ns_func)(16, item_get_area_init);
+    }
+
+    unsafe fn option_stuck(&self, option_num: u32) {
         let s_data_num: &mut u8 = self.get_address(OPTION_SDATA_NUM_ADDRESS);
         if *s_data_num < 32 {
             let s_data: &mut [u32;32] = self.get_address(OPTION_SDATA_ADDRESS);
@@ -34,7 +49,7 @@ impl Application {
         }
     }
 
-    pub unsafe fn option_pos(&self, x: f32, y: f32) {
+    unsafe fn option_pos(&self, x: f32, y: f32) {
         *self.get_address(OPTION_POS_CX_ADDRESS) = x;
         *self.get_address(OPTION_POS_CY_ADDRESS) = y;
     }
