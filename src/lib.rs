@@ -140,8 +140,9 @@ unsafe fn item_get_area_hit_intercept(taskdata: &mut TaskData) {
         let item_get_area_hit: &*const () = app.get_address(ITEM_GET_AREA_HIT_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_hit);
 
-        let item_get: &[HitBox;40] = app.get_address(ITEM_GET_ADDRESS);
-        debug!("{}", item_get[0]);
+        let item_get: *mut *mut [HitBox;40] = app.get_address(ITEM_GET_ADDRESS);
+        debug!("{}", (**item_get)[0]);
+
         ExitProcess(1);
     });
 }
