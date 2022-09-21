@@ -23,7 +23,7 @@ impl std::fmt::Display for RectBox {
 #[repr(C)]
 pub struct HitBox {
     pub rect: RectBox, // 0x0 (0) - 16 bytes
-    pub dmg: i32, // 0x1 (16) - 4 bytes
+    pub dmg: i32, // 0x10 (16) - 4 bytes
     pub flag: u32, // 0x14 (20) - 4 bytes
     pub td: usize, // 0x18 (24) - 4 bytes
     pub w_id: i32, // 0x1C (28) - 4 bytes

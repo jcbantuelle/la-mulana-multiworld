@@ -136,15 +136,11 @@ unsafe fn item_get_area_back_intercept(taskdata: &mut TaskData) {
 unsafe fn item_get_area_hit_intercept(taskdata: &mut TaskData) {
     APPLICATION.as_ref().map(|app| {
         debug!("{}", taskdata);
-        let room_data: &[RoomCache;2] = app.get_address(ROOM_DATA_ADDRESS);
-        debug!("{}", room_data[taskdata.room_pri as usize]);
 
         let item_get_area_hit: &*const () = app.get_address(ITEM_GET_AREA_HIT_ADDRESS);
         let f: extern "C" fn(&TaskData) = std::mem::transmute(item_get_area_hit);
-        (f)(taskdata);
 
-        let item_get_pointer: *mut usize = app.get_address(ITEM_GET_ADDRESS);
-        let item_get= (&item_get_pointer).cast::<[HitBox;40]>();
+        let item_get: &[HitBox;40] = app.get_address(ITEM_GET_ADDRESS);
         debug!("{}", item_get[0]);
         ExitProcess(1);
     });
