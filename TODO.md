@@ -28,7 +28,7 @@ The Binary will need to identify when a player has received an item for someone 
 * Create Web Interface for generating seed
 * Trigger Java Randomizer and capture output for distribution to players
 * Allow players to register and download their customized files
-* Allow Binaries to connect to server for specific session and send/recieve info
+* Allow Binaries to connect to server for specific session and send/receive info
 * Store session data in database
 
 ## Forked Randomizer to Generate valid game files for all players
