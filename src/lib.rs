@@ -98,7 +98,7 @@ unsafe extern "stdcall" fn game_loop() -> DWORD {
             app.give_item(81);
         });
     }
-    GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
+    GAME_LOOP_COUNTER += 1;
 
     return timeGetTime();
 }
