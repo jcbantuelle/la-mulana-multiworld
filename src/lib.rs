@@ -14,13 +14,9 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
 pub mod application;
-pub mod taskdata;
-pub mod roomcache;
-pub mod hitbox;
+pub mod structs;
+
 use application::{ Application, show_message_box, SET_VIEW_EVENT_NS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_GET_AREA_BACK_ADDRESS, ROOM_DATA_ADDRESS, ITEM_GET_ADDRESS, ITEM_GET_POS_ADDRESS, ITEM_GET_AREA_HIT_ADDRESS };
-use crate::taskdata::TaskData;
-use crate::roomcache::RoomCache;
-use crate::hitbox::HitBox;
 
 static LOG_FILE_NAME: &str = "lamulanamw.log";
 static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
