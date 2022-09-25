@@ -1,10 +1,19 @@
-use std::borrow::Borrow;
 use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
+use std::sync::Mutex;
+use std::net::TcpStream;
 use std::ptr::{null_mut};
-use log::debug;
+use std::os::windows::ffi::OsStrExt;
+use log::{debug, error};
+use lazy_static::lazy_static;
+use winapi::shared::minwindef::*;
+use serde::{Deserialize, Serialize};
+use winapi::um::timeapi::timeGetTime;
+use winapi::um::processthreadsapi::ExitProcess;
+use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 use winapi::um::winuser::{MB_OK, MessageBoxW};
 
+pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
+pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
 pub static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
 pub static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
 pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
@@ -17,18 +26,105 @@ pub static ITEM_GET_ADDRESS: usize = 0x006d4f80;
 pub static ITEM_GET_POS_ADDRESS: usize = 0x006d5804;
 pub static ITEM_GET_AREA_HIT_ADDRESS: usize = 0x004b89c0;
 
+static SERVER_URL: &str = "wss://la-mulana.arakiyda.com/cable";
+static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
+static mut APPLICATION: Option<Application> = None;
+
+lazy_static! {
+    static ref WEBSOCKET: Mutex<WebSocket<MaybeTlsStream<TcpStream>>> = {
+        let url = url::Url::parse(SERVER_URL).unwrap();
+        let (ws_connection, _) = connect(url).expect("Failed to connect");
+        match ws_connection.get_ref() {
+            MaybeTlsStream::NativeTls(ref tls) => {
+                tls.get_ref().set_nonblocking(true).map_err(|err| {
+                    error!("Could not set socket as nonblocking: {}", err);
+                }).unwrap();
+            },
+            _ => ()
+        };
+        Mutex::new(ws_connection)
+    };
+}
+
+#[derive(Serialize, Deserialize)]
+struct InitialPayload {
+    command: String,
+    identifier: String
+}
+
+#[derive(Serialize, Deserialize)]
+struct Identifier {
+    id: u64,
+    channel: String
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TestMessagePayload {
+    identifier: String,
+    message: TestMessage
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TestMessage {
+    body: String
+}
+
 pub struct Application {
     pub address: *mut u8
 }
 
 impl Application {
+    pub unsafe fn attach(address: *mut u8) {
+        let app = Application { address };
+        *app.get_address(INIT_ATTACH_ADDRESS) = Application::init as *const usize;
+        *app.get_address(GAME_LOOP_ATTACH_ADDRESS) = Application::game_loop as *const usize;
+        APPLICATION = Some(app);
+    }
+
+    pub unsafe extern "stdcall" fn init(patch_version: winapi::shared::ntdef::INT) {
+        if patch_version != 1 {
+            let init_message = format!("EXE Patch Version does not match DLL. Please re-patch.");
+            show_message_box(&init_message);
+            ExitProcess(1);
+        }
+
+        let ident = Identifier {
+            id: 15,
+            channel: "MultiworldSyncChannel".to_string()
+        };
+        let initial_payload = InitialPayload {
+            command: "subscribe".to_string(),
+            identifier: serde_json::to_string(&ident).unwrap()
+        };
+
+        WEBSOCKET.lock().unwrap().write_message(Message::Text(serde_json::to_string(&initial_payload).unwrap())).expect("Unable to Connect To Websocket Channel");
+    }
+
+    pub unsafe extern "stdcall" fn game_loop() -> DWORD {
+        let _ = WEBSOCKET.lock().unwrap().read_message().map(|message| {
+            let data = message.into_data();
+            let _ = serde_json::from_slice::<TestMessagePayload>(data.as_ref()).map(|payload| {
+                debug!("{:?}", payload);
+            });
+        });
+
+        if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
+            APPLICATION.as_ref().map(|app| {
+                app.give_item(81);
+            });
+        }
+        GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
+
+        return timeGetTime();
+    }
+
     pub unsafe fn get_address<T>(&self, offset: usize) -> &mut T {
         &mut *self.address.wrapping_add(offset).cast()
     }
 
     pub unsafe fn give_item(&self, item: u32) {
         self.option_pos(0.0, 0.0);
-        self.option_stuck(81);
+        self.option_stuck(item);
         self.option_stuck(160);
         self.option_stuck(120);
         self.option_stuck(39);
