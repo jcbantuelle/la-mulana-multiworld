@@ -13,8 +13,10 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
-use application::{ Application, show_message_box };
+use application::Application;
+use utils::show_message_box;
 
+pub mod utils;
 pub mod network;
 pub mod application;
 

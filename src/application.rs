@@ -1,18 +1,15 @@
-use std::ffi::OsStr;
 use std::sync::Mutex;
-use std::ptr::null_mut;
 use std::net::TcpStream;
-use std::os::windows::ffi::OsStrExt;
 
 use log::debug;
 
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
-use winapi::um::winuser::{MB_OK, MessageBoxW};
 use winapi::um::processthreadsapi::ExitProcess;
 
 use tungstenite::{stream::MaybeTlsStream, WebSocket};
 
+use crate::utils::show_message_box;
 use crate::network::TestMessagePayload;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
@@ -102,13 +99,4 @@ impl Application {
         *self.get_address(OPTION_POS_CX_ADDRESS) = x;
         *self.get_address(OPTION_POS_CY_ADDRESS) = y;
     }
-}
-
-fn create_wstring(str : &str) -> Vec<u16> {
-    return OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
-}
-
-pub unsafe fn show_message_box(message: &str) {
-    let converted_message = create_wstring(message).as_ptr();
-    MessageBoxW(null_mut(), converted_message, null_mut(), MB_OK);
 }
