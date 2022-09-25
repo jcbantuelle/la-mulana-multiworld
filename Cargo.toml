@@ -17,6 +17,7 @@ lazy_static = "1.4.0"
 log4rs = { "version" ="1.0.0", "features" = ["file_appender"] }
 log = "0.4.16"
 fragile = "1.2.0"
+toml = "0.5.9"
 
 [profile.release]
 opt-level = "z"

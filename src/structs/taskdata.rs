@@ -69,6 +69,7 @@ impl std::fmt::Display for Clip {
 }
 
 #[repr(C)]
+#[allow(non_snake_case)]
 pub struct Image {
     pub width: f32,
     pub height: f32,
