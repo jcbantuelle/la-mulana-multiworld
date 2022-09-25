@@ -12,7 +12,7 @@ use winapi::um::processthreadsapi::ExitProcess;
 
 pub mod application;
 pub mod network;
-pub mod structs;
+pub mod lm_structs;
 
 use application::{ Application, show_message_box };
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
