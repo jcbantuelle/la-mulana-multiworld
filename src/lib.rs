@@ -1,20 +1,23 @@
 use std::fs;
 use std::ptr::null_mut;
-use winapi::um::winnt::DLL_PROCESS_ATTACH;
-use winapi::shared::minwindef::*;
-use serde::Deserialize;
-use log::LevelFilter;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Config, Root};
+
 use toml;
+use serde::Deserialize;
+
+use winapi::shared::minwindef::*;
+use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-pub mod application;
-pub mod network;
-pub mod lm_structs;
+use log::LevelFilter;
+use log4rs::append::file::FileAppender;
+use log4rs::config::{Appender, Config, Root};
 
 use application::{ Application, show_message_box };
+
+pub mod network;
+pub mod application;
+
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
 
 #[derive(Deserialize)]

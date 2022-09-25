@@ -1,14 +1,18 @@
 use std::ffi::OsStr;
 use std::sync::Mutex;
-use std::net::TcpStream;
 use std::ptr::null_mut;
+use std::net::TcpStream;
 use std::os::windows::ffi::OsStrExt;
+
 use log::debug;
+
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
-use winapi::um::processthreadsapi::ExitProcess;
-use tungstenite::{stream::MaybeTlsStream, WebSocket};
 use winapi::um::winuser::{MB_OK, MessageBoxW};
+use winapi::um::processthreadsapi::ExitProcess;
+
+use tungstenite::{stream::MaybeTlsStream, WebSocket};
+
 use crate::network::TestMessagePayload;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
@@ -59,9 +63,7 @@ impl Application {
             });
 
             if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
-                APPLICATION.as_ref().map(|app| {
-                    app.give_item(81);
-                });
+                app.give_item(81);
             }
             GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
         });

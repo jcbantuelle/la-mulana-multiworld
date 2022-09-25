@@ -1,8 +1,9 @@
-use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 use std::sync::Mutex;
-use log::error;
 use std::net::TcpStream;
+
+use log::error;
 use serde::{Deserialize, Serialize};
+use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 
 static CHANNEL_NAME: &str = "MultiworldSyncChannel";
 static DEFAULT_CHANNEL_ID: u64 = 15;
