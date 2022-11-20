@@ -19,6 +19,7 @@ use utils::show_message_box;
 pub mod utils;
 pub mod network;
 pub mod application;
+pub mod lm_structs;
 
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
 
