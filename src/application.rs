@@ -1,10 +1,19 @@
-use std::borrow::Borrow;
-use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
-use std::ptr::{null_mut};
-use log::debug;
-use winapi::um::winuser::{MB_OK, MessageBoxW};
+use std::sync::Mutex;
+use std::net::TcpStream;
 
+use log::debug;
+
+use winapi::shared::minwindef::*;
+use winapi::um::timeapi::timeGetTime;
+use winapi::um::processthreadsapi::ExitProcess;
+
+use tungstenite::{stream::MaybeTlsStream, WebSocket};
+
+use crate::utils::show_message_box;
+use crate::network::TestMessagePayload;
+
+pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
+pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
 pub static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
 pub static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
 pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
@@ -17,18 +26,55 @@ pub static ITEM_GET_ADDRESS: usize = 0x006d4f80;
 pub static ITEM_GET_POS_ADDRESS: usize = 0x006d5804;
 pub static ITEM_GET_AREA_HIT_ADDRESS: usize = 0x004b89c0;
 
+static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
+static mut APPLICATION: Option<Application> = None;
+
 pub struct Application {
-    pub address: *mut u8
+    pub address: *mut u8,
+    pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>
 }
 
 impl Application {
+    pub unsafe fn attach(address: *mut u8, websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>) {
+        let app = Application { address, websocket };
+        *app.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as *const usize;
+        *app.get_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as *const usize;
+        APPLICATION = Some(app);
+    }
+
+    unsafe extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
+        if patch_version != 1 {
+            let init_message = format!("EXE Patch Version does not match DLL. Please re-patch.");
+            show_message_box(&init_message);
+            ExitProcess(1);
+        }
+    }
+
+    unsafe extern "stdcall" fn game_loop() -> DWORD {
+        APPLICATION.as_ref().map(|app| {
+            let _ = app.websocket.lock().unwrap().read_message().map(|message| {
+                let data = message.into_data();
+                let _ = serde_json::from_slice::<TestMessagePayload>(data.as_ref()).map(|payload| {
+                    debug!("{:?}", payload);
+                });
+            });
+
+            if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
+                app.give_item(81);
+            }
+            GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
+        });
+
+        return timeGetTime();
+    }
+
     pub unsafe fn get_address<T>(&self, offset: usize) -> &mut T {
         &mut *self.address.wrapping_add(offset).cast()
     }
 
     pub unsafe fn give_item(&self, item: u32) {
         self.option_pos(0.0, 0.0);
-        self.option_stuck(81);
+        self.option_stuck(item);
         self.option_stuck(160);
         self.option_stuck(120);
         self.option_stuck(39);
@@ -53,13 +99,4 @@ impl Application {
         *self.get_address(OPTION_POS_CX_ADDRESS) = x;
         *self.get_address(OPTION_POS_CY_ADDRESS) = y;
     }
-}
-
-fn create_wstring(str : &str) -> Vec<u16> {
-    return OsStr::new(str).encode_wide().chain(Some(0).into_iter()).collect();
-}
-
-pub unsafe fn show_message_box(message: &str) {
-    let converted_message = create_wstring(message).as_ptr();
-    MessageBoxW(null_mut(), converted_message, null_mut(), MB_OK);
 }
