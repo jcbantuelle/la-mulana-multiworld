@@ -73,7 +73,20 @@ impl Application {
         APPLICATION.as_ref().map(|app| {
             let script_header: &*const ScriptHeader = app.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
             let card = &*(*script_header.add(1)).data;
-            debug!("{:?}", card);
+
+            let font: Vec<char> = "!\"&'(),-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZ　]^_abcdefghijklmnopqrstuvwxyz".chars().collect();
+            let mut letters = "".to_string();
+            for i in 0..card.data_num {
+                let letter = (*card.pointer.add(i as usize)) as u16;
+                if letter == 0x000A {
+                    letters.push_str("<break>");
+                } else {
+                    let font_index = (letter - 0x100) as usize;
+                    letters.push(font[font_index]);
+                }
+            }
+
+            debug!("{:?}", letters);
 
             let popup_dialog_draw: &*const () = app.get_address(POPUP_DIALOG_DRAW_ADDRESS);
             let popup_dialog_draw_func: extern "C" fn(&TaskData) = std::mem::transmute(popup_dialog_draw);
