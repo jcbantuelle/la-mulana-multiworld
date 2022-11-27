@@ -13,6 +13,7 @@ use crate::utils::show_message_box;
 use crate::network::TestMessagePayload;
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::script_header::ScriptHeader;
+use crate::screenplay;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
@@ -72,21 +73,16 @@ impl Application {
     unsafe extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
         APPLICATION.as_ref().map(|app| {
             let script_header: &*const ScriptHeader = app.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
-            let card = &*(*script_header.add(1)).data;
+            let card = (*script_header.add(3)).data;
+            let line = card.add(2);
 
-            let font: Vec<char> = "!\"&'(),-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZ　]^_abcdefghijklmnopqrstuvwxyz".chars().collect();
-            let mut letters = "".to_string();
-            for i in 0..card.data_num {
-                let letter = (*card.pointer.add(i as usize)) as u16;
-                if letter == 0x000A {
-                    letters.push_str("<break>");
-                } else {
-                    let font_index = (letter - 0x100) as usize;
-                    letters.push(font[font_index]);
-                }
-            }
+            let mut encoded = screenplay::encode("Ligma!".to_string());
+            encoded.push(0x000A);
 
-            debug!("{:?}", letters);
+            (*line).pointer = encoded.as_ptr();
+            let encoded_value: [u16;7] = *(*line).pointer.cast();
+            debug!("{:?}", encoded_value);
+            (*line).data_num = encoded.len() as i32;
 
             let popup_dialog_draw: &*const () = app.get_address(POPUP_DIALOG_DRAW_ADDRESS);
             let popup_dialog_draw_func: extern "C" fn(&TaskData) = std::mem::transmute(popup_dialog_draw);

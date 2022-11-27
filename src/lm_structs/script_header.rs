@@ -12,5 +12,5 @@ pub struct ScriptHeader {
     pub scr_addr: *const u16,
     pub sub_num: i32,
     pub all_font_num: i32,
-    pub data: *const ScriptSubHeader
+    pub data: *mut ScriptSubHeader
 }
