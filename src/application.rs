@@ -76,11 +76,11 @@ impl Application {
             let card = (*script_header.add(3)).data;
             let line = card.add(2);
 
-            let mut encoded = screenplay::encode("Test!".to_string());
-            encoded.push(0x000A);
+            let mut encoded = screenplay::encode("  From Arakida!".to_string());
 
             (*line).pointer = encoded.as_ptr();
             (*line).data_num = encoded.len() as i32;
+            (*line).font_num = (encoded.len() - 3) as i32;
 
             let popup_dialog_draw: &*const () = app.get_address(POPUP_DIALOG_DRAW_ADDRESS);
             let popup_dialog_draw_func: extern "C" fn(&TaskData) = std::mem::transmute(popup_dialog_draw);

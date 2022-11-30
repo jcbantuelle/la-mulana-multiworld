@@ -11,8 +11,9 @@ pub unsafe fn decode(address: *const u16, letter_count: i32) -> String {
         .map(|letter| {
             if *letter == 0x000A {
                 "<break>".to_string()
-            }
-            else {
+            } else if *letter == 0x0020 {
+                " ".to_string()
+            } else {
                 FONT[(letter - 0x100) as usize].to_string()
             }
         })
@@ -23,7 +24,11 @@ pub unsafe fn decode(address: *const u16, letter_count: i32) -> String {
 pub unsafe fn encode(word: String) -> Vec<u16> {
     word.chars()
         .map(|letter| {
-            (FONT.iter().position(|&i| i == letter).unwrap() + 0x100) as u16
+            if letter == " ".chars().next().unwrap() {
+                0x0020
+            } else {
+                (FONT.iter().position(|&i| i == letter).unwrap() + 0x100) as u16
+            }
         })
         .collect::<Vec<u16>>()
 }
