@@ -24,7 +24,7 @@ pub unsafe fn decode(address: *const u16, letter_count: i32) -> String {
 pub unsafe fn encode(word: String) -> Vec<u16> {
     word.chars()
         .map(|letter| {
-            if letter == " ".chars().next().unwrap() {
+            if letter == ' ' {
                 0x0020
             } else {
                 (FONT.iter().position(|&i| i == letter).unwrap() + 0x100) as u16
