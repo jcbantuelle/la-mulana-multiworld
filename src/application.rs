@@ -76,12 +76,10 @@ impl Application {
             let card = (*script_header.add(3)).data;
             let line = card.add(2);
 
-            let mut encoded = screenplay::encode("Ligma!".to_string());
+            let mut encoded = screenplay::encode("Test!".to_string());
             encoded.push(0x000A);
 
             (*line).pointer = encoded.as_ptr();
-            let encoded_value: [u16;7] = *(*line).pointer.cast();
-            debug!("{:?}", encoded_value);
             (*line).data_num = encoded.len() as i32;
 
             let popup_dialog_draw: &*const () = app.get_address(POPUP_DIALOG_DRAW_ADDRESS);
