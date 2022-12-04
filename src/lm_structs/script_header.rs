@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct ScriptSubHeader {
     pub pointer: *const u16,
@@ -6,7 +6,7 @@ pub struct ScriptSubHeader {
     pub font_num: i32
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct ScriptHeader {
     pub scr_addr: *const u16,

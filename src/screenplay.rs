@@ -1,4 +1,3 @@
-use log::debug;
 use lazy_static::lazy_static;
 
 lazy_static! {
