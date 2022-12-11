@@ -26,6 +26,8 @@ pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
 pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
 pub static SCRIPT_HEADER_POINTER_ADDRESS: usize = 0x006d296c;
+pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
+pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
 
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
 static mut PLAYER_ITEM: Option<PlayerItem> = None;
@@ -56,6 +58,7 @@ impl Application {
         *app.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as *const usize;
         *app.get_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as *const usize;
         *app.get_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as *const usize;
+        *app.get_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = Self::item_symbol_init_intercept as *const usize;
         APPLICATION = Some(app);
     }
 
@@ -127,6 +130,14 @@ impl Application {
 
                 PLAYER_ITEM = None;
             });
+        });
+    }
+
+    unsafe extern "stdcall" fn item_symbol_init_intercept(&self, item: &TaskData) {
+        APPLICATION.as_ref().map(|app| {
+            let item_symbol_init: &*const () = self.get_address(ITEM_SYMBOL_INIT_ADDRESS);
+            let item_symbol_init_func: extern "C" fn(&TaskData) = std::mem::transmute(item_symbol_init);
+            (item_symbol_init_func)(item);
         });
     }
 
