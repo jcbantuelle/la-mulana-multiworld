@@ -11,23 +11,39 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket};
 
 use crate::utils::show_message_box;
 use crate::network::TestMessagePayload;
+use crate::lm_structs::taskdata::TaskData;
+use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
+use crate::screenplay;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
+pub static POPUP_DIALOG_DRAW_INTERCEPT: usize = 0xdb9068;
 pub static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
 pub static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
 pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
 pub static OPTION_POS_CY_ADDRESS: usize = 0x00db714c;
 pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
-pub static ITEM_GET_AREA_BACK_ADDRESS: usize = 0x004b8a80;
-pub static ROOM_DATA_ADDRESS: usize = 0x00db5998;
-pub static ITEM_GET_ADDRESS: usize = 0x006d4f80;
-pub static ITEM_GET_POS_ADDRESS: usize = 0x006d5804;
-pub static ITEM_GET_AREA_HIT_ADDRESS: usize = 0x004b89c0;
+pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
+pub static SCRIPT_HEADER_POINTER_ADDRESS: usize = 0x006d296c;
 
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
+static mut PLAYER_ITEM: Option<PlayerItem> = None;
+static mut PLAYER_ITEM_POPUP: Option<PlayerItemPopup> = None;
 static mut APPLICATION: Option<Application> = None;
+
+pub struct PlayerItem {
+    pub player_id: i32,
+    pub for_player: bool
+}
+
+pub struct PlayerItemPopup {
+    pub popup_id_address: *const u32,
+    pub popup_id: u32,
+    pub encoded: Vec<u16>,
+    pub line_address: *mut ScriptSubHeader,
+    pub old_line: ScriptSubHeader,
+}
 
 pub struct Application {
     pub address: *mut u8,
@@ -39,6 +55,7 @@ impl Application {
         let app = Application { address, websocket };
         *app.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as *const usize;
         *app.get_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as *const usize;
+        *app.get_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as *const usize;
         APPLICATION = Some(app);
     }
 
@@ -59,13 +76,64 @@ impl Application {
                 });
             });
 
-            if GAME_SERVER_LOOP_COUNTER % 2000 == 0 {
+            PLAYER_ITEM_POPUP.as_ref().map(|popup|{
+                if popup.popup_id != *popup.popup_id_address {
+                    *popup.line_address = popup.old_line;
+                    PLAYER_ITEM_POPUP = None;
+                }
+            });
+
+            if GAME_SERVER_LOOP_COUNTER == 2000 {
+                let player_item = PlayerItem {
+                    player_id: 2,
+                    for_player: true
+                };
+                PLAYER_ITEM = Some(player_item);
                 app.give_item(81);
+            }
+            if GAME_SERVER_LOOP_COUNTER == 3000 {
+                app.give_item(82);
             }
             GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
         });
 
         return timeGetTime();
+    }
+
+    unsafe extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
+        APPLICATION.as_ref().map(|app| {
+            let script_header: &*const ScriptHeader = app.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
+            let card = (*script_header.add(3)).data;
+            let line = card.add(2);
+
+            PLAYER_ITEM.as_ref().map_or_else(|| {app.popup_dialog_draw(popup_dialog)},|player_item| {
+                PLAYER_ITEM_POPUP = Some(PlayerItemPopup {
+                    popup_id_address: &popup_dialog.id.uid,
+                    popup_id: popup_dialog.id.uid,
+                    encoded: screenplay::encode("  From Arakida!".to_string()),
+                    line_address: line,
+                    old_line: (*line).clone()
+                });
+
+                let item_popup = PLAYER_ITEM_POPUP.as_ref().unwrap();
+
+                *line = ScriptSubHeader {
+                    pointer: item_popup.encoded.as_ptr(),
+                    data_num: item_popup.encoded.len() as i32,
+                    font_num: (item_popup.encoded.len() - 3) as i32
+                };
+
+                app.popup_dialog_draw(popup_dialog);
+
+                PLAYER_ITEM = None;
+            });
+        });
+    }
+
+    unsafe fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
+        let popup_dialog_draw: &*const () = self.get_address(POPUP_DIALOG_DRAW_ADDRESS);
+        let popup_dialog_draw_func: extern "C" fn(&TaskData) = std::mem::transmute(popup_dialog_draw);
+        (popup_dialog_draw_func)(popup_dialog);
     }
 
     pub unsafe fn get_address<T>(&self, offset: usize) -> &mut T {
