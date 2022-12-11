@@ -29,11 +29,20 @@ pub static SCRIPT_HEADER_POINTER_ADDRESS: usize = 0x006d296c;
 
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
 static mut PLAYER_ITEM: Option<PlayerItem> = None;
+static mut PLAYER_ITEM_POPUP: Option<PlayerItemPopup> = None;
 static mut APPLICATION: Option<Application> = None;
 
 pub struct PlayerItem {
     pub player_id: i32,
     pub for_player: bool
+}
+
+pub struct PlayerItemPopup {
+    pub popup_id_address: *const u32,
+    pub popup_id: u32,
+    pub encoded: Vec<u16>,
+    pub line_address: *mut ScriptSubHeader,
+    pub old_line: ScriptSubHeader,
 }
 
 pub struct Application {
@@ -67,6 +76,13 @@ impl Application {
                 });
             });
 
+            PLAYER_ITEM_POPUP.as_ref().map(|popup|{
+                if popup.popup_id != *popup.popup_id_address {
+                    *popup.line_address = popup.old_line;
+                    PLAYER_ITEM_POPUP = None;
+                }
+            });
+
             if GAME_SERVER_LOOP_COUNTER == 2000 {
                 let player_item = PlayerItem {
                     player_id: 2,
@@ -91,21 +107,25 @@ impl Application {
             let line = card.add(2);
 
             PLAYER_ITEM.as_ref().map_or_else(|| {app.popup_dialog_draw(popup_dialog)},|player_item| {
-                let old_line = &*line;
+                PLAYER_ITEM_POPUP = Some(PlayerItemPopup {
+                    popup_id_address: &popup_dialog.id.uid,
+                    popup_id: popup_dialog.id.uid,
+                    encoded: screenplay::encode("  From Arakida!".to_string()),
+                    line_address: line,
+                    old_line: (*line).clone()
+                });
 
-                let encoded = screenplay::encode("  From Arakida!".to_string());
+                let item_popup = PLAYER_ITEM_POPUP.as_ref().unwrap();
+
                 *line = ScriptSubHeader {
-                    pointer: encoded.as_ptr(),
-                    data_num: encoded.len() as i32,
-                    font_num: (encoded.len() - 3) as i32
+                    pointer: item_popup.encoded.as_ptr(),
+                    data_num: item_popup.encoded.len() as i32,
+                    font_num: (item_popup.encoded.len() - 3) as i32
                 };
 
                 app.popup_dialog_draw(popup_dialog);
-                *line = *old_line;
 
-                if popup_dialog.sta > 1 {
-                    PLAYER_ITEM = None;
-                }
+                PLAYER_ITEM = None;
             });
         });
     }
