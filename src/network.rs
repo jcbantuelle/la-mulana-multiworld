@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::sync::Mutex;
 use std::net::TcpStream;
 
@@ -56,6 +57,15 @@ impl Randomizer {
             Ok(_) => debug!("Successfully send messages to the randomizer."),
             Err(e) => error!("send_message: Error sending messages to the randomizer.")
         }
+    }
+
+    pub fn read_messages(&self, f: fn(TestMessagePayload) -> ()) -> Result<(), tungstenite::Error> {
+        self.websocket.lock().unwrap().read_message().map(|message| {
+            let data = message.into_data();
+            let _ = serde_json::from_slice::<TestMessagePayload>(data.as_ref()).map(|payload| {
+                f(payload)
+            });
+        })
     }
 }
 

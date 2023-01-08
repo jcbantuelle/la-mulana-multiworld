@@ -5,7 +5,7 @@ use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
 use crate::utils::show_message_box;
-use crate::network::{Randomizer, RandomizerMessage, TestMessagePayload};
+use crate::network::{Randomizer, RandomizerMessage};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -71,11 +71,8 @@ impl Application {
 
     unsafe extern "stdcall" fn game_loop() -> DWORD {
         APPLICATION.as_ref().map(|app| {
-            let _ = app.randomizer.websocket.lock().unwrap().read_message().map(|message| {
-                let data = message.into_data();
-                let _ = serde_json::from_slice::<TestMessagePayload>(data.as_ref()).map(|payload| {
-                    debug!("{:?}", payload);
-                });
+            let _ = app.randomizer.read_messages(|payload| {
+                debug!("{:?}", payload);
             });
 
             PLAYER_ITEM_POPUP.as_ref().map(|popup|{
