@@ -1,16 +1,11 @@
-use std::sync::Mutex;
-use std::net::TcpStream;
-
 use log::debug;
 
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use tungstenite::{stream::MaybeTlsStream, WebSocket};
-
 use crate::utils::show_message_box;
-use crate::network::TestMessagePayload;
+use crate::network::{Randomizer, RandomizerMessage, TestMessagePayload};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -52,12 +47,12 @@ pub struct PlayerItemPopup {
 
 pub struct Application {
     pub address: *mut u8,
-    pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>
+    pub randomizer: Randomizer
 }
 
 impl Application {
-    pub unsafe fn attach(address: *mut u8, websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>) {
-        let app = Application { address, websocket };
+    pub unsafe fn attach(address: *mut u8, randomizer: Randomizer) {
+        let app = Application { address, randomizer };
         *app.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as *const usize;
         *app.get_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as *const usize;
         *app.get_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as *const usize;
@@ -76,7 +71,7 @@ impl Application {
 
     unsafe extern "stdcall" fn game_loop() -> DWORD {
         APPLICATION.as_ref().map(|app| {
-            let _ = app.websocket.lock().unwrap().read_message().map(|message| {
+            let _ = app.randomizer.websocket.lock().unwrap().read_message().map(|message| {
                 let data = message.into_data();
                 let _ = serde_json::from_slice::<TestMessagePayload>(data.as_ref()).map(|payload| {
                     debug!("{:?}", payload);
@@ -143,12 +138,17 @@ impl Application {
             let item_symbol_init_func: extern "C" fn(&TaskData) = std::mem::transmute(item_symbol_init);
             (item_symbol_init_func)(item);
             item.rfunc = Self::item_symbol_back_intercept as EventWithBool;
-            item.sbuff[2] = 0;
         });
     }
 
     unsafe fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         APPLICATION.as_ref().map(|app| {
+            if item.hit_data > 0 {
+                app.randomizer.send_message(RandomizerMessage {
+                    player_id: 1,
+                    body: "Test message".to_string()
+                });
+            }
             let item_symbol_back: &*const () = app.get_address(ITEM_SYMBOL_BACK_ADDRESS);
             let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = std::mem::transmute(item_symbol_back);
             (item_symbol_back_func)(item)

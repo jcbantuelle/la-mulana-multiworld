@@ -15,6 +15,7 @@ use log4rs::config::{Appender, Config, Root};
 
 use application::Application;
 use utils::show_message_box;
+use crate::network::Randomizer;
 
 pub mod utils;
 pub mod network;
@@ -65,7 +66,7 @@ unsafe fn init_logger(app_config: &AppConfig) {
 }
 
 unsafe fn init_app(app_config: &AppConfig) {
-    let websocket = network::init(&app_config.server_url);
+    let randomizer = Randomizer::new(&app_config.server_url);
     let address = GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000);
-    Application::attach(address, websocket);
+    Application::attach(address, randomizer);
 }
