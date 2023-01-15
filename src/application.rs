@@ -9,7 +9,7 @@ use crate::network::{Randomizer, RandomizerMessage};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
-use crate::screenplay;
+use crate::{AppConfig, screenplay};
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
@@ -47,12 +47,14 @@ pub struct PlayerItemPopup {
 
 pub struct Application {
     pub address: *mut u8,
-    pub randomizer: Randomizer
+    pub randomizer: Randomizer,
+    pub app_config: AppConfig
 }
 
 impl Application {
-    pub unsafe fn attach(address: *mut u8, randomizer: Randomizer) {
-        let app = Application { address, randomizer };
+    pub unsafe fn attach(address: *mut u8, app_config: AppConfig) {
+        let randomizer = Randomizer::new(&app_config.server_url, app_config.user_id);
+        let app = Application { address, randomizer, app_config };
         *app.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as *const usize;
         *app.get_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as *const usize;
         *app.get_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as *const usize;

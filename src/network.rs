@@ -7,14 +7,14 @@ use serde::{Deserialize, Serialize};
 use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 
 static CHANNEL_NAME: &str = "MultiworldSyncChannel";
-static DEFAULT_CHANNEL_ID: u64 = 15;
 
 pub struct Randomizer {
-    pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>
+    pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>,
+    pub user_id: u64
 }
 
 impl Randomizer {
-    pub fn new(server_url: &str) -> Randomizer {
+    pub fn new(server_url: &str, user_id: u64) -> Randomizer {
         let url = url::Url::parse(server_url).unwrap();
         let (mut ws_connection, _) = connect(url).expect("Failed to connect");
         match ws_connection.get_ref() {
@@ -27,7 +27,7 @@ impl Randomizer {
         };
 
         let ident = Identifier {
-            id: DEFAULT_CHANNEL_ID,
+            id: user_id,
             channel: CHANNEL_NAME.to_string()
         };
         let initial_payload = InitialPayload {
@@ -37,13 +37,14 @@ impl Randomizer {
 
         ws_connection.write_message(Message::Text(serde_json::to_string(&initial_payload).unwrap())).expect("Unable to Connect To Websocket Channel");
         Randomizer {
-            websocket: Mutex::new(ws_connection)
+            websocket: Mutex::new(ws_connection),
+            user_id
         }
     }
 
     pub fn send_message<T: Serialize>(&self, message: T) {
         let ident = Identifier {
-            id: DEFAULT_CHANNEL_ID,
+            id: self.user_id,
             channel: CHANNEL_NAME.to_string()
         };
         let payload = Payload {
@@ -55,7 +56,7 @@ impl Randomizer {
         let message = Message::Text(payload);
         match self.websocket.lock().unwrap().write_message(message) {
             Ok(_) => debug!("Successfully send messages to the randomizer."),
-            Err(e) => error!("send_message: Error sending messages to the randomizer.")
+            Err(e) => error!("send_message: Error sending messages to the randomizer - {:?}", e)
         }
     }
 
