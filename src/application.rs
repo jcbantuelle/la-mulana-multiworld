@@ -27,13 +27,12 @@ pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
 pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
 pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 
-static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
 static mut PLAYER_ITEM: Option<PlayerItem> = None;
 static mut PLAYER_ITEM_POPUP: Option<PlayerItemPopup> = None;
 static mut APPLICATION: Option<Application> = None;
 
 pub struct PlayerItem {
-    pub player_id: i32,
+    pub player_id: u64,
     pub for_player: bool
 }
 
@@ -74,7 +73,13 @@ impl Application {
     unsafe extern "stdcall" fn game_loop() -> DWORD {
         APPLICATION.as_ref().map(|app| {
             let _ = app.randomizer.read_messages(|payload| {
-                debug!("{:?}", payload);
+                let player_item = PlayerItem {
+                    player_id: payload.message.player_id,
+                    for_player: false
+                };
+                PLAYER_ITEM = Some(player_item);
+                app.give_item(payload.message.item_id);
+                debug!("{:?}", payload.message);
             });
 
             PLAYER_ITEM_POPUP.as_ref().map(|popup|{
@@ -83,19 +88,6 @@ impl Application {
                     PLAYER_ITEM_POPUP = None;
                 }
             });
-
-            // if GAME_SERVER_LOOP_COUNTER == 2000 {
-            //     let player_item = PlayerItem {
-            //         player_id: 2,
-            //         for_player: true
-            //     };
-            //     PLAYER_ITEM = Some(player_item);
-            //     app.give_item(81);
-            // }
-            // if GAME_SERVER_LOOP_COUNTER == 3000 {
-            //     app.give_item(82);
-            // }
-            GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
         });
 
         return timeGetTime();
@@ -108,10 +100,11 @@ impl Application {
             let line = card.add(2);
 
             PLAYER_ITEM.as_ref().map_or_else(|| {app.popup_dialog_draw(popup_dialog)},|player_item| {
+                let item_for_text = if player_item.for_player { "For"} else {"From"};
                 PLAYER_ITEM_POPUP = Some(PlayerItemPopup {
                     popup_id_address: &popup_dialog.id.uid,
                     popup_id: popup_dialog.id.uid,
-                    encoded: screenplay::encode("  From Arakida!".to_string()),
+                    encoded: screenplay::encode(format!("  {} Player {}", item_for_text, player_item.player_id)),
                     line_address: line,
                     old_line: (*line).clone()
                 });
@@ -143,10 +136,14 @@ impl Application {
     unsafe fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         APPLICATION.as_ref().map(|app| {
             if item.hit_data > 0 {
+                // Hardcoded to assume item is for other player for now
                 app.randomizer.send_message(RandomizerMessage {
-                    player_id: 1,
-                    body: "Test message".to_string()
+                    player_id: app.app_config.buddy_id,
+                    item_id: item.buff[1]
                 });
+                item.sbuff[2] = 0;
+                // Customize message data
+                // Manually trigger popup/sfx
             }
             let item_symbol_back: &*const () = app.get_address(ITEM_SYMBOL_BACK_ADDRESS);
             let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = std::mem::transmute(item_symbol_back);
