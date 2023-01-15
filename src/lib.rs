@@ -27,7 +27,9 @@ const CONFIG_FILENAME: &str = "lamulana-config.toml";
 #[derive(Deserialize)]
 pub struct AppConfig {
     pub log_file_name: String,
-    pub server_url: String
+    pub server_url: String,
+    pub user_id: u64,
+    pub buddy_id: u64
 }
 
 #[no_mangle]
@@ -42,7 +44,7 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
             ExitProcess(1);
         }).unwrap();
         init_logger(&app_config);
-        init_app(&app_config);
+        init_app(app_config);
         return true;
     }
 }
@@ -64,8 +66,7 @@ unsafe fn init_logger(app_config: &AppConfig) {
     log4rs::init_config(log_config).unwrap();
 }
 
-unsafe fn init_app(app_config: &AppConfig) {
-    let websocket = network::init(&app_config.server_url);
+unsafe fn init_app(app_config: AppConfig) {
     let address = GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000);
-    Application::attach(address, websocket);
+    Application::attach(address, app_config);
 }

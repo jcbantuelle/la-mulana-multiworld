@@ -1,23 +1,20 @@
-use std::sync::Mutex;
-use std::net::TcpStream;
-
 use log::debug;
 
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use tungstenite::{stream::MaybeTlsStream, WebSocket};
-
 use crate::utils::show_message_box;
-use crate::network::TestMessagePayload;
+use crate::network::{Randomizer, RandomizerMessage};
 use crate::lm_structs::taskdata::TaskData;
+use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
-use crate::screenplay;
+use crate::{AppConfig, screenplay};
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
 pub static POPUP_DIALOG_DRAW_INTERCEPT: usize = 0xdb9068;
+pub static ITEM_SYMBOL_INIT_INTERCEPT: usize = 0xdb906c;
 pub static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
 pub static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
 pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
@@ -26,6 +23,9 @@ pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
 pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
 pub static SCRIPT_HEADER_POINTER_ADDRESS: usize = 0x006d296c;
+pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
+pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
+pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
 static mut PLAYER_ITEM: Option<PlayerItem> = None;
@@ -47,15 +47,19 @@ pub struct PlayerItemPopup {
 
 pub struct Application {
     pub address: *mut u8,
-    pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>
+    pub randomizer: Randomizer,
+    pub app_config: AppConfig
 }
 
 impl Application {
-    pub unsafe fn attach(address: *mut u8, websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>) {
-        let app = Application { address, websocket };
+    pub unsafe fn attach(address: *mut u8, app_config: AppConfig) {
+        let randomizer = Randomizer::new(&app_config.server_url, app_config.user_id);
+        let app = Application { address, randomizer, app_config };
         *app.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as *const usize;
         *app.get_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as *const usize;
         *app.get_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as *const usize;
+        *app.get_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = Self::item_symbol_init_intercept as *const usize;
+        *app.get_address(ITEM_SYMBOL_INIT_INTERCEPT) = Self::item_symbol_init_intercept as *const usize;
         APPLICATION = Some(app);
     }
 
@@ -69,11 +73,8 @@ impl Application {
 
     unsafe extern "stdcall" fn game_loop() -> DWORD {
         APPLICATION.as_ref().map(|app| {
-            let _ = app.websocket.lock().unwrap().read_message().map(|message| {
-                let data = message.into_data();
-                let _ = serde_json::from_slice::<TestMessagePayload>(data.as_ref()).map(|payload| {
-                    debug!("{:?}", payload);
-                });
+            let _ = app.randomizer.read_messages(|payload| {
+                debug!("{:?}", payload);
             });
 
             PLAYER_ITEM_POPUP.as_ref().map(|popup|{
@@ -83,17 +84,17 @@ impl Application {
                 }
             });
 
-            if GAME_SERVER_LOOP_COUNTER == 2000 {
-                let player_item = PlayerItem {
-                    player_id: 2,
-                    for_player: true
-                };
-                PLAYER_ITEM = Some(player_item);
-                app.give_item(81);
-            }
-            if GAME_SERVER_LOOP_COUNTER == 3000 {
-                app.give_item(82);
-            }
+            // if GAME_SERVER_LOOP_COUNTER == 2000 {
+            //     let player_item = PlayerItem {
+            //         player_id: 2,
+            //         for_player: true
+            //     };
+            //     PLAYER_ITEM = Some(player_item);
+            //     app.give_item(81);
+            // }
+            // if GAME_SERVER_LOOP_COUNTER == 3000 {
+            //     app.give_item(82);
+            // }
             GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1;
         });
 
@@ -128,6 +129,29 @@ impl Application {
                 PLAYER_ITEM = None;
             });
         });
+    }
+
+    unsafe extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
+        APPLICATION.as_ref().map(|app| {
+            let item_symbol_init: &*const () = app.get_address(ITEM_SYMBOL_INIT_ADDRESS);
+            let item_symbol_init_func: extern "C" fn(&TaskData) = std::mem::transmute(item_symbol_init);
+            (item_symbol_init_func)(item);
+            item.rfunc = Self::item_symbol_back_intercept as EventWithBool;
+        });
+    }
+
+    unsafe fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
+        APPLICATION.as_ref().map(|app| {
+            if item.hit_data > 0 {
+                app.randomizer.send_message(RandomizerMessage {
+                    player_id: 1,
+                    body: "Test message".to_string()
+                });
+            }
+            let item_symbol_back: &*const () = app.get_address(ITEM_SYMBOL_BACK_ADDRESS);
+            let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = std::mem::transmute(item_symbol_back);
+            (item_symbol_back_func)(item)
+        }).expect("Application Not Loaded")
     }
 
     unsafe fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
