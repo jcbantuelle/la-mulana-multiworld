@@ -20,7 +20,10 @@ pub static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
 pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
 pub static OPTION_POS_CY_ADDRESS: usize = 0x00db714c;
 pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
+pub static SET_TASK_ADDRESS: usize = 0x00607570;
+pub static NEXT_TASK_ID_ADDRESS: usize = 0x006082e0;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
+pub static POPUP_DIALOG_INIT_ADDRESS: usize = 0x00591520;
 pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
 pub static SCRIPT_HEADER_POINTER_ADDRESS: usize = 0x006d296c;
 pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
@@ -135,19 +138,69 @@ impl Application {
 
     unsafe fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         APPLICATION.as_ref().map(|app| {
-            if item.hit_data > 0 {
+            let acquired = item.hit_data > 0;
+            let item_id = item.buff[0];
+
+            if acquired {
                 // Hardcoded to assume item is for other player for now
+                item.sbuff[2] = 0;
+            }
+
+            let item_symbol_back: &*const () = app.get_address(ITEM_SYMBOL_BACK_ADDRESS);
+            let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = std::mem::transmute(item_symbol_back);
+            let result = (item_symbol_back_func)(item);
+
+            if acquired {
+                // Hardcoded to assume item is for other player for now
+                let player_item = PlayerItem {
+                    player_id: app.app_config.buddy_id,
+                    for_player: true
+                };
+                PLAYER_ITEM = Some(player_item);
+
+                let address: &*const () = app.get_address(0x0047d170);
+                let address_func: extern "C" fn(u32) = std::mem::transmute(address);
+                (address_func)(0);
+
+                let next_task_id: &*const () = app.get_address(NEXT_TASK_ID_ADDRESS);
+                let next_task_id_func: extern "C" fn() = std::mem::transmute(next_task_id);
+                (next_task_id_func)();
+
+                app.option_stuck(item_id as u32);
+                let popup_dialog_init: *const usize = app.get_address(POPUP_DIALOG_INIT_ADDRESS);
+                let set_task: &*const () = app.get_address(SET_TASK_ADDRESS);
+                let set_task_func: extern "C" fn(*const usize) = std::mem::transmute(set_task);
+                (set_task_func)(popup_dialog_init);
+
+                // DAT_00db7178 = DAT_00db7178 | 2;
+                let val: &mut u32 = app.get_address(0x00db7178);
+                *val |= 2;
+
+                // *(undefined4 *)((-(uint)(DAT_00db753c != 0) & DAT_00db7538) + 0xf8) = 0xf;
+                let val: &mut u32 = app.get_address(0x00db753c);
+                let val2 = (*val != 0) as u32;
+                let val3: &mut u32 = app.get_address(0x00db7538);
+                let address = ((!val2 & *val3) + 0xf8) as usize;
+                *app.get_address(address) = 0xf;
+
+                // DAT_006d59cc = DAT_006d59cc | 0x100000;
+                let val: &mut u32 = app.get_address(0x006d59cc);
+                *val |= 0x100000;
+
+                // DAT_006d59c0 = DAT_006d59c0 | 1;
+                let val: &mut u32 = app.get_address(0x006d59c0);
+                *val |= 1;
+
+                // if (param_1 == 0x46) {
+                //     _DAT_006d4f88 = _DAT_006d4f88 | 1 << (DAT_00db4bb7 & 0x1f);
+                // }
+
                 app.randomizer.send_message(RandomizerMessage {
                     player_id: app.app_config.buddy_id,
                     item_id: item.buff[1]
                 });
-                item.sbuff[2] = 0;
-                // Customize message data
-                // Manually trigger popup/sfx
             }
-            let item_symbol_back: &*const () = app.get_address(ITEM_SYMBOL_BACK_ADDRESS);
-            let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = std::mem::transmute(item_symbol_back);
-            (item_symbol_back_func)(item)
+            result
         }).expect("Application Not Loaded")
     }
 
