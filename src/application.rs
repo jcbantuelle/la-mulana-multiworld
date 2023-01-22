@@ -21,7 +21,8 @@ pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
 pub static OPTION_POS_CY_ADDRESS: usize = 0x00db714c;
 pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
 pub static SET_TASK_ADDRESS: usize = 0x00607570;
-pub static NEXT_TASK_ID_ADDRESS: usize = 0x006082e0;
+pub static SET_SE_ADDRESS: usize = 0x00418ab0;
+pub static SE_ADDRESS: usize = 0x006d26f4;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
 pub static POPUP_DIALOG_INIT_ADDRESS: usize = 0x00591520;
 pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
@@ -158,14 +159,6 @@ impl Application {
                 };
                 PLAYER_ITEM = Some(player_item);
 
-                let address: &*const () = app.get_address(0x0047d170);
-                let address_func: extern "C" fn(u32) = std::mem::transmute(address);
-                (address_func)(0);
-
-                let next_task_id: &*const () = app.get_address(NEXT_TASK_ID_ADDRESS);
-                let next_task_id_func: extern "C" fn() = std::mem::transmute(next_task_id);
-                (next_task_id_func)();
-
                 app.option_stuck(item_id as u32);
                 let popup_dialog_init: *const usize = app.get_address(POPUP_DIALOG_INIT_ADDRESS);
                 let set_task: &*const () = app.get_address(SET_TASK_ADDRESS);
@@ -191,9 +184,11 @@ impl Application {
                 let val: &mut u32 = app.get_address(0x006d59c0);
                 *val |= 1;
 
-                // if (param_1 == 0x46) {
-                //     _DAT_006d4f88 = _DAT_006d4f88 | 1 << (DAT_00db4bb7 & 0x1f);
-                // }
+                // Non-functional SE player
+                // *app.get_address(SE_ADDRESS) = 39;
+                // let set_se: &*const () = app.get_address(SET_SE_ADDRESS);
+                // let set_se_func: extern "C" fn() = std::mem::transmute(set_se);
+                // (set_se_func)();
 
                 app.randomizer.send_message(RandomizerMessage {
                     player_id: app.app_config.buddy_id,
