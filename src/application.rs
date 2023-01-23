@@ -14,6 +14,7 @@ use crate::{AppConfig, screenplay};
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
 pub static POPUP_DIALOG_DRAW_INTERCEPT: usize = 0xdb9068;
+pub static GAME_INIT_ADDRESS: usize = 0x00db753c;
 pub static LEMEZA_ADDRESS: usize = 0x00db7538;
 pub static GAME_PROCESS_ADDRESS: usize = 0x00db7178;
 pub static WARP_MENU_STATUS_ADDRESS: usize = 0x006d59cc;
@@ -80,22 +81,25 @@ impl Application {
 
     unsafe extern "stdcall" fn game_loop() -> DWORD {
         APPLICATION.as_ref().map(|app| {
-            let _ = app.randomizer.read_messages(|payload| {
-                let player_item = PlayerItem {
-                    player_id: payload.message.player_id,
-                    for_player: false
-                };
-                PLAYER_ITEM = Some(player_item);
-                app.give_item(payload.message.item_id);
-                debug!("{:?}", payload.message);
-            });
+            let game_init: &mut u32 = app.get_address(GAME_INIT_ADDRESS);
+            if *game_init != 0 {
+                let _ = app.randomizer.read_messages(|payload| {
+                    let player_item = PlayerItem {
+                        player_id: payload.message.player_id,
+                        for_player: false
+                    };
+                    PLAYER_ITEM = Some(player_item);
+                    app.give_item(payload.message.item_id);
+                    debug!("{:?}", payload.message);
+                });
 
-            PLAYER_ITEM_POPUP.as_ref().map(|popup|{
-                if popup.popup_id != *popup.popup_id_address {
-                    *popup.line_address = popup.old_line;
-                    PLAYER_ITEM_POPUP = None;
-                }
-            });
+                PLAYER_ITEM_POPUP.as_ref().map(|popup| {
+                    if popup.popup_id != *popup.popup_id_address {
+                        *popup.line_address = popup.old_line;
+                        PLAYER_ITEM_POPUP = None;
+                    }
+                });
+            }
         });
 
         return timeGetTime();
