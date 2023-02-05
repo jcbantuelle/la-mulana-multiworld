@@ -148,7 +148,7 @@ impl Application {
     unsafe fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         APPLICATION.as_ref().map(|app| {
             let acquired = item.hit_data > 0;
-            let item_id = item.buff[0];
+            let item_id = item.buff[1];
 
             if acquired {
                 // Hardcoded to assume item is for other player for now
