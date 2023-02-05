@@ -105,13 +105,27 @@ impl Application {
         return timeGetTime();
     }
 
+    pub unsafe fn give_item(&self, item: u32) {
+        self.option_pos(0.0, 0.0);
+        self.option_stuck(item);
+        self.option_stuck(160);
+        self.option_stuck(120);
+        self.option_stuck(39);
+
+        let item_get_area_init: *const usize = self.get_address(ITEM_GET_AREA_INIT_ADDRESS);
+
+        let set_view_event_ns: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
+        let set_view_event_ns_func: extern "C" fn(u16, *const usize) = std::mem::transmute(set_view_event_ns);
+        (set_view_event_ns_func)(16, item_get_area_init);
+    }
+
     unsafe extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
         APPLICATION.as_ref().map(|app| {
-            let script_header: &*const ScriptHeader = app.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
-            let card = (*script_header.add(3)).data;
-            let line = card.add(2);
-
             PLAYER_ITEM.as_ref().map_or_else(|| {app.popup_dialog_draw(popup_dialog)},|player_item| {
+                let script_header: &*const ScriptHeader = app.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
+                let card = (*script_header.add(3)).data;
+                let line = card.add(2);
+
                 let item_for_text = if player_item.for_player { "For"} else {"From"};
                 PLAYER_ITEM_POPUP = Some(PlayerItemPopup {
                     popup_id_address: &popup_dialog.id.uid,
@@ -136,6 +150,12 @@ impl Application {
         });
     }
 
+    unsafe fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
+        let popup_dialog_draw: &*const () = self.get_address(POPUP_DIALOG_DRAW_ADDRESS);
+        let popup_dialog_draw_func: extern "C" fn(&TaskData) = std::mem::transmute(popup_dialog_draw);
+        (popup_dialog_draw_func)(popup_dialog);
+    }
+
     unsafe extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
         APPLICATION.as_ref().map(|app| {
             let item_symbol_init: &*const () = app.get_address(ITEM_SYMBOL_INIT_ADDRESS);
@@ -148,7 +168,7 @@ impl Application {
     unsafe fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         APPLICATION.as_ref().map(|app| {
             let acquired = item.hit_data > 0;
-            let item_id = item.buff[1];
+            let item_id = item.buff[0];
 
             if acquired {
                 // Hardcoded to assume item is for other player for now
@@ -167,7 +187,17 @@ impl Application {
                 };
                 PLAYER_ITEM = Some(player_item);
 
-                app.create_dialog_popup(item_id as u32);
+                app.option_stuck(item_id as u32);
+
+                let popup_dialog_init: *const usize = app.get_address(POPUP_DIALOG_INIT_ADDRESS);
+                let set_task: &*const () = app.get_address(SET_TASK_ADDRESS);
+                let set_task_func: extern "C" fn(*const usize) = std::mem::transmute(set_task);
+                (set_task_func)(popup_dialog_init);
+
+                app.pause_game_process();
+                app.set_lemeza_item_pose();
+                app.disable_warp_menu();
+                app.disable_movement();
 
                 app.randomizer.send_message(RandomizerMessage {
                     player_id: app.app_config.buddy_id,
@@ -179,28 +209,32 @@ impl Application {
         }).expect("Application Not Loaded")
     }
 
-    unsafe fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
-        let popup_dialog_draw: &*const () = self.get_address(POPUP_DIALOG_DRAW_ADDRESS);
-        let popup_dialog_draw_func: extern "C" fn(&TaskData) = std::mem::transmute(popup_dialog_draw);
-        (popup_dialog_draw_func)(popup_dialog);
+    unsafe fn pause_game_process(&self) {
+        let val: &mut u32 = self.get_address(GAME_PROCESS_ADDRESS);
+        *val |= 2;
     }
 
-    pub unsafe fn get_address<T>(&self, offset: usize) -> &mut T {
-        &mut *self.address.wrapping_add(offset).cast()
+    unsafe fn disable_movement(&self) {
+        let val: &mut u32 = self.get_address(MOVEMENT_STATUS_ADDRESS);
+        *val |= 1;
     }
 
-    pub unsafe fn give_item(&self, item: u32) {
-        self.option_pos(0.0, 0.0);
-        self.option_stuck(item);
-        self.option_stuck(160);
-        self.option_stuck(120);
-        self.option_stuck(39);
+    unsafe fn disable_warp_menu(&self) {
+        let val: &mut u32 = self.get_address(WARP_MENU_STATUS_ADDRESS);
+        *val |= 0x100000;
+    }
 
-        let item_get_area_init: *const usize = self.get_address(ITEM_GET_AREA_INIT_ADDRESS);
+    unsafe fn set_lemeza_item_pose(&self) {
+        let lemeza_address: &mut usize = self.get_address(LEMEZA_ADDRESS);
+        let lemeza: &mut TaskData = self.get_address(*lemeza_address);
+        (*lemeza).sbuff[6] = 0xf;
+    }
 
-        let set_view_event_ns: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
-        let set_view_event_ns_func: extern "C" fn(u16, *const usize) = std::mem::transmute(set_view_event_ns);
-        (set_view_event_ns_func)(16, item_get_area_init);
+    unsafe fn play_sound_effect(&self, effect_id: u32) {
+        let se_address: &mut u32 = self.get_address(SE_ADDRESS);
+        let set_se: &*const () = self.get_address(SET_SE_ADDRESS);
+        let set_se_func: extern "C" fn(u32, u32, u32, u32, u32, u32) = std::mem::transmute(set_se);
+        (set_se_func)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
     }
 
     unsafe fn option_stuck(&self, option_num: u32) {
@@ -217,46 +251,7 @@ impl Application {
         *self.get_address(OPTION_POS_CY_ADDRESS) = y;
     }
 
-    unsafe fn create_dialog_popup(&self, item_id: u32) {
-        self.option_stuck(item_id as u32);
-        let popup_dialog_init: *const usize = self.get_address(POPUP_DIALOG_INIT_ADDRESS);
-        let set_task: &*const () = self.get_address(SET_TASK_ADDRESS);
-        let set_task_func: extern "C" fn(*const usize) = std::mem::transmute(set_task);
-        (set_task_func)(popup_dialog_init);
-
-        self.pause_game_process();
-        self.disable_movement();
-        self.play_sound_effect(0x618);
-
-        // *(undefined4 *)((-(uint)(DAT_00db753c != 0) & DAT_00db7538) + 0xf8) = 0xf;
-        // let val: &mut u32 = app.get_address(0x00db753c);
-        // let val2 = (*val != 0) as u32;
-        // let val3: &mut u32 = app.get_address(0x00db7538);
-        // let address = ((!val2 & *val3) + 0xf8) as usize;
-        // *app.get_address(address) = 0xf;
-        // let lemeza_address: &mut usize = app.get_address(LEMEZA_ADDRESS);
-        // let lemeza: &mut TaskData = app.get_address(*lemeza_address);
-        // (*lemeza).sbuff[6] = 0xf;
-
-        // DAT_006d59cc = DAT_006d59cc | 0x100000;
-        // let val: &mut u32 = app.get_address(WARP_MENU_STATUS_ADDRESS);
-        // *val |= 0x100000;
-    }
-
-    unsafe fn pause_game_process(&self) {
-        let val: &mut u32 = self.get_address(GAME_PROCESS_ADDRESS);
-        *val |= 2;
-    }
-
-    unsafe fn disable_movement(&self) {
-        let val: &mut u32 = self.get_address(MOVEMENT_STATUS_ADDRESS);
-        *val |= 1;
-    }
-
-    unsafe fn play_sound_effect(&self, effect_id: u32) {
-        let se_address: &mut u32 = self.get_address(SE_ADDRESS);
-        let set_se: &*const () = self.get_address(SET_SE_ADDRESS);
-        let set_se_func: extern "C" fn(u32, u32, u32, u32, u32, u32) = std::mem::transmute(set_se);
-        (set_se_func)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
+    pub unsafe fn get_address<T>(&self, offset: usize) -> &mut T {
+        &mut *self.address.wrapping_add(offset).cast()
     }
 }
