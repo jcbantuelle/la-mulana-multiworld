@@ -73,11 +73,13 @@ impl Application {
         }
     }
 
-    unsafe extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
+    extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
         if patch_version != 1 {
             let init_message = format!("EXE Patch Version does not match DLL. Please re-patch.");
             show_message_box(&init_message);
-            ExitProcess(1);
+            unsafe {
+                ExitProcess(1);
+            }
         }
     }
 
