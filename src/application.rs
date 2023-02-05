@@ -60,7 +60,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub unsafe fn attach(address: *mut u8, app_config: AppConfig) {
+    pub fn attach(address: *mut u8, app_config: AppConfig) {
         let randomizer = Randomizer::new(&app_config.server_url, app_config.user_id);
         let app = Application { address, randomizer, app_config };
         *app.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as *const usize;
@@ -68,7 +68,9 @@ impl Application {
         *app.get_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as *const usize;
         *app.get_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = Self::item_symbol_init_intercept as *const usize;
         *app.get_address(ITEM_SYMBOL_INIT_INTERCEPT) = Self::item_symbol_init_intercept as *const usize;
-        APPLICATION = Some(app);
+        unsafe {
+            APPLICATION = Some(app);
+        }
     }
 
     unsafe extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
@@ -251,7 +253,9 @@ impl Application {
         *self.get_address(OPTION_POS_CY_ADDRESS) = y;
     }
 
-    pub unsafe fn get_address<T>(&self, offset: usize) -> &mut T {
-        &mut *self.address.wrapping_add(offset).cast()
+    pub fn get_address<T>(&self, offset: usize) -> &mut T {
+        unsafe {
+            &mut *self.address.wrapping_add(offset).cast()
+        }
     }
 }
