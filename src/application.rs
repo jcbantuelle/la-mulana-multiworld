@@ -46,9 +46,9 @@ lazy_static! {
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
 }
 
-lazy_static! {
-    static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-}
+// lazy_static! {
+//     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+// }
 
 pub struct PlayerItem {
     pub player_id: u64,
