@@ -257,7 +257,7 @@ impl Application {
 
     pub fn get_address<T>(&self, offset: usize) -> &mut T {
         unsafe {
-            let mut addr: usize = std::mem::transmute(self.address.wrapping_add(offset));
+            let addr: usize = std::mem::transmute(self.address.wrapping_add(offset));
             &mut*(addr as *mut T)
         }
     }
