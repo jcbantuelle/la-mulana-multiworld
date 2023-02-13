@@ -20,7 +20,7 @@ pub unsafe fn decode(address: *const u16, letter_count: i32) -> String {
         .join("")
 }
 
-pub unsafe fn encode(word: String) -> Vec<u16> {
+pub fn encode(word: String) -> Vec<u16> {
     word.chars()
         .map(|letter| {
             if letter == ' ' {

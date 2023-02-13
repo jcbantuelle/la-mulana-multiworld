@@ -46,9 +46,9 @@ lazy_static! {
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
 }
 
-// lazy_static! {
-//     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-// }
+lazy_static! {
+    static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+}
 
 pub struct PlayerItem {
     pub player_id: u64,
@@ -59,7 +59,7 @@ pub struct PlayerItemPopup {
     pub popup_id_address: usize,
     pub popup_id: u32,
     pub encoded: Vec<u16>,
-    pub line_address: ScriptSubHeader,
+    pub line_address: usize,
     pub old_line: ScriptSubHeader,
 }
 
@@ -95,14 +95,13 @@ impl Application {
                 debug!("{:?}", payload.message);
             });
 
-            // PLAYER_ITEM_POPUP.lock().map(|popup| {
-            //     if popup.is_some() {
-            //         if popup.unwrap().popup_id != *popup.popup_id_address {
-            //             *popup.line_address = popup.old_line;
-            //             *PLAYER_ITEM_POPUP = Mutex::new(None);
-            //         }
-            //     }
-            // });
+            let mut popup_guard = PLAYER_ITEM_POPUP.lock().unwrap();
+            if let Some(popup) = popup_guard.as_ref() {
+                if popup.popup_id != *APPLICATION.get_address::<u32>(popup.popup_id_address) {
+                    *APPLICATION.get_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
+                    *popup_guard = None;
+                }
+            }
         }
 
         unsafe { timeGetTime() }
@@ -123,35 +122,40 @@ impl Application {
     }
 
     extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
-        APPLICATION.popup_dialog_draw(popup_dialog);
-        // APPLICATION.as_ref().map(|app| {
-        //     PLAYER_ITEM.as_ref().map_or_else(|| {app.popup_dialog_draw(popup_dialog)},|player_item| {
-        //         let script_header: &*const ScriptHeader = app.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
-        //         let card = (*script_header.add(3)).data;
-        //         let line = card.add(2);
-        //
-        //         let item_for_text = if player_item.for_player { "For"} else {"From"};
-        //         PLAYER_ITEM_POPUP = Some(PlayerItemPopup {
-        //             popup_id_address: &popup_dialog.id.uid,
-        //             popup_id: popup_dialog.id.uid,
-        //             encoded: screenplay::encode(format!("  {} Player {}", item_for_text, player_item.player_id)),
-        //             line_address: line,
-        //             old_line: (*line).clone()
-        //         });
-        //
-        //         let item_popup = PLAYER_ITEM_POPUP.as_ref().unwrap();
-        //
-        //         *line = ScriptSubHeader {
-        //             pointer: item_popup.encoded.as_ptr(),
-        //             data_num: item_popup.encoded.len() as i32,
-        //             font_num: (item_popup.encoded.len() - 3) as i32
-        //         };
-        //
-        //         app.popup_dialog_draw(popup_dialog);
-        //
-        //         PLAYER_ITEM = None;
-        //     });
-        // });
+        let mut player_item_guard = PLAYER_ITEM.lock().unwrap();
+        if let Some(player_item) = player_item_guard.as_ref() {
+            let script_header: *const ScriptHeader = APPLICATION.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
+            let card_address = unsafe { *script_header.add(3) }.data;
+            let line_header: *const ScriptSubHeader = APPLICATION.get_address(card_address);
+            let mut line = unsafe { *line_header.add(2)};
+
+            let item_for_text = if player_item.for_player { "For"} else {"From"};
+            let popup = PlayerItemPopup {
+                popup_id_address: popup_dialog.id.uid as *const u32 as usize,
+                popup_id: popup_dialog.id.uid,
+                encoded: screenplay::encode(format!("  {} Player {}", item_for_text, player_item.player_id)),
+                line_address: &line as *const ScriptSubHeader as usize,
+                old_line: line.clone()
+            };
+
+            let mut popup_guard = PLAYER_ITEM_POPUP.lock().unwrap();
+            *popup_guard = Some(popup);
+            let popup = popup_guard.as_ref().unwrap();
+
+            let line_address = &mut line;
+
+            *line_address = ScriptSubHeader {
+                pointer: popup.encoded.as_ptr() as usize,
+                data_num: popup.encoded.len() as i32,
+                font_num: (popup.encoded.len() - 3) as i32
+            };
+
+            APPLICATION.popup_dialog_draw(popup_dialog);
+
+            *player_item_guard = None;
+        } else {
+            APPLICATION.popup_dialog_draw(popup_dialog);
+        }
     }
 
     fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
