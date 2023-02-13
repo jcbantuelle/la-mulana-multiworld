@@ -95,12 +95,6 @@ impl Application {
                 debug!("{:?}", payload.message);
             });
 
-            if unsafe { GAME_SERVER_LOOP_COUNTER } == 2000 {
-                APPLICATION.give_item(81);
-            }
-
-            unsafe { GAME_SERVER_LOOP_COUNTER = GAME_SERVER_LOOP_COUNTER + 1; }
-
             // PLAYER_ITEM_POPUP.lock().map(|popup| {
             //     if popup.is_some() {
             //         if popup.unwrap().popup_id != *popup.popup_id_address {
@@ -115,25 +109,20 @@ impl Application {
     }
 
     pub fn give_item(&self, item: u32) {
-        debug!("Set options");
         self.option_pos(0.0, 0.0);
         self.option_stuck(item);
         self.option_stuck(160);
         self.option_stuck(120);
         self.option_stuck(39);
-        debug!("Done with options, setting item_get_area_init");
 
         let item_get_area_init: *const usize = self.get_address(ITEM_GET_AREA_INIT_ADDRESS);
 
-        debug!("Done with item_get_area_init, calling set_view_event_ns");
         let set_view_event_ns: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
         let set_view_event_ns_func: extern "C" fn(u16, *const usize) = unsafe { std::mem::transmute(set_view_event_ns) };
         (set_view_event_ns_func)(16, item_get_area_init);
-        debug!("Done with set_view_event_ns, done with give_item");
     }
 
     extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
-        debug!("Intercept popup dialog");
         APPLICATION.popup_dialog_draw(popup_dialog);
         // APPLICATION.as_ref().map(|app| {
         //     PLAYER_ITEM.as_ref().map_or_else(|| {app.popup_dialog_draw(popup_dialog)},|player_item| {
@@ -163,15 +152,12 @@ impl Application {
         //         PLAYER_ITEM = None;
         //     });
         // });
-        debug!("Done intercepting popup dialog");
     }
-    //
+
     fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
-        debug!("call popup_dialog_draw");
         let popup_dialog_draw: &*const () = self.get_address(POPUP_DIALOG_DRAW_ADDRESS);
         let popup_dialog_draw_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(popup_dialog_draw) };
         (popup_dialog_draw_func)(popup_dialog);
-        debug!("done calling popup_dialog_draw");
     }
     //
     // unsafe extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
