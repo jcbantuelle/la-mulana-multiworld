@@ -68,8 +68,8 @@ impl Application {
         *self.get_address(INIT_ATTACH_ADDRESS) = Self::app_init as usize;
         *self.get_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as usize;
         *self.get_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as usize;
-        // *self.get_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = Self::item_symbol_init_intercept as usize;
-        // *self.get_address(ITEM_SYMBOL_INIT_INTERCEPT) = Self::item_symbol_init_intercept as usize;
+        *self.get_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = Self::item_symbol_init_intercept as usize;
+        *self.get_address(ITEM_SYMBOL_INIT_INTERCEPT) = Self::item_symbol_init_intercept as usize;
     }
 
     extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
@@ -159,17 +159,26 @@ impl Application {
         let popup_dialog_draw_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(popup_dialog_draw) };
         (popup_dialog_draw_func)(popup_dialog);
     }
-    //
-    // unsafe extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
-    //     APPLICATION.as_ref().map(|app| {
-    //         let item_symbol_init: &*const () = app.get_address(ITEM_SYMBOL_INIT_ADDRESS);
-    //         let item_symbol_init_func: extern "C" fn(&TaskData) = std::mem::transmute(item_symbol_init);
-    //         (item_symbol_init_func)(item);
-    //         item.rfunc = Self::item_symbol_back_intercept as EventWithBool;
-    //     });
-    // }
-    //
-    // unsafe fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
+
+    extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
+        let item_symbol_init: &*const () = APPLICATION.get_address(ITEM_SYMBOL_INIT_ADDRESS);
+        let item_symbol_init_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(item_symbol_init) };
+        (item_symbol_init_func)(item);
+        item.rfunc = Self::item_symbol_back_intercept as EventWithBool;
+    }
+
+    fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
+        if item.hit_data > 0 {
+            APPLICATION.randomizer.send_message(RandomizerMessage {
+                player_id: APPLICATION.app_config.buddy_id,
+                item_id: item.buff[1]
+            });
+        }
+
+        let item_symbol_back: &*const () = APPLICATION.get_address(ITEM_SYMBOL_BACK_ADDRESS);
+        let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
+        (item_symbol_back_func)(item)
+
     //     APPLICATION.as_ref().map(|app| {
     //         let acquired = item.hit_data > 0;
     //         let item_id = item.buff[0];
@@ -211,7 +220,7 @@ impl Application {
     //
     //         result
     //     }).expect("Application Not Loaded")
-    // }
+    }
     //
     // unsafe fn pause_game_process(&self) {
     //     let val: &mut u32 = self.get_address(GAME_PROCESS_ADDRESS);
