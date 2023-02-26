@@ -188,11 +188,19 @@ impl Application {
     }
 
     fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
-        if item.hit_data > 0 {
-            let item_id = item.buff[0];
+        let acquired = item.hit_data > 0;
+        let item_id = item.buff[1];
 
+        if acquired {
             // Hardcoded to assume item is for other player for now
             item.sbuff[2] = 0;
+        }
+
+        let item_symbol_back: &*const () = APPLICATION.get_address(ITEM_SYMBOL_BACK_ADDRESS);
+        let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
+        let result = (item_symbol_back_func)(item);
+
+        if acquired {
             let player_item = PlayerItem {
                 player_id: APPLICATION.app_config.buddy_id,
                 for_player: true
@@ -203,18 +211,7 @@ impl Application {
                 *player_item_option = Some(player_item);
             }
 
-            APPLICATION.option_stuck(item_id as u32);
-
-            let popup_dialog_init: *const usize = APPLICATION.get_address(POPUP_DIALOG_INIT_ADDRESS);
-            let set_task: &*const () = APPLICATION.get_address(SET_TASK_ADDRESS);
-            let set_task_func: extern "C" fn(*const usize) = unsafe { std::mem::transmute(set_task) };
-            (set_task_func)(popup_dialog_init);
-
-            // APPLICATION.pause_game_process();
-            // APPLICATION.set_lemeza_item_pose();
-            // APPLICATION.disable_warp_menu();
-            // APPLICATION.disable_movement();
-            // APPLICATION.play_sound_effect(0x618);
+            APPLICATION.create_dialog_popup(item_id as u32);
 
             APPLICATION.randomizer.send_message(RandomizerMessage {
                 player_id: APPLICATION.app_config.buddy_id,
@@ -222,9 +219,22 @@ impl Application {
             });
         }
 
-        let item_symbol_back: &*const () = APPLICATION.get_address(ITEM_SYMBOL_BACK_ADDRESS);
-        let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
-        (item_symbol_back_func)(item)
+        result
+    }
+
+    fn create_dialog_popup(&self, item_id: u32) {
+        self.option_stuck(item_id);
+
+        let popup_dialog_init: *const usize = self.get_address(POPUP_DIALOG_INIT_ADDRESS);
+        let set_task: &*const () = self.get_address(SET_TASK_ADDRESS);
+        let set_task_func: extern "C" fn(*const usize, u16) -> TaskData = unsafe { std::mem::transmute(set_task) };
+        (set_task_func)(popup_dialog_init, 0x3b);
+
+        self.pause_game_process();
+        self.set_lemeza_item_pose();
+        self.disable_warp_menu();
+        self.disable_movement();
+        self.play_sound_effect(0x618);
     }
 
     fn pause_game_process(&self) {
