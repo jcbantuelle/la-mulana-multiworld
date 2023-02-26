@@ -189,87 +189,72 @@ impl Application {
 
     fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         if item.hit_data > 0 {
+            let item_id = item.buff[0];
+
+            // Hardcoded to assume item is for other player for now
+            item.sbuff[2] = 0;
+            let player_item = PlayerItem {
+                player_id: APPLICATION.app_config.buddy_id,
+                for_player: true
+            };
+
+            {
+                let mut player_item_option = PLAYER_ITEM.lock().unwrap();
+                *player_item_option = Some(player_item);
+            }
+
+            APPLICATION.option_stuck(item_id as u32);
+
+            let popup_dialog_init: *const usize = APPLICATION.get_address(POPUP_DIALOG_INIT_ADDRESS);
+            let set_task: &*const () = APPLICATION.get_address(SET_TASK_ADDRESS);
+            let set_task_func: extern "C" fn(*const usize) = unsafe { std::mem::transmute(set_task) };
+            (set_task_func)(popup_dialog_init);
+
+            // APPLICATION.pause_game_process();
+            // APPLICATION.set_lemeza_item_pose();
+            // APPLICATION.disable_warp_menu();
+            // APPLICATION.disable_movement();
+            // APPLICATION.play_sound_effect(0x618);
+
             APPLICATION.randomizer.send_message(RandomizerMessage {
                 player_id: APPLICATION.app_config.buddy_id,
-                item_id: item.buff[1]
+                item_id
             });
         }
 
         let item_symbol_back: &*const () = APPLICATION.get_address(ITEM_SYMBOL_BACK_ADDRESS);
         let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
         (item_symbol_back_func)(item)
-
-    //     APPLICATION.as_ref().map(|app| {
-    //         let acquired = item.hit_data > 0;
-    //         let item_id = item.buff[0];
-    //
-    //         if acquired {
-    //             // Hardcoded to assume item is for other player for now
-    //             item.sbuff[2] = 0;
-    //         }
-    //
-    //         let item_symbol_back: &*const () = app.get_address(ITEM_SYMBOL_BACK_ADDRESS);
-    //         let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = std::mem::transmute(item_symbol_back);
-    //         let result = (item_symbol_back_func)(item);
-    //
-    //         if acquired {
-    //             // Hardcoded to assume item is for other player for now
-    //             let player_item = PlayerItem {
-    //                 player_id: app.app_config.buddy_id,
-    //                 for_player: true
-    //             };
-    //             PLAYER_ITEM = Some(player_item);
-    //
-    //             app.option_stuck(item_id as u32);
-    //
-    //             let popup_dialog_init: *const usize = app.get_address(POPUP_DIALOG_INIT_ADDRESS);
-    //             let set_task: &*const () = app.get_address(SET_TASK_ADDRESS);
-    //             let set_task_func: extern "C" fn(*const usize) = std::mem::transmute(set_task);
-    //             (set_task_func)(popup_dialog_init);
-    //
-    //             app.pause_game_process();
-    //             app.set_lemeza_item_pose();
-    //             app.disable_warp_menu();
-    //             app.disable_movement();
-    //
-    //             app.randomizer.send_message(RandomizerMessage {
-    //                 player_id: app.app_config.buddy_id,
-    //                 item_id: item.buff[1]
-    //             });
-    //         }
-    //
-    //         result
-    //     }).expect("Application Not Loaded")
     }
-    //
-    // unsafe fn pause_game_process(&self) {
-    //     let val: &mut u32 = self.get_address(GAME_PROCESS_ADDRESS);
-    //     *val |= 2;
-    // }
-    //
-    // unsafe fn disable_movement(&self) {
-    //     let val: &mut u32 = self.get_address(MOVEMENT_STATUS_ADDRESS);
-    //     *val |= 1;
-    // }
-    //
-    // unsafe fn disable_warp_menu(&self) {
-    //     let val: &mut u32 = self.get_address(WARP_MENU_STATUS_ADDRESS);
-    //     *val |= 0x100000;
-    // }
-    //
-    // unsafe fn set_lemeza_item_pose(&self) {
-    //     let lemeza_address: &mut usize = self.get_address(LEMEZA_ADDRESS);
-    //     let lemeza: &mut TaskData = self.get_address(*lemeza_address);
-    //     (*lemeza).sbuff[6] = 0xf;
-    // }
-    //
-    // unsafe fn play_sound_effect(&self, effect_id: u32) {
-    //     let se_address: &mut u32 = self.get_address(SE_ADDRESS);
-    //     let set_se: &*const () = self.get_address(SET_SE_ADDRESS);
-    //     let set_se_func: extern "C" fn(u32, u32, u32, u32, u32, u32) = std::mem::transmute(set_se);
-    //     (set_se_func)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
-    // }
-    //
+
+    fn pause_game_process(&self) {
+        let val: &mut u32 = self.get_address(GAME_PROCESS_ADDRESS);
+        *val |= 2;
+    }
+
+    fn disable_movement(&self) {
+        let val: &mut u32 = self.get_address(MOVEMENT_STATUS_ADDRESS);
+        *val |= 1;
+    }
+
+    fn disable_warp_menu(&self) {
+        let val: &mut u32 = self.get_address(WARP_MENU_STATUS_ADDRESS);
+        *val |= 0x100000;
+    }
+
+    fn set_lemeza_item_pose(&self) {
+        let lemeza_address: &mut usize = self.get_address(LEMEZA_ADDRESS);
+        let lemeza: &mut TaskData = self.get_address(*lemeza_address);
+        (*lemeza).sbuff[6] = 0xf;
+    }
+
+    fn play_sound_effect(&self, effect_id: u32) {
+        let se_address: &mut u32 = self.get_address(SE_ADDRESS);
+        let set_se: &*const () = self.get_address(SET_SE_ADDRESS);
+        let set_se_func: extern "C" fn(u32, u32, u32, u32, u32, u32) = unsafe { std::mem::transmute(set_se) };
+        (set_se_func)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
+    }
+
     fn option_stuck(&self, option_num: u32) {
         let s_data_num: &mut u8 = self.get_address(OPTION_SDATA_NUM_ADDRESS);
         if *s_data_num < 32 {
