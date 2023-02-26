@@ -43,11 +43,15 @@ pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
 
 lazy_static! {
+    static ref ITEMS_TO_GIVE: Mutex<Vec<GivenItem>> = Mutex::new(vec![]);
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
+    static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
 }
 
-lazy_static! {
-    static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+#[derive(Debug)]
+pub struct GivenItem {
+    pub player_id: u64,
+    pub item_id: u32
 }
 
 pub struct PlayerItem {
@@ -86,20 +90,34 @@ impl Application {
         let game_init: &mut u32 = APPLICATION.get_address(GAME_INIT_ADDRESS);
         if *game_init != 0 {
             let _ = APPLICATION.randomizer.read_messages(|payload| {
-                let player_item = PlayerItem {
+                let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
+                items_to_give.push(GivenItem {
                     player_id: payload.message.player_id,
-                    for_player: false
-                };
-                *PLAYER_ITEM.lock().unwrap() = Some(player_item);
-                APPLICATION.give_item(payload.message.item_id);
+                    item_id: payload.message.item_id
+                });
                 debug!("{:?}", payload.message);
             });
 
-            let mut popup_guard = PLAYER_ITEM_POPUP.lock().unwrap();
-            if let Some(popup) = popup_guard.as_ref() {
-                if popup.popup_id != *APPLICATION.get_address::<u32>(popup.popup_id_address) {
-                    *APPLICATION.get_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
-                    *popup_guard = None;
+            let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
+            if !items_to_give.is_empty() {
+                if let Some(player_item) = PLAYER_ITEM.try_lock().ok().as_mut() {
+                    if player_item.is_none() {
+                        let next_item = items_to_give.pop().unwrap();
+                        **player_item = Some(PlayerItem {
+                            player_id: next_item.player_id,
+                            for_player: false
+                        });
+                        APPLICATION.give_item(next_item.item_id);
+                    }
+                }
+            }
+
+            if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
+                if let Some(popup) = popup_option.as_ref() {
+                    if popup.popup_id != *APPLICATION.get_address::<u32>(popup.popup_id_address) {
+                        *APPLICATION.get_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
+                        **popup_option = None;
+                    }
                 }
             }
         }
@@ -122,29 +140,27 @@ impl Application {
     }
 
     extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
-        let mut player_item_guard = PLAYER_ITEM.lock().unwrap();
-        if let Some(player_item) = player_item_guard.as_ref() {
-            let script_header: *const ScriptHeader = APPLICATION.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
-            let card_address = unsafe { *script_header.add(3) }.data;
-            let line_header: *const ScriptSubHeader = APPLICATION.get_address(card_address);
-            let mut line = unsafe { *line_header.add(2)};
+        let mut player_item_option = PLAYER_ITEM.lock().unwrap();
+        if let Some(player_item) = player_item_option.as_ref() {
+            let script_header: &*const ScriptHeader = APPLICATION.get_address(SCRIPT_HEADER_POINTER_ADDRESS);
+            let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
+            let line = unsafe { &mut *line_header.add(2) };
 
             let item_for_text = if player_item.for_player { "For"} else {"From"};
+
             let popup = PlayerItemPopup {
-                popup_id_address: popup_dialog.id.uid as *const u32 as usize,
+                popup_id_address: &popup_dialog.id.uid as *const u32 as usize,
                 popup_id: popup_dialog.id.uid,
                 encoded: screenplay::encode(format!("  {} Player {}", item_for_text, player_item.player_id)),
-                line_address: &line as *const ScriptSubHeader as usize,
-                old_line: line.clone()
+                line_address: line as *const ScriptSubHeader as usize,
+                old_line: (*line).clone()
             };
 
-            let mut popup_guard = PLAYER_ITEM_POPUP.lock().unwrap();
-            *popup_guard = Some(popup);
-            let popup = popup_guard.as_ref().unwrap();
+            let mut popup_option = PLAYER_ITEM_POPUP.lock().unwrap();
+            *popup_option = Some(popup);
+            let popup = popup_option.as_ref().unwrap();
 
-            let line_address = &mut line;
-
-            *line_address = ScriptSubHeader {
+            *line = ScriptSubHeader {
                 pointer: popup.encoded.as_ptr() as usize,
                 data_num: popup.encoded.len() as i32,
                 font_num: (popup.encoded.len() - 3) as i32
@@ -152,7 +168,7 @@ impl Application {
 
             APPLICATION.popup_dialog_draw(popup_dialog);
 
-            *player_item_guard = None;
+            *player_item_option = None;
         } else {
             APPLICATION.popup_dialog_draw(popup_dialog);
         }
