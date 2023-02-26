@@ -133,9 +133,8 @@ impl Application {
         self.option_stuck(39);
 
         let item_get_area_init: *const usize = self.get_address(ITEM_GET_AREA_INIT_ADDRESS);
-
         let set_view_event_ns: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
-        let set_view_event_ns_func: extern "C" fn(u16, *const usize) = unsafe { std::mem::transmute(set_view_event_ns) };
+        let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
         (set_view_event_ns_func)(16, item_get_area_init);
     }
 
@@ -226,9 +225,9 @@ impl Application {
         self.option_stuck(item_id);
 
         let popup_dialog_init: *const usize = self.get_address(POPUP_DIALOG_INIT_ADDRESS);
-        let set_task: &*const () = self.get_address(SET_TASK_ADDRESS);
-        let set_task_func: extern "C" fn(*const usize, u16) -> TaskData = unsafe { std::mem::transmute(set_task) };
-        (set_task_func)(popup_dialog_init, 0x3b);
+        let set_task: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
+        let set_task_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_task) };
+        (set_task_func)(16, popup_dialog_init);
 
         self.pause_game_process();
         self.set_lemeza_item_pose();
