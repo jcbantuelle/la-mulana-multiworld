@@ -1,4 +1,3 @@
-use std::ptr;
 use log::debug;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
@@ -9,11 +8,11 @@ use winapi::um::processthreadsapi::ExitProcess;
 
 use crate::{Application, APPLICATION};
 use crate::utils::show_message_box;
-use crate::network::{Randomizer, RandomizerMessage};
+use crate::network::RandomizerMessage;
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
-use crate::{AppConfig, screenplay};
+use crate::screenplay;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
@@ -145,12 +144,13 @@ impl Application {
             let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
             let line = unsafe { &mut *line_header.add(2) };
 
-            let item_for_text = if player_item.for_player { "For"} else {"From"};
+            let item_for_text = if player_item.for_player { "For" } else { "From" };
+            let player_name = APPLICATION.app_config.players.get(&player_item.player_id).unwrap();
 
             let popup = PlayerItemPopup {
                 popup_id_address: &popup_dialog.id.uid as *const u32 as usize,
                 popup_id: popup_dialog.id.uid,
-                encoded: screenplay::encode(format!("  {} Player {}", item_for_text, player_item.player_id)),
+                encoded: screenplay::encode(format!("  {} {}", item_for_text, player_name)),
                 line_address: line as *const ScriptSubHeader as usize,
                 old_line: (*line).clone()
             };
@@ -200,8 +200,9 @@ impl Application {
         let result = (item_symbol_back_func)(item);
 
         if acquired {
+            // todo: read from item buffer
             let player_item = PlayerItem {
-                player_id: APPLICATION.app_config.buddy_id,
+                player_id: 2,
                 for_player: true
             };
 
@@ -212,8 +213,9 @@ impl Application {
 
             APPLICATION.create_dialog_popup(item_id as u32);
 
+            // todo: read from item buffer
             APPLICATION.randomizer.send_message(RandomizerMessage {
-                player_id: APPLICATION.app_config.buddy_id,
+                player_id: 2,
                 item_id
             });
         }

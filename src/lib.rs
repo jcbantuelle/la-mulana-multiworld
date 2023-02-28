@@ -1,16 +1,18 @@
 use std::fs;
 use std::ptr::null_mut;
 use lazy_static::lazy_static;
+use std::collections::HashMap;
 
 use toml;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 use winapi::shared::minwindef::*;
 use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use log::LevelFilter;
+use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
@@ -29,12 +31,14 @@ lazy_static!{
     pub static ref APPLICATION: Application = init_app();
 }
 
-#[derive(Deserialize)]
+#[serde_as]
+#[derive(Serialize, Deserialize)]
 pub struct AppConfig {
     pub log_file_name: String,
     pub server_url: String,
     pub user_id: u64,
-    pub buddy_id: u64
+    #[serde_as(as = "HashMap<DisplayFromStr, _>")]
+    pub players: HashMap<u64, String>
 }
 
 pub struct Application {
@@ -53,8 +57,8 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
 }
 
 fn read_config() -> Result<AppConfig, String> {
-    let file_contents = fs::read_to_string(CONFIG_FILENAME).map_err(|_| "Error reading config.".to_string())?;
-    let app_config = toml::from_str::<AppConfig>(&file_contents).map_err(|_| "Error parsing config.".to_string())?;
+    let file_contents = fs::read_to_string(CONFIG_FILENAME).map_err(|e| format!("Error reading config: {}", e.to_string()))?;
+    let app_config = toml::from_str::<AppConfig>(&file_contents).map_err(|e| format!("Error parsing config: {}", e.to_string()))?;
     Ok(app_config)
 }
 
