@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::sync::Mutex;
 use std::net::TcpStream;
 
@@ -10,7 +9,7 @@ static CHANNEL_NAME: &str = "MultiworldSyncChannel";
 
 pub struct Randomizer {
     pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>,
-    pub user_id: u64
+    pub identifier: Identifier
 }
 
 impl Randomizer {
@@ -26,44 +25,40 @@ impl Randomizer {
             _ => ()
         };
 
-        let ident = Identifier {
+        let identifier = Identifier {
             id: user_id,
             channel: CHANNEL_NAME.to_string()
         };
-        let initial_payload = InitialPayload {
+        let subscribe_payload = SubscribePayload {
             command: "subscribe".to_string(),
-            identifier: serde_json::to_string(&ident).unwrap()
+            identifier: serde_json::to_string(&identifier).unwrap()
         };
 
-        ws_connection.write_message(Message::Text(serde_json::to_string(&initial_payload).unwrap())).expect("Unable to Connect To Websocket Channel");
+        ws_connection.write_message(Message::Text(serde_json::to_string(&subscribe_payload).unwrap())).expect("Unable to Connect To Websocket Channel");
         Randomizer {
             websocket: Mutex::new(ws_connection),
-            user_id
+            identifier
         }
     }
 
     pub fn send_message<T: Serialize>(&self, message: T) {
-        let ident = Identifier {
-            id: self.user_id,
-            channel: CHANNEL_NAME.to_string()
-        };
-        let payload = Payload {
+        let send_payload = SendPayload {
             command: "message".to_string(),
-            identifier: serde_json::to_string(&ident).unwrap(),
+            identifier: serde_json::to_string(&self.identifier).unwrap(),
             data: serde_json::to_string(&message).unwrap()
         };
-        let payload = serde_json::to_string(&payload).unwrap();
-        let message = Message::Text(payload);
-        match self.websocket.lock().unwrap().write_message(message) {
+        let body = serde_json::to_string(&send_payload).unwrap();
+        let send_message = Message::Text(body);
+        match self.websocket.lock().unwrap().write_message(send_message) {
             Ok(_) => debug!("Successfully send messages to the randomizer."),
             Err(e) => error!("send_message: Error sending messages to the randomizer - {:?}", e)
         }
     }
 
-    pub fn read_messages(&self, f: fn(TestMessagePayload) -> ()) -> Result<(), tungstenite::Error> {
+    pub fn read_messages(&self, f: impl Fn(ReceivePayload) -> ()) -> Result<(), tungstenite::Error> {
         self.websocket.lock().unwrap().read_message().map(|message| {
             let data = message.into_data();
-            let _ = serde_json::from_slice::<TestMessagePayload>(data.as_ref()).map(|payload| {
+            let _ = serde_json::from_slice::<ReceivePayload>(data.as_ref()).map(|payload| {
                 f(payload)
             });
         })
@@ -71,13 +66,13 @@ impl Randomizer {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct InitialPayload {
+pub struct SubscribePayload {
     command: String,
     identifier: String
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Payload {
+pub struct SendPayload {
     command: String,
     identifier: String,
     data: String
@@ -90,19 +85,20 @@ pub struct Identifier {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TestMessagePayload {
+pub struct ReceivePayload {
     identifier: String,
-    message: TestMessage
+    pub message: ReceiveMessage
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TestMessage {
-    body: String
+pub struct ReceiveMessage {
+    pub item_id: u32,
+    pub player_id: u64
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct RandomizerMessage {
-    pub player_id: u32,
-    pub body: String
+    pub player_id: u64,
+    pub item_id: i32
 }
 
