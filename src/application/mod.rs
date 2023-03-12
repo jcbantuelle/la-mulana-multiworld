@@ -8,17 +8,14 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{Application, APPLICATION};
-use crate::lm_structs::items::{generate_item_translator, ItemPossessionBuffer};
+use crate::{Application, APPLICATION, MainApplicationMemoryOps};
+use crate::lm_structs::items::{generate_item_translator};
 use crate::utils::show_message_box;
 use crate::network::{NetworkReader, NetworkReaderError, RandomizerMessage};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
 use crate::screenplay;
-use crate::application::memory::Memory;
-use mockall::*;
-use mockall::predicate::*;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
@@ -94,7 +91,7 @@ impl Application {
     extern "stdcall" fn game_loop() -> DWORD {
         let game_init: &mut u32 =  APPLICATION.read_address(GAME_INIT_ADDRESS);
         if *game_init != 0 {
-            let _ = APPLICATION.randomizer.read_messages(|payload| {
+            let _ = APPLICATION.get_randomizer().read_messages(|payload| {
                 let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
                 let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
                 let global_item_lookup = generate_item_translator();
@@ -167,7 +164,7 @@ impl Application {
             let line = unsafe { &mut *line_header.add(2) };
 
             let item_for_text = if player_item.for_player { "For" } else { "From" };
-            let player_name = APPLICATION.app_config.players.get(&player_item.player_id).unwrap();
+            let player_name = APPLICATION.get_app_config().players.get(&player_item.player_id).unwrap();
 
             let popup = PlayerItemPopup {
                 popup_id_address: &popup_dialog.id.uid as *const u32 as usize,
@@ -213,7 +210,7 @@ impl Application {
         let item_id = item.buff[1];
         let chest: &mut TaskData = APPLICATION.read_address(item.addr[0]);
         let player_id_for_item = chest.sbuff[6];
-        let item_for_other = player_id_for_item != APPLICATION.app_config.user_id;
+        let item_for_other = player_id_for_item != APPLICATION.get_app_config().user_id;
 
         if acquired && item_for_other {
             item.sbuff[2] = 0;
@@ -236,8 +233,8 @@ impl Application {
 
             let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
             APPLICATION.create_dialog_popup(item_id as u32);
-            APPLICATION.randomizer.send_message(RandomizerMessage {
-                player_id: APPLICATION.app_config.user_id,
+            APPLICATION.get_randomizer().send_message(RandomizerMessage {
+                player_id: APPLICATION.get_app_config().user_id,
                 global_flags: global_flags.to_vec()
             });
         }
@@ -307,7 +304,7 @@ impl Application {
     }
 
     fn read(&self) -> Result<(), NetworkReaderError> {
-        return APPLICATION.randomizer.read_messages(|payload| {
+        return APPLICATION.get_randomizer().read_messages(|payload| {
             let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
             let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
             let global_item_lookup = generate_item_translator();
@@ -357,51 +354,9 @@ mod tests {
     use crate::network::Identifier;
     use crate::Application;
     use crate::application::memory::Memory;
-    use lazy_static::lazy_static;
-
-    lazy_static! {
-        static ref TEST_APPLICATION: Application = {
-            spawn(|| {
-                let server = TcpListener::bind("127.0.0.1:9001").unwrap();
-                for stream in server.incoming() {
-                    spawn (move || {
-                        let mut websocket = accept(stream.unwrap()).unwrap();
-                        loop {
-                            let msg = websocket.read_message().unwrap();
-
-                            // We do not want to send back ping/pong messages.
-                            if msg.is_binary() || msg.is_text() {
-                                websocket.write_message(msg).unwrap();
-                            }
-                        }
-                    });
-                }
-            });
-
-            std::thread::sleep(Duration::from_secs(1));
-            let url = url::Url::parse("ws://127.0.0.1:9001").unwrap();
-            let (stream, _) = connect(url).unwrap();
-
-            Application {
-                address: 0,
-                randomizer: Randomizer {
-                    websocket: Mutex::new(stream),
-                    identifier: Identifier {
-                        id: 0,
-                        channel: "".to_string()
-                    }
-                },
-                app_config: AppConfig {
-                    log_file_name: "".to_string(),
-                    server_url: "".to_string(),
-                    user_id: 0,
-                    players: Default::default()
-                }
-            }
-        };
-    }
 
     #[test]
     fn test_network_reader() {
+
     }
 }
