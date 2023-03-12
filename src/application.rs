@@ -41,6 +41,11 @@ pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 
 static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
 
+type SetViewEventNsFunc =  extern "C" fn(u16, *const usize);
+type PopupDialogFunc = extern "C" fn(&TaskData);
+type ItemSymbolInitFunc = extern "C" fn(&TaskData) -> u32;
+type SetSEFunc = extern "C" fn(u32, u32, u32, u32, u32, u32);
+
 lazy_static! {
     static ref ITEMS_TO_GIVE: Mutex<Vec<GivenItem>> = Mutex::new(vec![]);
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
@@ -132,9 +137,7 @@ impl Application {
         self.option_stuck(39);
 
         let item_get_area_init: *const usize = self.get_address(ITEM_GET_AREA_INIT_ADDRESS);
-        let set_view_event_ns: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
-        let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
-        (set_view_event_ns_func)(16, item_get_area_init);
+        Self::function_at_address::<SetViewEventNsFunc>(&SET_VIEW_EVENT_NS_ADDRESS)(16, item_get_area_init);
     }
 
     extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
@@ -174,15 +177,11 @@ impl Application {
     }
 
     fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
-        let popup_dialog_draw: &*const () = self.get_address(POPUP_DIALOG_DRAW_ADDRESS);
-        let popup_dialog_draw_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(popup_dialog_draw) };
-        (popup_dialog_draw_func)(popup_dialog);
+        Self::function_at_address::<PopupDialogFunc>(&POPUP_DIALOG_DRAW_ADDRESS)(popup_dialog);
     }
 
     extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
-        let item_symbol_init: &*const () = APPLICATION.get_address(ITEM_SYMBOL_INIT_ADDRESS);
-        let item_symbol_init_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(item_symbol_init) };
-        (item_symbol_init_func)(item);
+        Self::function_at_address::<ItemSymbolInitFunc>(&ITEM_SYMBOL_INIT_ADDRESS)(item);
         item.rfunc = Self::item_symbol_back_intercept as EventWithBool;
     }
 
@@ -195,9 +194,7 @@ impl Application {
             item.sbuff[2] = 0;
         }
 
-        let item_symbol_back: &*const () = APPLICATION.get_address(ITEM_SYMBOL_BACK_ADDRESS);
-        let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
-        let result = (item_symbol_back_func)(item);
+        let result = Self::function_at_address::<ItemSymbolInitFunc>(&ITEM_SYMBOL_BACK_ADDRESS)(item);
 
         if acquired {
             // todo: read from item buffer
@@ -227,9 +224,7 @@ impl Application {
         self.option_stuck(item_id);
 
         let popup_dialog_init: *const usize = self.get_address(POPUP_DIALOG_INIT_ADDRESS);
-        let set_task: &*const () = self.get_address(SET_VIEW_EVENT_NS_ADDRESS);
-        let set_task_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_task) };
-        (set_task_func)(16, popup_dialog_init);
+        Self::function_at_address::<SetViewEventNsFunc>(&SET_VIEW_EVENT_NS_ADDRESS)(16, popup_dialog_init);
 
         self.pause_game_process();
         self.set_lemeza_item_pose();
@@ -261,9 +256,7 @@ impl Application {
 
     fn play_sound_effect(&self, effect_id: u32) {
         let se_address: &mut u32 = self.get_address(SE_ADDRESS);
-        let set_se: &*const () = self.get_address(SET_SE_ADDRESS);
-        let set_se_func: extern "C" fn(u32, u32, u32, u32, u32, u32) = unsafe { std::mem::transmute(set_se) };
-        (set_se_func)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
+        Self::function_at_address::<SetSEFunc>(&SET_SE_ADDRESS)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
     }
 
     fn option_stuck(&self, option_num: u32) {
@@ -285,5 +278,11 @@ impl Application {
             let addr: usize = std::mem::transmute(self.address.wrapping_add(offset));
             &mut*(addr as *mut T)
         }
+    }
+
+    fn function_at_address<U>(address_location: &usize) ->  U {
+        let address: &*const () = APPLICATION.get_address(address_location.clone());
+        let transmuted_address: U = unsafe { std::mem::transmute_copy(address) };
+        transmuted_address
     }
 }
