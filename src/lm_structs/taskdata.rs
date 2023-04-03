@@ -191,7 +191,7 @@ pub struct TaskData {
     pub hfunc: Event, // 0x18 (24) - 4 bytes
     pub sta: u32, // 0x1C (28) - 4 bytes
     pub sbuff: [i32;32], // 0x20 (32) - 128 bytes
-    pub addr: [*mut usize;16], // 0xA0 (160) - 64 bytes
+    pub addr: [usize;16], // 0xA0 (160) - 64 bytes
     pub buff: [i32;32], // 0xE0 (224) - 128 bytes
     pub fbuff: [f32;32], // 0x160 (352) - 128 bytes
     pub pos: Point3d, // 0x1E0 (480) - 12 bytes
@@ -250,7 +250,6 @@ pub struct TaskData {
 
 impl std::fmt::Display for TaskData {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let addr = self.addr.map(|address| format!("{:p}", address));
         write!(f, "TaskData Object
     init: {:p},
     ffunc: {:p},
@@ -325,7 +324,7 @@ impl std::fmt::Display for TaskData {
             self.hfunc,
             self.sta,
             self.sbuff,
-            addr,
+            self.addr,
             self.buff,
             self.fbuff,
             self.pos,

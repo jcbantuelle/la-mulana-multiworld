@@ -39,8 +39,6 @@ pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
 pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
 pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 
-static mut GAME_SERVER_LOOP_COUNTER: u32 = 1;
-
 lazy_static! {
     static ref ITEMS_TO_GIVE: Mutex<Vec<GivenItem>> = Mutex::new(vec![]);
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
@@ -49,12 +47,12 @@ lazy_static! {
 
 #[derive(Debug)]
 pub struct GivenItem {
-    pub player_id: u64,
+    pub player_id: i32,
     pub item_id: u32
 }
 
 pub struct PlayerItem {
-    pub player_id: u64,
+    pub player_id: i32,
     pub for_player: bool
 }
 
@@ -189,9 +187,11 @@ impl Application {
     fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         let acquired = item.hit_data > 0;
         let item_id = item.buff[1];
+        let chest: &mut TaskData = APPLICATION.get_address(item.addr[0]);
+        let player_id_for_item = chest.sbuff[6];
+        let item_for_other = player_id_for_item != APPLICATION.app_config.user_id;
 
-        if acquired {
-            // Hardcoded to assume item is for other player for now
+        if acquired && item_for_other {
             item.sbuff[2] = 0;
         }
 
@@ -199,10 +199,9 @@ impl Application {
         let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
         let result = (item_symbol_back_func)(item);
 
-        if acquired {
-            // todo: read from item buffer
+        if acquired && item_for_other {
             let player_item = PlayerItem {
-                player_id: 2,
+                player_id: player_id_for_item,
                 for_player: true
             };
 
@@ -213,9 +212,8 @@ impl Application {
 
             APPLICATION.create_dialog_popup(item_id as u32);
 
-            // todo: read from item buffer
             APPLICATION.randomizer.send_message(RandomizerMessage {
-                player_id: 2,
+                player_id: player_id_for_item,
                 item_id
             });
         }

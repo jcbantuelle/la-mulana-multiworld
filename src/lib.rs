@@ -12,7 +12,7 @@ use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use log::{debug, LevelFilter};
+use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
@@ -36,9 +36,9 @@ lazy_static!{
 pub struct AppConfig {
     pub log_file_name: String,
     pub server_url: String,
-    pub user_id: u64,
+    pub user_id: i32,
     #[serde_as(as = "HashMap<DisplayFromStr, _>")]
-    pub players: HashMap<u64, String>
+    pub players: HashMap<i32, String>
 }
 
 pub struct Application {

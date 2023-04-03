@@ -13,7 +13,7 @@ pub struct Randomizer {
 }
 
 impl Randomizer {
-    pub fn new(server_url: &str, user_id: u64) -> Randomizer {
+    pub fn new(server_url: &str, user_id: i32) -> Randomizer {
         let url = url::Url::parse(server_url).unwrap();
         let (mut ws_connection, _) = connect(url).expect("Failed to connect");
         match ws_connection.get_ref() {
@@ -80,7 +80,7 @@ pub struct SendPayload {
 
 #[derive(Serialize, Deserialize)]
 pub struct Identifier {
-    id: u64,
+    id: i32,
     channel: String
 }
 
@@ -93,12 +93,12 @@ pub struct ReceivePayload {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ReceiveMessage {
     pub item_id: u32,
-    pub player_id: u64
+    pub player_id: i32
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct RandomizerMessage {
-    pub player_id: u64,
+    pub player_id: i32,
     pub item_id: i32
 }
 
