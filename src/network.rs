@@ -48,6 +48,7 @@ impl Randomizer {
             data: serde_json::to_string(&message).unwrap()
         };
         let body = serde_json::to_string(&send_payload).unwrap();
+        debug!("Sending message of {}...", body);
         let send_message = Message::Text(body);
         match self.websocket.lock().unwrap().write_message(send_message) {
             Ok(_) => debug!("Successfully send messages to the randomizer."),
@@ -65,6 +66,14 @@ impl Randomizer {
     }
 }
 
+pub trait NetworkReader {
+    fn read(&self) -> Result<(), NetworkReaderError>;
+}
+
+pub struct NetworkReaderError {
+    pub message: String
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct SubscribePayload {
     command: String,
@@ -80,25 +89,29 @@ pub struct SendPayload {
 
 #[derive(Serialize, Deserialize)]
 pub struct Identifier {
-    id: i32,
-    channel: String
+    pub id: i32,
+    pub channel: String
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ReceivePayload {
-    identifier: String,
+    pub identifier: String,
     pub message: ReceiveMessage
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ReceiveMessage {
-    pub item_id: u32,
-    pub player_id: i32
+    pub items: Vec<ReceiveItem>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ReceiveItem {
+    pub item_id: u8,
+    pub player_id: u8,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct RandomizerMessage {
     pub player_id: i32,
-    pub item_id: i32
+    pub global_flags: Vec<u8>
 }
-

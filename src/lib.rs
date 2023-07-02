@@ -17,7 +17,7 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
 use utils::show_message_box;
-use crate::network::Randomizer;
+use crate::network::{Randomizer, ReceivePayload};
 
 pub mod utils;
 pub mod network;
@@ -26,6 +26,16 @@ pub mod application;
 pub mod lm_structs;
 
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
+
+pub trait MainApplicationRandomizer {
+    fn read_messages(&self, f: impl Fn(ReceivePayload) -> ()) -> Result<(), tungstenite::Error>;
+}
+
+pub trait MainApplication<T> {
+    fn get_address(&self) -> usize;
+    fn get_randomizer(&self) -> &T where T: MainApplicationRandomizer;
+    fn get_app_config(&self) -> &AppConfig;
+}
 
 lazy_static!{
     pub static ref APPLICATION: Application = init_app();
@@ -45,6 +55,20 @@ pub struct Application {
     pub address: usize,
     pub randomizer: Randomizer,
     pub app_config: AppConfig
+}
+
+impl MainApplication<Randomizer> for Application {
+    fn get_address(&self) -> usize {
+        self.address
+    }
+
+    fn get_randomizer(&self) -> &Randomizer {
+        &self.randomizer
+    }
+
+    fn get_app_config(&self) -> &AppConfig {
+        &self.app_config
+    }
 }
 
 #[no_mangle]
