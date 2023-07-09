@@ -19,7 +19,7 @@ use tungstenite::Error;
 
 use utils::show_message_box;
 use crate::lm_structs::taskdata::TaskData;
-use crate::network::{Randomizer, ReceivePayload};
+use crate::network::{LiveRandomizer, ReceivePayload};
 
 pub mod utils;
 pub mod network;
@@ -29,27 +29,27 @@ pub mod lm_structs;
 
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
 
-pub trait MainApplicationRandomizer {
+pub trait Randomizer {
     fn read_messages(&self) -> Result<ReceivePayload, tungstenite::Error>;
     fn send_message(&self, message: &str);
 }
 
-pub trait MainApplication {
+pub trait Application {
     fn attach(&self);
     fn get_address(&self) -> usize;
-    fn get_randomizer(&self) -> &dyn MainApplicationRandomizer;
+    fn get_randomizer(&self) -> &dyn Randomizer;
     fn get_app_config(&self) -> &AppConfig;
     fn give_item(&self, item: u32);
     fn create_dialog_popup(&self, item_id: u32);
     fn popup_dialog_draw(&self, popup_dialog: &TaskData);
 }
 
-pub trait MainApplicationMemoryOps {
+pub trait ApplicationMemoryOps {
     fn read_address<V>(&self, offset: usize) -> &mut V;
 }
 
 lazy_static!{
-    pub static ref APPLICATION: Box<dyn MainApplication + Sync> = init_app();
+    pub static ref APPLICATION: Box<dyn Application + Sync> = init_app();
 }
 
 #[serde_as]
@@ -62,13 +62,13 @@ pub struct AppConfig {
     pub players: HashMap<i32, String>
 }
 
-pub struct Application {
+pub struct LiveApplication {
     pub address: usize,
-    pub randomizer: Randomizer,
+    pub randomizer: LiveRandomizer,
     pub app_config: AppConfig
 }
 
-impl MainApplicationRandomizer for Randomizer {
+impl Randomizer for LiveRandomizer {
     fn read_messages(&self) -> Result<ReceivePayload, Error> {
         self.read_messages()
     }
@@ -104,7 +104,7 @@ fn init_logger(app_config: &AppConfig) {
     log4rs::init_config(log_config).unwrap();
 }
 
-fn init_app() -> Box<dyn MainApplication + Sync> {
+fn init_app() -> Box<dyn Application + Sync> {
     let address = unsafe { GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000) } as usize;
 
     let app_config = read_config().map_err(|err| {
@@ -113,7 +113,7 @@ fn init_app() -> Box<dyn MainApplication + Sync> {
     }).unwrap();
     init_logger(&app_config);
 
-    let randomizer = Randomizer::new(&app_config.server_url, app_config.user_id);
+    let randomizer = LiveRandomizer::new(&app_config.server_url, app_config.user_id);
 
-    Box::new(Application { address, randomizer, app_config })
+    Box::new(LiveApplication { address, randomizer, app_config })
 }

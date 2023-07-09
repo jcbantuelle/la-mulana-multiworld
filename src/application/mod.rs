@@ -8,7 +8,7 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{AppConfig, Application, APPLICATION, MainApplication, MainApplicationMemoryOps, MainApplicationRandomizer, Randomizer};
+use crate::{AppConfig, LiveApplication, APPLICATION, Application, ApplicationMemoryOps, Randomizer, LiveRandomizer};
 use crate::application::tests::{TEST_APPLICATION, TestApplication, TestRandomizer};
 use crate::lm_structs::items::{generate_item_translator};
 use crate::utils::show_message_box;
@@ -71,7 +71,7 @@ pub struct PlayerItemPopup {
     pub old_line: ScriptSubHeader,
 }
 
-impl Application {
+impl LiveApplication {
     extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
         if patch_version != 1 {
             let init_message = format!("EXE Patch Version does not match DLL. Please re-patch.");
@@ -301,7 +301,7 @@ impl Application {
 
 }
 
-impl MainApplication for Application {
+impl Application for LiveApplication {
     fn attach(&self) {
         *self.read_address(INIT_ATTACH_ADDRESS) = Self::app_init as usize;
         *self.read_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as usize;
@@ -314,7 +314,7 @@ impl MainApplication for Application {
         self.address
     }
 
-    fn get_randomizer(&self) -> &dyn MainApplicationRandomizer {
+    fn get_randomizer(&self) -> &dyn Randomizer {
         &self.randomizer
     }
 
@@ -357,7 +357,7 @@ impl MainApplication for Application {
     }
 }
 
-impl MainApplicationMemoryOps for Box<dyn MainApplication + Sync> {
+impl ApplicationMemoryOps for Box<dyn Application + Sync> {
     fn read_address<T>(&self, offset: usize) -> &mut T {
         unsafe {
             let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
@@ -366,7 +366,7 @@ impl MainApplicationMemoryOps for Box<dyn MainApplication + Sync> {
     }
 }
 
-impl MainApplicationMemoryOps for Application {
+impl ApplicationMemoryOps for LiveApplication {
     fn read_address<T>(&self, offset: usize) -> &mut T {
         unsafe {
             let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
@@ -375,7 +375,7 @@ impl MainApplicationMemoryOps for Application {
     }
 }
 
-fn get_application() -> &'static Box<dyn MainApplication + Sync> {
+fn get_application() -> &'static Box<dyn Application + Sync> {
      if *IS_TEST.lock().unwrap() {
          &*TEST_APPLICATION
      }
@@ -386,12 +386,12 @@ fn get_application() -> &'static Box<dyn MainApplication + Sync> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{AppConfig, MainApplication, MainApplicationRandomizer, ReceivePayload, TaskData};
+    use crate::{AppConfig, Application, Randomizer, ReceivePayload, TaskData};
     use lazy_static::lazy_static;
     use tungstenite::Error;
 
     lazy_static!{
-        pub static ref TEST_APPLICATION: Box<dyn MainApplication + Sync> = init_test_app();
+        pub static ref TEST_APPLICATION: Box<dyn Application + Sync> = init_test_app();
     }
 
     #[derive(Clone)]
@@ -399,7 +399,7 @@ mod tests {
 
     pub struct TestRandomizer {}
 
-    impl MainApplication for TestApplication {
+    impl Application for TestApplication {
         fn attach(&self) {
             todo!()
         }
@@ -408,7 +408,7 @@ mod tests {
             todo!()
         }
 
-        fn get_randomizer(&self) -> &dyn MainApplicationRandomizer {
+        fn get_randomizer(&self) -> &dyn Randomizer {
             todo!()
         }
 
@@ -429,7 +429,7 @@ mod tests {
         }
     }
 
-    impl MainApplicationRandomizer for TestRandomizer {
+    impl Randomizer for TestRandomizer {
         fn read_messages(&self) -> Result<ReceivePayload, Error> {
             todo!()
         }
@@ -439,7 +439,7 @@ mod tests {
         }
     }
 
-    fn init_test_app() -> Box<dyn MainApplication + Sync> {
+    fn init_test_app() -> Box<dyn Application + Sync> {
         let mut is_test = super::IS_TEST.lock().unwrap();
         *is_test = true;
         Box::new(TestApplication{})

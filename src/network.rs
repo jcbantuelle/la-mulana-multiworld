@@ -7,7 +7,7 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 
 static CHANNEL_NAME: &str = "MultiworldSyncChannel";
 
-pub struct Randomizer {
+pub struct LiveRandomizer {
     pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>,
     pub identifier: Identifier
 }
@@ -16,8 +16,8 @@ pub fn serialize_message<T: Serialize>(message: T) -> String {
     serde_json::to_string(&message).unwrap()
 }
 
-impl Randomizer {
-    pub fn new(server_url: &str, user_id: i32) -> Randomizer {
+impl LiveRandomizer {
+    pub fn new(server_url: &str, user_id: i32) -> LiveRandomizer {
         let url = url::Url::parse(server_url).unwrap();
         let (mut ws_connection, _) = connect(url).expect("Failed to connect");
         match ws_connection.get_ref() {
@@ -39,7 +39,7 @@ impl Randomizer {
         };
 
         ws_connection.write_message(Message::Text(serde_json::to_string(&subscribe_payload).unwrap())).expect("Unable to Connect To Websocket Channel");
-        Randomizer {
+        LiveRandomizer {
             websocket: Mutex::new(ws_connection),
             identifier
         }
