@@ -2,7 +2,6 @@ use std::fs;
 use std::ptr::null_mut;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::{Mutex};
 
 use toml;
 use serde::{Serialize, Deserialize};
@@ -44,8 +43,9 @@ pub trait MainApplication<T> {
     fn popup_dialog_draw(&self, popup_dialog: &TaskData);
 }
 
-pub trait MainApplicationMemoryOps {
-    fn read_address<T>(&self, offset: usize) -> &mut T;
+pub trait MainApplicationMemoryOps<T, U> {
+    fn get_application(&self) -> &T where T: MainApplication<U>;
+    fn read_address<V>(&self, offset: usize) -> &mut V;
 }
 
 lazy_static!{
@@ -66,47 +66,6 @@ pub struct Application {
     pub address: usize,
     pub randomizer: Randomizer,
     pub app_config: AppConfig
-}
-
-pub struct AppWrapper<T> {
-    application: Box<dyn MainApplication<T> + Sync + 'static>
-}
-
-impl MainApplication<Randomizer> for Application {
-    fn attach(&self) { self.attach() }
-
-    fn get_address(&self) -> usize {
-        self.address
-    }
-
-    fn get_randomizer(&self) -> &Randomizer {
-        &self.randomizer
-    }
-
-    fn get_app_config(&self) -> &AppConfig {
-        &self.app_config
-    }
-
-    fn give_item(&self, item: u32) {
-        self.give_item(item)
-    }
-
-    fn create_dialog_popup(&self, item_id: u32) {
-        self.create_dialog_popup(item_id)
-    }
-
-    fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
-        self.popup_dialog_draw(popup_dialog)
-    }
-}
-
-impl MainApplicationMemoryOps for Box<dyn MainApplication<Randomizer> + Sync> {
-    fn read_address<T>(&self, offset: usize) -> &mut T {
-        unsafe {
-            let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
-            &mut*(addr as *mut T)
-        }
-    }
 }
 
 impl MainApplicationRandomizer for Randomizer {

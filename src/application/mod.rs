@@ -8,7 +8,7 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{Application, APPLICATION, MainApplicationMemoryOps};
+use crate::{AppConfig, Application, APPLICATION, MainApplication, MainApplicationMemoryOps, Randomizer};
 use crate::lm_structs::items::{generate_item_translator};
 use crate::utils::show_message_box;
 use crate::network::{NetworkReader, NetworkReaderError, RandomizerMessage};
@@ -70,14 +70,6 @@ pub struct PlayerItemPopup {
 }
 
 impl Application {
-    pub(crate) fn attach(&self) {
-        *self.read_address(INIT_ATTACH_ADDRESS) = Self::app_init as usize;
-        *self.read_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as usize;
-        *self.read_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as usize;
-        *self.read_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = Self::item_symbol_init_intercept as usize;
-        *self.read_address(ITEM_SYMBOL_INIT_INTERCEPT) = Self::item_symbol_init_intercept as usize;
-    }
-
     extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
         if patch_version != 1 {
             let init_message = format!("EXE Patch Version does not match DLL. Please re-patch.");
@@ -143,19 +135,6 @@ impl Application {
         unsafe { timeGetTime() }
     }
 
-    fn give_item(&self, item: u32) {
-        self.option_pos(0.0, 0.0);
-        self.option_stuck(item);
-        self.option_stuck(160);
-        self.option_stuck(120);
-        self.option_stuck(39);
-
-        let item_get_area_init: *const usize = self.read_address(ITEM_GET_AREA_INIT_ADDRESS);
-        let set_view_event_ns: &*const () = self.read_address(SET_VIEW_EVENT_NS_ADDRESS);
-        let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
-        (set_view_event_ns_func)(16, item_get_area_init);
-    }
-
     extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
         let mut player_item_option = PLAYER_ITEM.lock().unwrap();
         if let Some(player_item) = player_item_option.as_ref() {
@@ -190,12 +169,6 @@ impl Application {
         } else {
             APPLICATION.popup_dialog_draw(popup_dialog);
         }
-    }
-
-    fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
-        let popup_dialog_draw: &*const () = self.read_address(POPUP_DIALOG_DRAW_ADDRESS);
-        let popup_dialog_draw_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(popup_dialog_draw) };
-        (popup_dialog_draw_func)(popup_dialog);
     }
 
     extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
@@ -240,21 +213,6 @@ impl Application {
         }
 
         result
-    }
-
-    fn create_dialog_popup(&self, item_id: u32) {
-        self.option_stuck(item_id);
-
-        let popup_dialog_init: *const usize = self.read_address(POPUP_DIALOG_INIT_ADDRESS);
-        let set_task: &*const () = self.read_address(SET_VIEW_EVENT_NS_ADDRESS);
-        let set_task_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_task) };
-        (set_task_func)(16, popup_dialog_init);
-
-        self.pause_game_process();
-        self.set_lemeza_item_pose();
-        self.disable_warp_menu();
-        self.disable_movement();
-        self.play_sound_effect(0x618);
     }
 
     fn pause_game_process(&self) {
@@ -334,9 +292,85 @@ impl Application {
         });
     }
 
+}
+
+impl MainApplication<Randomizer> for Application {
+    fn attach(&self) {
+        *self.read_address(INIT_ATTACH_ADDRESS) = Self::app_init as usize;
+        *self.read_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as usize;
+        *self.read_address(POPUP_DIALOG_DRAW_INTERCEPT) = Self::popup_dialog_draw_intercept as usize;
+        *self.read_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = Self::item_symbol_init_intercept as usize;
+        *self.read_address(ITEM_SYMBOL_INIT_INTERCEPT) = Self::item_symbol_init_intercept as usize;
+    }
+
+    fn get_address(&self) -> usize {
+        self.address
+    }
+
+    fn get_randomizer(&self) -> &Randomizer {
+        &self.randomizer
+    }
+
+    fn get_app_config(&self) -> &AppConfig {
+        &self.app_config
+    }
+
+    fn give_item(&self, item: u32) {
+        self.option_pos(0.0, 0.0);
+        self.option_stuck(item);
+        self.option_stuck(160);
+        self.option_stuck(120);
+        self.option_stuck(39);
+
+        let item_get_area_init: *const usize = self.read_address(ITEM_GET_AREA_INIT_ADDRESS);
+        let set_view_event_ns: &*const () = self.read_address(SET_VIEW_EVENT_NS_ADDRESS);
+        let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
+        (set_view_event_ns_func)(16, item_get_area_init);
+    }
+
+    fn create_dialog_popup(&self, item_id: u32) {
+        self.option_stuck(item_id);
+
+        let popup_dialog_init: *const usize = self.read_address(POPUP_DIALOG_INIT_ADDRESS);
+        let set_task: &*const () = self.read_address(SET_VIEW_EVENT_NS_ADDRESS);
+        let set_task_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_task) };
+        (set_task_func)(16, popup_dialog_init);
+
+        self.pause_game_process();
+        self.set_lemeza_item_pose();
+        self.disable_warp_menu();
+        self.disable_movement();
+        self.play_sound_effect(0x618);
+    }
+
+    fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
+        let popup_dialog_draw: &*const () = self.read_address(POPUP_DIALOG_DRAW_ADDRESS);
+        let popup_dialog_draw_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(popup_dialog_draw) };
+        (popup_dialog_draw_func)(popup_dialog);
+    }
+}
+
+impl MainApplicationMemoryOps<Application, Randomizer> for Box<dyn MainApplication<Randomizer> + Sync> {
+    fn get_application(&self) -> &Application {
+        todo!()
+    }
+
     fn read_address<T>(&self, offset: usize) -> &mut T {
         unsafe {
-            let addr: usize = std::mem::transmute(self.address.wrapping_add(offset));
+            let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
+            &mut*(addr as *mut T)
+        }
+    }
+}
+
+impl MainApplicationMemoryOps<Application, Randomizer> for Application {
+    fn get_application(&self) -> &Application {
+        todo!()
+    }
+
+    fn read_address<T>(&self, offset: usize) -> &mut T {
+        unsafe {
+            let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
             &mut*(addr as *mut T)
         }
     }
@@ -344,16 +378,16 @@ impl Application {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{TcpListener, TcpStream};
-    use std::thread::spawn;
-    use std::time::Duration;
-    use tungstenite::accept;
-    use tungstenite::connect;
-    use std::sync::Mutex;
-    use crate::{AppConfig, Randomizer};
-    use crate::network::Identifier;
-    use crate::Application;
-    use crate::application::memory::Memory;
+    // use std::net::{TcpListener, TcpStream};
+    // use std::thread::spawn;
+    // use std::time::Duration;
+    // use tungstenite::accept;
+    // use tungstenite::connect;
+    // use std::sync::Mutex;
+    // use crate::{AppConfig, Randomizer};
+    // use crate::network::Identifier;
+    // use crate::Application;
+    // use crate::application::memory::Memory;
 
     #[test]
     fn test_network_reader() {
