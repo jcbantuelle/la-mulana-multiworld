@@ -6,7 +6,7 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{APPLICATION, Application, IS_TEST};
+use crate::{APPLICATION, Application, get_application, IS_TEST};
 use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
 use crate::lm_structs::items::{generate_item_translator};
 use crate::utils::show_message_box;
@@ -191,19 +191,12 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     result
 }
 
-fn get_application() -> &'static Box<dyn Application + Sync> {
-    if *IS_TEST.lock().unwrap() {
-        &*TEST_APPLICATION
-    }
-    else {
-        &*APPLICATION
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn test_network_reader() {
+    use crate::application::entrypoints::game_loop;
 
+    #[test]
+    fn test_game_loop_smoke() {
+        game_loop();
     }
 }

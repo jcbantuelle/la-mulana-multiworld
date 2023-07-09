@@ -22,6 +22,7 @@ use utils::show_message_box;
 use crate::application::Application;
 use crate::lm_structs::taskdata::TaskData;
 use crate::network::{LiveRandomizer, Randomizer, ReceivePayload};
+use crate::tests::TEST_APPLICATION;
 
 pub mod utils;
 pub mod network;
@@ -102,8 +103,19 @@ fn init_app() -> Box<dyn Application + Sync> {
     Box::new(LiveApplication { address, randomizer, app_config })
 }
 
+fn get_application() -> &'static Box<dyn Application + Sync> {
+    if *IS_TEST.lock().unwrap() {
+        &*TEST_APPLICATION
+    }
+    else {
+        &*APPLICATION
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
     use crate::{AppConfig, TaskData};
     use crate::application::{Application};
     use crate::network::{Randomizer, ReceivePayload};
@@ -114,8 +126,9 @@ mod tests {
         pub static ref TEST_APPLICATION: Box<dyn Application + Sync> = init_test_app();
     }
 
-    #[derive(Clone)]
-    pub struct TestApplication {}
+    pub struct TestApplication {
+        pub read_address_stack: Mutex<Vec<u32>>
+    }
 
     pub struct TestRandomizer {}
 
@@ -125,7 +138,7 @@ mod tests {
         }
 
         fn get_address(&self) -> usize {
-            todo!()
+            self.read_address_stack.lock().unwrap().pop().expect("No addresses pushed for testing.") as usize
         }
 
         fn get_randomizer(&self) -> &dyn Randomizer {
@@ -190,11 +203,8 @@ mod tests {
     fn init_test_app() -> Box<dyn Application + Sync> {
         let mut is_test = super::IS_TEST.lock().unwrap();
         *is_test = true;
-        Box::new(TestApplication{})
-    }
-
-    #[test]
-    fn test_network_reader() {
-
+        Box::new(TestApplication {
+            read_address_stack: Mutex::new(vec![])
+        })
     }
 }

@@ -33,7 +33,6 @@ pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
 pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 pub static GLOBAL_FLAGS_ADDRESS: usize = 0x006d5a70;
 pub static INVENTORY_ADDRESS: usize = 0x006d4db4;
-pub static IS_TEST: Mutex<bool> = Mutex::new(false);
 
 pub trait Application {
     fn attach(&self);
