@@ -6,7 +6,7 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{APPLICATION, Application, get_application, IS_TEST};
+use crate::{APPLICATION, Application, get_application};
 use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
 use crate::lm_structs::items::{generate_item_translator};
 use crate::utils::show_message_box;

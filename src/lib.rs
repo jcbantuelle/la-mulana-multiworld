@@ -13,7 +13,7 @@ use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use log::LevelFilter;
+use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use tungstenite::Error;
@@ -31,10 +31,15 @@ pub mod application;
 pub mod lm_structs;
 
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
-pub static IS_TEST: Mutex<bool> = Mutex::new(false);
 
+#[cfg(not(test))]
 lazy_static!{
     pub static ref APPLICATION: Box<dyn Application + Sync> = init_app();
+}
+
+#[cfg(test)]
+lazy_static!{
+    pub static ref APPLICATION: Box<dyn Application + Sync> = tests::init_test_app();
 }
 
 #[serde_as]
@@ -104,12 +109,7 @@ fn init_app() -> Box<dyn Application + Sync> {
 }
 
 fn get_application() -> &'static Box<dyn Application + Sync> {
-    if *IS_TEST.lock().unwrap() {
-        &*TEST_APPLICATION
-    }
-    else {
-        &*APPLICATION
-    }
+    &*APPLICATION
 }
 
 
@@ -200,9 +200,7 @@ mod tests {
         }
     }
 
-    fn init_test_app() -> Box<dyn Application + Sync> {
-        let mut is_test = super::IS_TEST.lock().unwrap();
-        *is_test = true;
+    pub fn init_test_app() -> Box<dyn Application + Sync> {
         Box::new(TestApplication {
             read_address_stack: Mutex::new(vec![])
         })
