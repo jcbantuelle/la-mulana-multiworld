@@ -18,8 +18,9 @@ use log4rs::config::{Appender, Config, Root};
 use tungstenite::Error;
 
 use utils::show_message_box;
+use crate::application::Application;
 use crate::lm_structs::taskdata::TaskData;
-use crate::network::{LiveRandomizer, ReceivePayload};
+use crate::network::{LiveRandomizer, Randomizer, ReceivePayload};
 
 pub mod utils;
 pub mod network;
@@ -28,25 +29,6 @@ pub mod application;
 pub mod lm_structs;
 
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
-
-pub trait Randomizer {
-    fn read_messages(&self) -> Result<ReceivePayload, tungstenite::Error>;
-    fn send_message(&self, message: &str);
-}
-
-pub trait Application {
-    fn attach(&self);
-    fn get_address(&self) -> usize;
-    fn get_randomizer(&self) -> &dyn Randomizer;
-    fn get_app_config(&self) -> &AppConfig;
-    fn give_item(&self, item: u32);
-    fn create_dialog_popup(&self, item_id: u32);
-    fn popup_dialog_draw(&self, popup_dialog: &TaskData);
-}
-
-pub trait ApplicationMemoryOps {
-    fn read_address<V>(&self, offset: usize) -> &mut V;
-}
 
 lazy_static!{
     pub static ref APPLICATION: Box<dyn Application + Sync> = init_app();

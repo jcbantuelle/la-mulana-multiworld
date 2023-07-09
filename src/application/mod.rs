@@ -1,5 +1,3 @@
-pub mod memory;
-
 use log::debug;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
@@ -8,11 +6,11 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{AppConfig, LiveApplication, APPLICATION, Application, ApplicationMemoryOps, Randomizer, LiveRandomizer};
-use crate::application::tests::{TEST_APPLICATION, TestApplication, TestRandomizer};
+use crate::{AppConfig, LiveApplication, APPLICATION};
+use crate::application::tests::TEST_APPLICATION;
 use crate::lm_structs::items::{generate_item_translator};
 use crate::utils::show_message_box;
-use crate::network::{NetworkReader, NetworkReaderError, RandomizerMessage, serialize_message};
+use crate::network::{NetworkReader, NetworkReaderError, Randomizer, RandomizerMessage, serialize_message};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -50,6 +48,20 @@ lazy_static! {
     static ref ITEMS_TO_GIVE: Mutex<Vec<GivenItem>> = Mutex::new(vec![]);
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+}
+
+pub trait Application {
+    fn attach(&self);
+    fn get_address(&self) -> usize;
+    fn get_randomizer(&self) -> &dyn Randomizer;
+    fn get_app_config(&self) -> &AppConfig;
+    fn give_item(&self, item: u32);
+    fn create_dialog_popup(&self, item_id: u32);
+    fn popup_dialog_draw(&self, popup_dialog: &TaskData);
+}
+
+pub trait ApplicationMemoryOps {
+    fn read_address<V>(&self, offset: usize) -> &mut V;
 }
 
 #[derive(Debug)]
@@ -386,7 +398,9 @@ fn get_application() -> &'static Box<dyn Application + Sync> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{AppConfig, Application, Randomizer, ReceivePayload, TaskData};
+    use crate::{AppConfig, TaskData};
+    use crate::application::{Application};
+    use crate::network::{Randomizer, ReceivePayload};
     use lazy_static::lazy_static;
     use tungstenite::Error;
 

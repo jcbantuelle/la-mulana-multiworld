@@ -7,13 +7,18 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 
 static CHANNEL_NAME: &str = "MultiworldSyncChannel";
 
+pub fn serialize_message<T: Serialize>(message: T) -> String {
+    serde_json::to_string(&message).unwrap()
+}
+
+pub trait Randomizer {
+    fn read_messages(&self) -> Result<ReceivePayload, tungstenite::Error>;
+    fn send_message(&self, message: &str);
+}
+
 pub struct LiveRandomizer {
     pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>,
     pub identifier: Identifier
-}
-
-pub fn serialize_message<T: Serialize>(message: T) -> String {
-    serde_json::to_string(&message).unwrap()
 }
 
 impl LiveRandomizer {
