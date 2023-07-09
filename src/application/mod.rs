@@ -1,5 +1,6 @@
 pub mod memory;
 
+use std::borrow::Borrow;
 use log::debug;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
@@ -8,10 +9,11 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{AppConfig, Application, APPLICATION, MainApplication, MainApplicationMemoryOps, Randomizer};
+use crate::{AppConfig, Application, APPLICATION, MainApplication, MainApplicationMemoryOps, MainApplicationRandomizer, Randomizer};
+use crate::application::tests::{TEST_APPLICATION, TestApplication, TestRandomizer};
 use crate::lm_structs::items::{generate_item_translator};
 use crate::utils::show_message_box;
-use crate::network::{NetworkReader, NetworkReaderError, RandomizerMessage};
+use crate::network::{NetworkReader, NetworkReaderError, RandomizerMessage, serialize_message};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -43,6 +45,7 @@ pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
 pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 pub static GLOBAL_FLAGS_ADDRESS: usize = 0x006d5a70;
 pub static INVENTORY_ADDRESS: usize = 0x006d4db4;
+pub static IS_TEST: Mutex<bool> = Mutex::new(false);
 
 lazy_static! {
     static ref ITEMS_TO_GIVE: Mutex<Vec<GivenItem>> = Mutex::new(vec![]);
@@ -83,7 +86,7 @@ impl Application {
     extern "stdcall" fn game_loop() -> DWORD {
         let game_init: &mut u32 =  APPLICATION.read_address(GAME_INIT_ADDRESS);
         if *game_init != 0 {
-            let _ = APPLICATION.get_randomizer().read_messages(|payload| {
+            let _ = APPLICATION.get_randomizer().read_messages().map(|payload| {
                 let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
                 let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
                 let global_item_lookup = generate_item_translator();
@@ -206,10 +209,12 @@ impl Application {
 
             let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
             APPLICATION.create_dialog_popup(item_id as u32);
-            APPLICATION.get_randomizer().send_message(RandomizerMessage {
-                player_id: APPLICATION.get_app_config().user_id,
-                global_flags: global_flags.to_vec()
-            });
+            APPLICATION.get_randomizer().send_message(&serialize_message (
+                RandomizerMessage {
+                    player_id: APPLICATION.get_app_config().user_id,
+                    global_flags: global_flags.to_vec()
+                }
+            ))
         }
 
         result
@@ -262,7 +267,7 @@ impl Application {
     }
 
     fn read(&self) -> Result<(), NetworkReaderError> {
-        return APPLICATION.get_randomizer().read_messages(|payload| {
+        return APPLICATION.get_randomizer().read_messages().map(|payload| {
             let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
             let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
             let global_item_lookup = generate_item_translator();
@@ -294,7 +299,7 @@ impl Application {
 
 }
 
-impl MainApplication<Randomizer> for Application {
+impl MainApplication for Application {
     fn attach(&self) {
         *self.read_address(INIT_ATTACH_ADDRESS) = Self::app_init as usize;
         *self.read_address(GAME_LOOP_ATTACH_ADDRESS) = Self::game_loop as usize;
@@ -307,7 +312,7 @@ impl MainApplication<Randomizer> for Application {
         self.address
     }
 
-    fn get_randomizer(&self) -> &Randomizer {
+    fn get_randomizer(&self) -> &dyn MainApplicationRandomizer {
         &self.randomizer
     }
 
@@ -350,7 +355,7 @@ impl MainApplication<Randomizer> for Application {
     }
 }
 
-impl MainApplicationMemoryOps<Application, Randomizer> for Box<dyn MainApplication<Randomizer> + Sync> {
+impl MainApplicationMemoryOps<Application> for Box<dyn MainApplication + Sync> {
     fn get_application(&self) -> &Application {
         todo!()
     }
@@ -363,7 +368,7 @@ impl MainApplicationMemoryOps<Application, Randomizer> for Box<dyn MainApplicati
     }
 }
 
-impl MainApplicationMemoryOps<Application, Randomizer> for Application {
+impl MainApplicationMemoryOps<Application> for Application {
     fn get_application(&self) -> &Application {
         todo!()
     }
@@ -374,6 +379,24 @@ impl MainApplicationMemoryOps<Application, Randomizer> for Application {
             &mut*(addr as *mut T)
         }
     }
+}
+
+// fn get_application() -> Applications {
+//     if *IS_TEST.lock().unwrap() {
+//         Applications { test: &*TEST_APPLICATION }
+//     }
+//     else {
+//         Applications { main: &*APPLICATION }
+//     }
+// }
+
+fn get_application<T>() -> &'static Box<dyn MainApplication + Sync> {
+     if *IS_TEST.lock().unwrap() {
+         &*TEST_APPLICATION
+     }
+     else {
+         &*APPLICATION
+     }
 }
 
 #[cfg(test)]
@@ -386,8 +409,62 @@ mod tests {
     // use std::sync::Mutex;
     // use crate::{AppConfig, Randomizer};
     // use crate::network::Identifier;
-    // use crate::Application;
-    // use crate::application::memory::Memory;
+    use crate::{AppConfig, MainApplication, MainApplicationRandomizer, ReceivePayload, TaskData};
+    use lazy_static::lazy_static;
+    use tungstenite::Error;
+
+    lazy_static!{
+        pub static ref TEST_APPLICATION: Box<dyn MainApplication + Sync> = init_test_app();
+    }
+
+    #[derive(Clone)]
+    pub struct TestApplication {}
+
+    pub struct TestRandomizer {}
+
+    impl MainApplication for TestApplication {
+        fn attach(&self) {
+            todo!()
+        }
+
+        fn get_address(&self) -> usize {
+            todo!()
+        }
+
+        fn get_randomizer(&self) -> &dyn MainApplicationRandomizer {
+            todo!()
+        }
+
+        fn get_app_config(&self) -> &AppConfig {
+            todo!()
+        }
+
+        fn give_item(&self, item: u32) {
+            todo!()
+        }
+
+        fn create_dialog_popup(&self, item_id: u32) {
+            todo!()
+        }
+
+        fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
+            todo!()
+        }
+    }
+
+    impl MainApplicationRandomizer for TestRandomizer {
+        fn read_messages(&self) -> Result<ReceivePayload, Error> {
+            todo!()
+        }
+
+        fn send_message(&self, message: &str) {
+            todo!()
+        }
+    }
+
+    fn init_test_app() -> Box<dyn MainApplication + Sync> {
+        todo!()
+    }
 
     #[test]
     fn test_network_reader() {

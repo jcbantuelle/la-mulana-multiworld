@@ -12,6 +12,10 @@ pub struct Randomizer {
     pub identifier: Identifier
 }
 
+pub fn serialize_message<T: Serialize>(message: T) -> String {
+    serde_json::to_string(&message).unwrap()
+}
+
 impl Randomizer {
     pub fn new(server_url: &str, user_id: i32) -> Randomizer {
         let url = url::Url::parse(server_url).unwrap();
@@ -41,11 +45,26 @@ impl Randomizer {
         }
     }
 
-    pub fn send_message<T: Serialize>(&self, message: T) {
+    // pub fn send_message<T: Serialize>(&self, message: T) {
+    //     let send_payload = SendPayload {
+    //         command: "message".to_string(),
+    //         identifier: serde_json::to_string(&self.identifier).unwrap(),
+    //         data: serde_json::to_string(&message).unwrap()
+    //     };
+    //     let body = serde_json::to_string(&send_payload).unwrap();
+    //     debug!("Sending message of {}...", body);
+    //     let send_message = Message::Text(body);
+    //     match self.websocket.lock().unwrap().write_message(send_message) {
+    //         Ok(_) => debug!("Successfully send messages to the randomizer."),
+    //         Err(e) => error!("send_message: Error sending messages to the randomizer - {:?}", e)
+    //     }
+    // }
+
+    pub fn send_message(&self, message: &str) {
         let send_payload = SendPayload {
             command: "message".to_string(),
             identifier: serde_json::to_string(&self.identifier).unwrap(),
-            data: serde_json::to_string(&message).unwrap()
+            data: message.to_string()
         };
         let body = serde_json::to_string(&send_payload).unwrap();
         debug!("Sending message of {}...", body);
@@ -56,12 +75,10 @@ impl Randomizer {
         }
     }
 
-    pub fn read_messages(&self, f: impl Fn(ReceivePayload) -> ()) -> Result<(), tungstenite::Error> {
+    pub fn read_messages(&self) -> Result<ReceivePayload, tungstenite::Error> {
         self.websocket.lock().unwrap().read_message().map(|message| {
             let data = message.into_data();
-            let _ = serde_json::from_slice::<ReceivePayload>(data.as_ref()).map(|payload| {
-                f(payload)
-            });
+            serde_json::from_slice::<ReceivePayload>(data.as_ref()).expect("Did not receive expected payload from server.")
         })
     }
 }

@@ -30,26 +30,27 @@ pub mod lm_structs;
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
 
 pub trait MainApplicationRandomizer {
-    fn read_messages(&self, f: impl Fn(ReceivePayload) -> ()) -> Result<(), tungstenite::Error>;
+    fn read_messages(&self) -> Result<ReceivePayload, tungstenite::Error>;
+    fn send_message(&self, message: &str);
 }
 
-pub trait MainApplication<T> {
+pub trait MainApplication {
     fn attach(&self);
     fn get_address(&self) -> usize;
-    fn get_randomizer(&self) -> &T where T: MainApplicationRandomizer;
+    fn get_randomizer(&self) -> &dyn MainApplicationRandomizer;
     fn get_app_config(&self) -> &AppConfig;
     fn give_item(&self, item: u32);
     fn create_dialog_popup(&self, item_id: u32);
     fn popup_dialog_draw(&self, popup_dialog: &TaskData);
 }
 
-pub trait MainApplicationMemoryOps<T, U> {
-    fn get_application(&self) -> &T where T: MainApplication<U>;
+pub trait MainApplicationMemoryOps<T> {
+    fn get_application(&self) -> &T where T: MainApplication;
     fn read_address<V>(&self, offset: usize) -> &mut V;
 }
 
 lazy_static!{
-    pub static ref APPLICATION: Box<dyn MainApplication<Randomizer> + Sync> = init_app();
+    pub static ref APPLICATION: Box<dyn MainApplication + Sync> = init_app();
 }
 
 #[serde_as]
@@ -69,8 +70,12 @@ pub struct Application {
 }
 
 impl MainApplicationRandomizer for Randomizer {
-    fn read_messages(&self, f: impl Fn(ReceivePayload) -> ()) -> Result<(), Error> {
-        self.read_messages(f)
+    fn read_messages(&self) -> Result<ReceivePayload, Error> {
+        self.read_messages()
+    }
+
+    fn send_message(&self, message: &str) {
+        self.send_message(message)
     }
 }
 
@@ -100,7 +105,7 @@ fn init_logger(app_config: &AppConfig) {
     log4rs::init_config(log_config).unwrap();
 }
 
-fn init_app() -> Box<dyn MainApplication<Randomizer> + Sync> {
+fn init_app() -> Box<dyn MainApplication + Sync> {
     let address = unsafe { GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000) } as usize;
 
     let app_config = read_config().map_err(|err| {
