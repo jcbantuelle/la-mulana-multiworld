@@ -45,21 +45,6 @@ impl Randomizer {
         }
     }
 
-    // pub fn send_message<T: Serialize>(&self, message: T) {
-    //     let send_payload = SendPayload {
-    //         command: "message".to_string(),
-    //         identifier: serde_json::to_string(&self.identifier).unwrap(),
-    //         data: serde_json::to_string(&message).unwrap()
-    //     };
-    //     let body = serde_json::to_string(&send_payload).unwrap();
-    //     debug!("Sending message of {}...", body);
-    //     let send_message = Message::Text(body);
-    //     match self.websocket.lock().unwrap().write_message(send_message) {
-    //         Ok(_) => debug!("Successfully send messages to the randomizer."),
-    //         Err(e) => error!("send_message: Error sending messages to the randomizer - {:?}", e)
-    //     }
-    // }
-
     pub fn send_message(&self, message: &str) {
         let send_payload = SendPayload {
             command: "message".to_string(),

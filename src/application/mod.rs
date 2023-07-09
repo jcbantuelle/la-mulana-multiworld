@@ -1,6 +1,5 @@
 pub mod memory;
 
-use std::borrow::Borrow;
 use log::debug;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
@@ -84,11 +83,12 @@ impl Application {
     }
 
     extern "stdcall" fn game_loop() -> DWORD {
-        let game_init: &mut u32 =  APPLICATION.read_address(GAME_INIT_ADDRESS);
+        let application = get_application();
+        let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
         if *game_init != 0 {
-            let _ = APPLICATION.get_randomizer().read_messages().map(|payload| {
+            let _ = application.get_randomizer().read_messages().map(|payload| {
                 let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-                let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
+                let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
                 let global_item_lookup = generate_item_translator();
 
                 /* We have to do the diff here and see what items the player really should get */
@@ -120,15 +120,15 @@ impl Application {
                             player_id: next_item.player_id,
                             for_player: false
                         });
-                        APPLICATION.give_item(next_item.item_id);
+                        application.give_item(next_item.item_id);
                     }
                 }
             }
 
             if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
                 if let Some(popup) = popup_option.as_ref() {
-                    if popup.popup_id != *APPLICATION.read_address::<u32>(popup.popup_id_address) {
-                        *APPLICATION.read_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
+                    if popup.popup_id != *application.read_address::<u32>(popup.popup_id_address) {
+                        *application.read_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
                         **popup_option = None;
                     }
                 }
@@ -139,14 +139,15 @@ impl Application {
     }
 
     extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
+        let application = get_application();
         let mut player_item_option = PLAYER_ITEM.lock().unwrap();
         if let Some(player_item) = player_item_option.as_ref() {
-            let script_header: &*const ScriptHeader = APPLICATION.read_address(SCRIPT_HEADER_POINTER_ADDRESS);
+            let script_header: &*const ScriptHeader = application.read_address(SCRIPT_HEADER_POINTER_ADDRESS);
             let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
             let line = unsafe { &mut *line_header.add(2) };
 
             let item_for_text = if player_item.for_player { "For" } else { "From" };
-            let player_name = APPLICATION.get_app_config().players.get(&player_item.player_id).unwrap();
+            let player_name = application.get_app_config().players.get(&player_item.player_id).unwrap();
 
             let popup = PlayerItemPopup {
                 popup_id_address: &popup_dialog.id.uid as *const u32 as usize,
@@ -166,16 +167,16 @@ impl Application {
                 font_num: (popup.encoded.len() - 3) as i32
             };
 
-            APPLICATION.popup_dialog_draw(popup_dialog);
+            application.popup_dialog_draw(popup_dialog);
 
             *player_item_option = None;
         } else {
-            APPLICATION.popup_dialog_draw(popup_dialog);
+            application.popup_dialog_draw(popup_dialog);
         }
     }
 
     extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
-        let item_symbol_init: &*const () = APPLICATION.read_address(ITEM_SYMBOL_INIT_ADDRESS);
+        let item_symbol_init: &*const () = get_application().read_address(ITEM_SYMBOL_INIT_ADDRESS);
         let item_symbol_init_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(item_symbol_init) };
         (item_symbol_init_func)(item);
         item.rfunc = Self::item_symbol_back_intercept as EventWithBool;
@@ -184,7 +185,7 @@ impl Application {
     fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         let acquired = item.hit_data > 0;
         let item_id = item.buff[1];
-        let chest: &mut TaskData = APPLICATION.read_address(item.addr[0]);
+        let chest: &mut TaskData = get_application().read_address(item.addr[0]);
         let player_id_for_item = chest.sbuff[6];
         let item_for_other = player_id_for_item != APPLICATION.get_app_config().user_id;
 
@@ -267,9 +268,10 @@ impl Application {
     }
 
     fn read(&self) -> Result<(), NetworkReaderError> {
-        return APPLICATION.get_randomizer().read_messages().map(|payload| {
+        let application = get_application();
+        return application.get_randomizer().read_messages().map(|payload| {
             let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-            let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
+            let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
             let global_item_lookup = generate_item_translator();
 
             /* We have to do the diff here and see what items the player really should get */
@@ -355,11 +357,7 @@ impl MainApplication for Application {
     }
 }
 
-impl MainApplicationMemoryOps<Application> for Box<dyn MainApplication + Sync> {
-    fn get_application(&self) -> &Application {
-        todo!()
-    }
-
+impl MainApplicationMemoryOps for Box<dyn MainApplication + Sync> {
     fn read_address<T>(&self, offset: usize) -> &mut T {
         unsafe {
             let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
@@ -368,11 +366,7 @@ impl MainApplicationMemoryOps<Application> for Box<dyn MainApplication + Sync> {
     }
 }
 
-impl MainApplicationMemoryOps<Application> for Application {
-    fn get_application(&self) -> &Application {
-        todo!()
-    }
-
+impl MainApplicationMemoryOps for Application {
     fn read_address<T>(&self, offset: usize) -> &mut T {
         unsafe {
             let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
@@ -381,16 +375,7 @@ impl MainApplicationMemoryOps<Application> for Application {
     }
 }
 
-// fn get_application() -> Applications {
-//     if *IS_TEST.lock().unwrap() {
-//         Applications { test: &*TEST_APPLICATION }
-//     }
-//     else {
-//         Applications { main: &*APPLICATION }
-//     }
-// }
-
-fn get_application<T>() -> &'static Box<dyn MainApplication + Sync> {
+fn get_application() -> &'static Box<dyn MainApplication + Sync> {
      if *IS_TEST.lock().unwrap() {
          &*TEST_APPLICATION
      }
@@ -401,14 +386,6 @@ fn get_application<T>() -> &'static Box<dyn MainApplication + Sync> {
 
 #[cfg(test)]
 mod tests {
-    // use std::net::{TcpListener, TcpStream};
-    // use std::thread::spawn;
-    // use std::time::Duration;
-    // use tungstenite::accept;
-    // use tungstenite::connect;
-    // use std::sync::Mutex;
-    // use crate::{AppConfig, Randomizer};
-    // use crate::network::Identifier;
     use crate::{AppConfig, MainApplication, MainApplicationRandomizer, ReceivePayload, TaskData};
     use lazy_static::lazy_static;
     use tungstenite::Error;
@@ -463,7 +440,9 @@ mod tests {
     }
 
     fn init_test_app() -> Box<dyn MainApplication + Sync> {
-        todo!()
+        let mut is_test = super::IS_TEST.lock().unwrap();
+        *is_test = true;
+        Box::new(TestApplication{})
     }
 
     #[test]

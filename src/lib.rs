@@ -44,8 +44,7 @@ pub trait MainApplication {
     fn popup_dialog_draw(&self, popup_dialog: &TaskData);
 }
 
-pub trait MainApplicationMemoryOps<T> {
-    fn get_application(&self) -> &T where T: MainApplication;
+pub trait MainApplicationMemoryOps {
     fn read_address<V>(&self, offset: usize) -> &mut V;
 }
 
