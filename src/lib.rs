@@ -22,7 +22,6 @@ use utils::show_message_box;
 use crate::application::Application;
 use crate::lm_structs::taskdata::TaskData;
 use crate::network::{LiveRandomizer, Randomizer, ReceivePayload};
-use crate::tests::TEST_APPLICATION;
 
 pub mod utils;
 pub mod network;
@@ -112,25 +111,55 @@ fn get_application() -> &'static Box<dyn Application + Sync> {
     &*APPLICATION
 }
 
-
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
     use std::sync::Mutex;
     use crate::{AppConfig, TaskData};
-    use crate::application::{Application};
+    use crate::application::{Application, ApplicationMemoryOps};
     use crate::network::{Randomizer, ReceivePayload};
     use lazy_static::lazy_static;
     use tungstenite::Error;
 
     lazy_static!{
-        pub static ref TEST_APPLICATION: Box<dyn Application + Sync> = init_test_app();
+        pub static ref READ_ADDRESS_STACK: Mutex<Vec<u32>> = {
+            Mutex::new(vec![])
+        };
+
+        pub static ref READ_PAYLOAD_STACK: Mutex<Vec<Result<ReceivePayload, Error>>> = {
+            Mutex::new(vec![])
+        };
+
+        pub static ref SENT_MESSAGES: Mutex<Vec<String>> = {
+            Mutex::new(vec![])
+        };
+
+        pub static ref TEST_RANDOMIZER: Box<dyn Randomizer + Sync> = {
+            Box::new(
+                TestRandomizer {}
+            )
+        };
     }
 
-    pub struct TestApplication {
-        pub read_address_stack: Mutex<Vec<u32>>
-    }
+    pub struct TestApplication {}
 
     pub struct TestRandomizer {}
+
+    pub fn add_to_read_address_stack(u: u32) {
+        let stack_mutex = &*READ_ADDRESS_STACK;
+        let mut stack = stack_mutex.lock().unwrap();
+        stack.push(u);
+    }
+
+    pub fn add_to_read_payload_stack(input: Result<ReceivePayload, Error>) {
+        let stack_mutex = &*READ_PAYLOAD_STACK;
+        let mut stack = stack_mutex.lock().unwrap();
+        stack.push(input);
+    }
+
+    pub fn calculate_address<T>(input: &T, address: usize) -> u32 {
+        (input as *const T).cast::<u8>().wrapping_sub(address) as u32
+    }
 
     impl Application for TestApplication {
         fn attach(&self) {
@@ -138,11 +167,13 @@ mod tests {
         }
 
         fn get_address(&self) -> usize {
-            self.read_address_stack.lock().unwrap().pop().expect("No addresses pushed for testing.") as usize
+            let stack_mutex = &*READ_ADDRESS_STACK;
+            let mut stack = stack_mutex.lock().unwrap();
+            stack.pop().expect("No address left in READ_ADDRESS_STACK") as usize
         }
 
         fn get_randomizer(&self) -> &dyn Randomizer {
-            todo!()
+            &**TEST_RANDOMIZER
         }
 
         fn get_app_config(&self) -> &AppConfig {
@@ -192,17 +223,29 @@ mod tests {
 
     impl Randomizer for TestRandomizer {
         fn read_messages(&self) -> Result<ReceivePayload, Error> {
-            todo!()
+            let stack_mutex = &*READ_PAYLOAD_STACK;
+            let mut stack = stack_mutex.lock().unwrap();
+            stack.pop().expect("No payload left in READ_ADDRESS_STACK")
         }
 
         fn send_message(&self, message: &str) {
-            todo!()
+            let messages_mutex = &*SENT_MESSAGES;
+            let mut messages = messages_mutex.lock().unwrap();
+            messages.push(message.to_string());
+
         }
     }
 
     pub fn init_test_app() -> Box<dyn Application + Sync> {
-        Box::new(TestApplication {
-            read_address_stack: Mutex::new(vec![])
-        })
+        Box::new(TestApplication { })
+    }
+
+    impl ApplicationMemoryOps for TestApplication {
+        fn read_address<T>(&self, offset: usize) -> &mut T {
+            unsafe {
+                let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
+                &mut*(addr as *mut T)
+            }
+        }
     }
 }

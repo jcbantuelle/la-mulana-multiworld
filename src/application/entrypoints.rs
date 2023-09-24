@@ -15,7 +15,6 @@ use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
 use crate::screenplay;
-use crate::tests::TEST_APPLICATION;
 
 #[derive(Debug)]
 pub struct GivenItem {
@@ -65,10 +64,8 @@ pub extern "stdcall" fn game_loop() -> DWORD {
 
             for item in payload.message.items {
                 let player_id = item.player_id;
-                let maybe_global_flag_id = global_item_lookup.get(&item.item_id);
-
-                if maybe_global_flag_id.is_some() {
-                    let global_flag_id = maybe_global_flag_id.unwrap().index;
+                if let Some(global_flag_id) = global_item_lookup.get(&item.item_id) {
+                    let global_flag_id = global_flag_id.index;
                     if global_flags[global_flag_id as usize] != 255 {
                         items_to_give.push(GivenItem {
                             player_id: player_id as i32,
@@ -105,7 +102,7 @@ pub extern "stdcall" fn game_loop() -> DWORD {
         }
     }
 
-    unsafe { timeGetTime() }
+    get_time()
 }
 
 pub extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
@@ -191,12 +188,39 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     result
 }
 
+#[cfg(not(test))]
+pub fn get_time() -> DWORD {
+    unsafe { timeGetTime() }
+}
+
+#[cfg(test)]
+pub fn get_time() -> DWORD {
+    0
+}
+
+
 #[cfg(test)]
 mod tests {
+    use std::io::ErrorKind;
+    use crate::{APPLICATION, Application, ReceivePayload};
     use crate::application::entrypoints::game_loop;
+    use crate::application::{GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS};
+    use crate::network::ReceiveMessage;
+    use crate::tests::{TestApplication, add_to_read_address_stack, calculate_address, add_to_read_payload_stack, READ_PAYLOAD_STACK};
 
     #[test]
-    fn test_game_loop_smoke() {
+    fn test_game_loop_with_error_from_receive_payload() {
+        let game_init = 1;
+        let global_flags: [u8;2055] = [0 as u8; 2055];
+        add_to_read_address_stack(calculate_address(&global_flags, GLOBAL_FLAGS_ADDRESS));
+        add_to_read_address_stack(calculate_address(&game_init, GAME_INIT_ADDRESS));
+        add_to_read_payload_stack(
+            Err(tungstenite::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "Test network error")))
+        );
+
         game_loop();
+
+        let read_payload_stack = &*READ_PAYLOAD_STACK;
+        assert_eq!(read_payload_stack.lock().unwrap().len(), 0);
     }
 }

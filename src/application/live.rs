@@ -102,15 +102,6 @@ impl Application for LiveApplication {
     }
 }
 
-impl ApplicationMemoryOps for Box<dyn Application + Sync> {
-    fn read_address<T>(&self, offset: usize) -> &mut T {
-        unsafe {
-            let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
-            &mut*(addr as *mut T)
-        }
-    }
-}
-
 impl ApplicationMemoryOps for LiveApplication {
     fn read_address<T>(&self, offset: usize) -> &mut T {
         unsafe {

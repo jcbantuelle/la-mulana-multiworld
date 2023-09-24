@@ -55,3 +55,12 @@ pub trait ApplicationMemoryOps {
     fn read_address<V>(&self, offset: usize) -> &mut V;
 }
 
+impl ApplicationMemoryOps for Box<dyn Application + Sync> {
+    fn read_address<T>(&self, offset: usize) -> &mut T {
+        unsafe {
+            let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
+            &mut*(addr as *mut T)
+        }
+    }
+}
+
