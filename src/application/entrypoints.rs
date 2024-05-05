@@ -1,5 +1,7 @@
 use log::debug;
 use std::sync::Mutex;
+use archipelago_rs::protocol::{LocationChecks, ServerMessage};
+use archipelago_rs::protocol::{ClientMessage, ReceivedItems};
 use lazy_static::lazy_static;
 
 use winapi::shared::minwindef::*;
@@ -55,26 +57,35 @@ pub extern "stdcall" fn game_loop() -> DWORD {
     let application = get_application();
     let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
     if *game_init != 0 {
-        let _ = application.get_randomizer().read_messages().map(|payload| {
-            let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-            let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-            let global_item_lookup = generate_item_translator();
+        let _ = application.get_randomizer().read_messages().map(|maybe_payload| {
+            if let Some(payload) = maybe_payload {
+                match payload {
+                    ServerMessage::ReceivedItems(received_items) => {
+                        let network_items = received_items.items;
+                        debug!("{:?}", network_items);
+                        let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
+                        let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                        let global_item_lookup = generate_item_translator();
 
-            /* We have to do the diff here and see what items the player really should get */
+                        /* We have to do the diff here and see what items the player really should get */
 
-            for item in payload.message.items {
-                let player_id = item.player_id;
-                if let Some(global_flag_id) = global_item_lookup.get(&item.item_id) {
-                    let global_flag_id = global_flag_id.index;
-                    if global_flags[global_flag_id as usize] != 255 {
-                        items_to_give.push(GivenItem {
-                            player_id: player_id as i32,
-                            item_id: item.item_id as u32
-                        });
+                        for item in network_items {
+                            let player_id = item.player;
+                            if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
+                                let global_flag_id = global_flag_id.index;
+                                if global_flags[global_flag_id as usize] != 255 {
+                                    items_to_give.push(GivenItem {
+                                        player_id: player_id as i32,
+                                        item_id: item.item as u32
+                                    });
+                                }
+                            }
+
+                            debug!("Received item {} from player ID {}.", item.item, player_id);
+                        }
                     }
+                    _ => ()
                 }
-
-                debug!("Received item {} from player ID {}.", item.item_id, player_id);
             }
         });
 
@@ -175,14 +186,8 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
             *player_item_option = Some(player_item);
         }
 
-        let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
         APPLICATION.create_dialog_popup(item_id as u32);
-        APPLICATION.get_randomizer().send_message(&serialize_message (
-            RandomizerMessage {
-                player_id: APPLICATION.get_app_config().user_id,
-                global_flags: global_flags.to_vec()
-            }
-        ))
+        APPLICATION.get_randomizer().send_message(ClientMessage::LocationChecks(LocationChecks { locations: vec![item_id] }));
     }
 
     result

@@ -1,75 +1,70 @@
 use std::sync::Mutex;
 use std::net::TcpStream;
 
-use log::{debug, error};
+use log::{debug, warn, error};
 use serde::{Deserialize, Serialize};
 use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
+use archipelago_rs::client::{ ArchipelagoClient, ArchipelagoError };
+use archipelago_rs::protocol::{ClientMessage, ClientStatus, ServerMessage};
+use std::io::{self, BufRead};
 
 static CHANNEL_NAME: &str = "MultiworldSyncChannel";
+static GAME_NAME: &str = "La-Mulana";
+static CLIENT_NAME: &str = "la_mulana_rs-0.0.1";
 
 pub fn serialize_message<T: Serialize>(message: T) -> String {
     serde_json::to_string(&message).unwrap()
 }
 
 pub trait Randomizer {
-    fn read_messages(&self) -> Result<ReceivePayload, tungstenite::Error>;
-    fn send_message(&self, message: &str);
+    fn read_messages(&self) -> Result<Option<ServerMessage>, ArchipelagoError>;
+    fn send_message(&self, message: ClientMessage);
 }
 
 pub struct LiveRandomizer {
-    pub websocket: Mutex<WebSocket<MaybeTlsStream<TcpStream>>>,
-    pub identifier: Identifier
+    pub runtime: tokio::runtime::Runtime,
+    pub client: Mutex<ArchipelagoClient>
+}
+
+pub struct ReceiveMessageError {
+    pub message: String
 }
 
 impl LiveRandomizer {
-    pub fn new(server_url: &str, user_id: i32) -> LiveRandomizer {
-        let url = url::Url::parse(server_url).unwrap();
-        let (mut ws_connection, _) = connect(url).expect("Failed to connect");
-        match ws_connection.get_ref() {
-            MaybeTlsStream::NativeTls(ref tls) => {
-                tls.get_ref().set_nonblocking(true).map_err(|err| {
-                    error!("Could not set socket as nonblocking: {}", err);
-                }).unwrap();
-            },
-            _ => ()
-        };
+    pub fn new(server_url: &str, slot: &str) -> LiveRandomizer {
 
-        let identifier = Identifier {
-            id: user_id,
-            channel: CHANNEL_NAME.to_string()
-        };
-        let subscribe_payload = SubscribePayload {
-            command: "subscribe".to_string(),
-            identifier: serde_json::to_string(&identifier).unwrap()
-        };
+        // Connect to AP server
+        let server = server_url;
 
-        ws_connection.write_message(Message::Text(serde_json::to_string(&subscribe_payload).unwrap())).expect("Unable to Connect To Websocket Channel");
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let res = rt.block_on(async { ArchipelagoClient::new(&server).await });
+        let mut client = res.unwrap();
+        println!("Connected!");
+
+        // Connect to a given slot on the server
+
+        rt.block_on(async {
+            client
+                .connect(GAME_NAME, &slot, None, Some(7), vec![CLIENT_NAME.to_string()])
+                .await
+        });
+
         LiveRandomizer {
-            websocket: Mutex::new(ws_connection),
-            identifier
+            runtime: rt,
+            client: Mutex::new(client)
         }
     }
 
-    pub fn send_message(&self, message: &str) {
-        let send_payload = SendPayload {
-            command: "message".to_string(),
-            identifier: serde_json::to_string(&self.identifier).unwrap(),
-            data: message.to_string()
-        };
-        let body = serde_json::to_string(&send_payload).unwrap();
-        debug!("Sending message of {}...", body);
-        let send_message = Message::Text(body);
-        match self.websocket.lock().unwrap().write_message(send_message) {
-            Ok(_) => debug!("Successfully send messages to the randomizer."),
-            Err(e) => error!("send_message: Error sending messages to the randomizer - {:?}", e)
-        }
+    pub fn send_message(&self, message: ClientMessage) {
+        self.client.lock().unwrap().send(message);
     }
 
-    pub fn read_messages(&self) -> Result<ReceivePayload, tungstenite::Error> {
-        self.websocket.lock().unwrap().read_message().map(|message| {
-            let data = message.into_data();
-            serde_json::from_slice::<ReceivePayload>(data.as_ref()).expect("Did not receive expected payload from server.")
-        })
+    pub fn read_messages(&self) -> Result<Option<ServerMessage>, ArchipelagoError> {
+        self.runtime.block_on( async { self.client.lock().unwrap().recv().await })
     }
 }
 

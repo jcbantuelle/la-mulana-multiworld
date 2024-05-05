@@ -3,6 +3,8 @@ use std::ptr::null_mut;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
+use archipelago_rs::client::ArchipelagoError;
+use archipelago_rs::protocol::{ClientMessage, ServerMessage};
 
 use toml;
 use serde::{Serialize, Deserialize};
@@ -16,12 +18,11 @@ use winapi::um::processthreadsapi::ExitProcess;
 use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
-use tungstenite::Error;
 
 use utils::show_message_box;
 use crate::application::Application;
 use crate::lm_structs::taskdata::TaskData;
-use crate::network::{LiveRandomizer, Randomizer, ReceivePayload};
+use crate::network::{LiveRandomizer, Randomizer, ReceivePayload, ReceiveMessageError};
 
 pub mod utils;
 pub mod network;
@@ -48,7 +49,8 @@ pub struct AppConfig {
     pub server_url: String,
     pub user_id: i32,
     #[serde_as(as = "HashMap<DisplayFromStr, _>")]
-    pub players: HashMap<i32, String>
+    pub players: HashMap<i32, String>,
+    pub slot: String
 }
 
 pub struct LiveApplication {
@@ -58,11 +60,11 @@ pub struct LiveApplication {
 }
 
 impl Randomizer for LiveRandomizer {
-    fn read_messages(&self) -> Result<ReceivePayload, Error> {
+    fn read_messages(&self) -> Result<Option<ServerMessage>, ArchipelagoError> {
         self.read_messages()
     }
 
-    fn send_message(&self, message: &str) {
+    fn send_message(&self, message: ClientMessage) {
         self.send_message(message)
     }
 }
@@ -102,7 +104,7 @@ fn init_app() -> Box<dyn Application + Sync> {
     }).unwrap();
     init_logger(&app_config);
 
-    let randomizer = LiveRandomizer::new(&app_config.server_url, app_config.user_id);
+    let randomizer = LiveRandomizer::new(&app_config.server_url, &app_config.slot);
 
     Box::new(LiveApplication { address, randomizer, app_config })
 }
@@ -115,7 +117,7 @@ fn get_application() -> &'static Box<dyn Application + Sync> {
 mod tests {
     use std::ops::Deref;
     use std::sync::Mutex;
-    use crate::{AppConfig, TaskData};
+    use crate::{AppConfig, ReceiveMessageError, TaskData};
     use crate::application::{Application, ApplicationMemoryOps};
     use crate::network::{Randomizer, ReceivePayload};
     use lazy_static::lazy_static;
@@ -222,7 +224,7 @@ mod tests {
     }
 
     impl Randomizer for TestRandomizer {
-        fn read_messages(&self) -> Result<ReceivePayload, Error> {
+        fn read_messages(&self) -> Result<ReceivePayload, ReceiveMessageError> {
             let stack_mutex = &*READ_PAYLOAD_STACK;
             let mut stack = stack_mutex.lock().unwrap();
             stack.pop().expect("No payload left in READ_ADDRESS_STACK")
