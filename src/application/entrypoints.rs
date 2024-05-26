@@ -207,6 +207,7 @@ pub fn get_time() -> DWORD {
 #[cfg(test)]
 mod tests {
     use std::io::ErrorKind;
+    use archipelago_rs::client::ArchipelagoError;
     use crate::{APPLICATION, Application, ReceivePayload};
     use crate::application::entrypoints::game_loop;
     use crate::application::{GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS};
@@ -220,7 +221,9 @@ mod tests {
         add_to_read_address_stack(calculate_address(&global_flags, GLOBAL_FLAGS_ADDRESS));
         add_to_read_address_stack(calculate_address(&game_init, GAME_INIT_ADDRESS));
         add_to_read_payload_stack(
-            Err(tungstenite::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "Test network error")))
+            Err(
+                ArchipelagoError::ConnectionClosed
+            )
         );
 
         game_loop();

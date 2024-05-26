@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::sync::Mutex;
 use std::net::TcpStream;
 
@@ -7,6 +8,8 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket, connect, Message};
 use archipelago_rs::client::{ ArchipelagoClient, ArchipelagoError };
 use archipelago_rs::protocol::{ClientMessage, ClientStatus, ServerMessage};
 use std::io::{self, BufRead};
+use std::pin::Pin;
+use tokio_tungstenite::tungstenite::Error;
 
 static CHANNEL_NAME: &str = "MultiworldSyncChannel";
 static GAME_NAME: &str = "La-Mulana";
@@ -23,7 +26,8 @@ pub trait Randomizer {
 
 pub struct LiveRandomizer {
     pub runtime: tokio::runtime::Runtime,
-    pub client: Mutex<ArchipelagoClient>
+    pub client: Mutex<ArchipelagoClient>,
+    pub slot: String
 }
 
 pub struct ReceiveMessageError {
@@ -35,36 +39,91 @@ impl LiveRandomizer {
 
         // Connect to AP server
         let server = server_url;
+        debug!("Connecting to {}...", server);
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
 
+        debug!("Created new runtime and about to block on client creation...");
         let res = rt.block_on(async { ArchipelagoClient::new(&server).await });
         let mut client = res.unwrap();
-        println!("Connected!");
 
-        // Connect to a given slot on the server
-
-        rt.block_on(async {
-            client
-                .connect(GAME_NAME, &slot, None, Some(7), vec![CLIENT_NAME.to_string()])
-                .await
-        });
-
+        debug!("Done connecting to server");
         LiveRandomizer {
             runtime: rt,
-            client: Mutex::new(client)
+            client: Mutex::new(client),
+            slot: slot.to_string()
         }
     }
 
     pub fn send_message(&self, message: ClientMessage) {
-        self.client.lock().unwrap().send(message);
+        let result = self.try_and_connect_on_failure::<(), (), ClientMessage>(
+            |m: ClientMessage| {
+                Box::pin(
+                    async {
+                        self.client.lock().unwrap().send(m).await
+                    }
+                )
+            }, message);
+
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                error!("network.send_message: Could not send message {:?}", e)
+            }
+        }
     }
 
     pub fn read_messages(&self) -> Result<Option<ServerMessage>, ArchipelagoError> {
-        self.runtime.block_on( async { self.client.lock().unwrap().recv().await })
+        self.try_and_connect_on_failure::<Option<ServerMessage>, Option<ServerMessage>, ()>(
+            |_| {
+                Box::pin(
+                    async {
+                        self.client.lock().unwrap().recv().await
+                    }
+                )
+            }, ()
+        )
+    }
+
+    pub fn try_and_connect_on_failure<'a, T: Sized, U: Sized, V: Clone>(&self, f: impl Fn(V) -> Pin<Box<dyn Future<Output=Result<T, ArchipelagoError>> + 'a>>, input: V) -> Result<U, ArchipelagoError> {
+        let mut count = 0;
+        let mut sent = true;
+
+        while count < 3 && !sent {
+            let m = self.runtime.block_on(
+                async {
+                    f(input.clone()).await
+                }
+            );
+
+            sent = m.is_ok();
+            if !sent {
+                count = count + 1;
+            }
+        }
+
+        Err(
+            ArchipelagoError::NetworkError(Error::ConnectionClosed)
+        )
+    }
+
+    fn connect(&mut self) {
+        debug!("About to connect to server with GAME_NAME of {} and slot {}...", GAME_NAME, self.slot);
+        self.runtime.block_on(async {
+            self.client.lock().unwrap()
+                .connect(GAME_NAME, &self.slot, None, Some(7), vec![CLIENT_NAME.to_string()])
+                .await
+        }).expect("Could not connect to server");
+    }
+
+    fn clone_message(&self, message: &ClientMessage) -> ClientMessage {
+        match message {
+           ClientMessage::Connect(connect)  => ClientMessage::Connect(connect.clone()),
+            _ => ClientMessage::Sync
+        }
     }
 }
 

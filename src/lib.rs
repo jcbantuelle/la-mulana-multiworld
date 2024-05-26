@@ -117,6 +117,8 @@ fn get_application() -> &'static Box<dyn Application + Sync> {
 mod tests {
     use std::ops::Deref;
     use std::sync::Mutex;
+    use archipelago_rs::client::ArchipelagoError;
+    use archipelago_rs::protocol::{ClientMessage, ServerMessage};
     use crate::{AppConfig, ReceiveMessageError, TaskData};
     use crate::application::{Application, ApplicationMemoryOps};
     use crate::network::{Randomizer, ReceivePayload};
@@ -128,11 +130,11 @@ mod tests {
             Mutex::new(vec![])
         };
 
-        pub static ref READ_PAYLOAD_STACK: Mutex<Vec<Result<ReceivePayload, Error>>> = {
+        pub static ref READ_PAYLOAD_STACK: Mutex<Vec<Result<Option<ServerMessage>, ArchipelagoError>>> = {
             Mutex::new(vec![])
         };
 
-        pub static ref SENT_MESSAGES: Mutex<Vec<String>> = {
+        pub static ref SENT_MESSAGES: Mutex<Vec<ClientMessage>> = {
             Mutex::new(vec![])
         };
 
@@ -153,7 +155,7 @@ mod tests {
         stack.push(u);
     }
 
-    pub fn add_to_read_payload_stack(input: Result<ReceivePayload, Error>) {
+    pub fn add_to_read_payload_stack(input: Result<Option<ServerMessage>, ArchipelagoError>) {
         let stack_mutex = &*READ_PAYLOAD_STACK;
         let mut stack = stack_mutex.lock().unwrap();
         stack.push(input);
@@ -224,16 +226,16 @@ mod tests {
     }
 
     impl Randomizer for TestRandomizer {
-        fn read_messages(&self) -> Result<ReceivePayload, ReceiveMessageError> {
+        fn read_messages(&self) -> Result<std::option::Option<ServerMessage>, ArchipelagoError> {
             let stack_mutex = &*READ_PAYLOAD_STACK;
             let mut stack = stack_mutex.lock().unwrap();
             stack.pop().expect("No payload left in READ_ADDRESS_STACK")
         }
 
-        fn send_message(&self, message: &str) {
+        fn send_message(&self, message: ClientMessage) {
             let messages_mutex = &*SENT_MESSAGES;
             let mut messages = messages_mutex.lock().unwrap();
-            messages.push(message.to_string());
+            messages.push(message);
 
         }
     }
