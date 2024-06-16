@@ -143,6 +143,10 @@ mod tests {
                 TestRandomizer {}
             )
         };
+
+        pub static ref ITEMS_RECEIVED: Mutex<Vec<u32>> = {
+            Mutex::new(vec![])
+        };
     }
 
     pub struct TestApplication {}
@@ -185,7 +189,9 @@ mod tests {
         }
 
         fn give_item(&self, item: u32) {
-            todo!()
+            let items_mutex = &*ITEMS_RECEIVED;
+            let mut items = items_mutex.lock().unwrap();
+            items.push(item);
         }
 
         fn create_dialog_popup(&self, item_id: u32) {
@@ -247,7 +253,10 @@ mod tests {
     impl ApplicationMemoryOps for TestApplication {
         fn read_address<T>(&self, offset: usize) -> &mut T {
             unsafe {
-                let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
+                let stack_mutex = &*READ_ADDRESS_STACK;
+                let mut stack = stack_mutex.lock().unwrap();
+                let addr = stack.pop().expect("No address left in READ_ADDRESS_STACK") as usize;
+
                 &mut*(addr as *mut T)
             }
         }

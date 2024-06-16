@@ -60,32 +60,34 @@ pub extern "stdcall" fn game_loop() -> DWORD {
         let _ = application.get_randomizer().read_messages().map(|maybe_payload| {
             if let Some(payload) = maybe_payload {
                 match payload {
-                    ServerMessage::ReceivedItems(received_items) => {
-                        let network_items = received_items.items;
-                        debug!("{:?}", network_items);
-                        let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-                        let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-                        let global_item_lookup = generate_item_translator();
+                     ServerMessage::ReceivedItems(received_items) => {
+                         let network_items = received_items.items;
+                         debug!("{:?}", network_items);
+                         let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
+                         let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                         let global_item_lookup = generate_item_translator();
 
-                        /* We have to do the diff here and see what items the player really should get */
+                         /* We have to do the diff here and see what items the player really should get */
 
-                        for item in network_items {
-                            let player_id = item.player;
-                            if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
-                                let global_flag_id = global_flag_id.index;
-                                if global_flags[global_flag_id as usize] != 255 {
-                                    items_to_give.push(GivenItem {
-                                        player_id: player_id as i32,
-                                        item_id: item.item as u32
-                                    });
-                                }
-                            }
+                         let mut count = 0;
+                         for item in network_items {
+                             let player_id = item.player;
+                             if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
+                                  let global_flag_id = global_flag_id.index;
+                                  if global_flags[global_flag_id as usize] != 255 {
+                                      count += global_flag_id;
+                                      items_to_give.push(GivenItem {
+                                          player_id: player_id as i32,
+                                          item_id: item.item as u32
+                                      });
+                                  }
+                             }
 
-                            debug!("Received item {} from player ID {}.", item.item, player_id);
-                        }
-                    }
-                    _ => ()
-                }
+                             debug!("Received item {} from player ID {}.", item.item, player_id);
+                         }
+                     }
+                     _ => ()
+                 }
             }
         });
 
@@ -206,13 +208,14 @@ pub fn get_time() -> DWORD {
 
 #[cfg(test)]
 mod tests {
-    use std::io::ErrorKind;
     use archipelago_rs::client::ArchipelagoError;
-    use crate::{APPLICATION, Application, ReceivePayload};
-    use crate::application::entrypoints::game_loop;
+    use archipelago_rs::protocol::{NetworkItem, ServerMessage};
+    use archipelago_rs::protocol::ReceivedItems;
+    use crate::{APPLICATION, Application, ReceivePayload, screenplay};
+    use crate::application::entrypoints::{game_loop, PLAYER_ITEM_POPUP, PlayerItemPopup};
     use crate::application::{GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS};
-    use crate::network::ReceiveMessage;
-    use crate::tests::{TestApplication, add_to_read_address_stack, calculate_address, add_to_read_payload_stack, READ_PAYLOAD_STACK};
+    use crate::lm_structs::script_header::ScriptSubHeader;
+    use crate::tests::{add_to_read_address_stack, calculate_address, add_to_read_payload_stack, READ_PAYLOAD_STACK, ITEMS_RECEIVED};
 
     #[test]
     fn test_game_loop_with_error_from_receive_payload() {
@@ -230,5 +233,55 @@ mod tests {
 
         let read_payload_stack = &*READ_PAYLOAD_STACK;
         assert_eq!(read_payload_stack.lock().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_game_loop_getting_item_from_server() {
+        let game_init = 1;
+        let global_flags: [u8;2055] = [0u8; 2055];
+        let subscript_header = ScriptSubHeader {
+            pointer: 0,
+            data_num: 0,
+            font_num: 0,
+        };
+        let popup_id = 1; // It doesn't match the id of the popup above
+        let popup_id_address = calculate_address(&popup_id, 0) as usize;
+        let popup = PlayerItemPopup {
+            popup_id_address,
+            popup_id: 0,
+            encoded: screenplay::encode(format!("  {} {}", "Test", "Test")),
+            line_address: 0,
+            old_line: subscript_header
+        };
+        let mut popup_option = PLAYER_ITEM_POPUP.lock().unwrap();
+        *popup_option = Some(popup);
+
+        add_to_read_address_stack(calculate_address(&global_flags, GLOBAL_FLAGS_ADDRESS));
+        add_to_read_address_stack(calculate_address(&game_init, GAME_INIT_ADDRESS));
+
+        add_to_read_payload_stack(
+            Ok(
+                Some(
+                    ServerMessage::ReceivedItems(
+                        ReceivedItems {
+                            index: 1,
+                            items: vec![
+                                NetworkItem {
+                                    item: 1,
+                                    location: 0,
+                                    player: 0,
+                                    flags: 0,
+                                }
+                            ],
+                        }
+                    )
+                )
+            )
+        );
+
+        game_loop();
+
+        let items_received_mutex = &*ITEMS_RECEIVED;
+        assert_eq!(items_received_mutex.lock().unwrap().len(), 1);
     }
 }
