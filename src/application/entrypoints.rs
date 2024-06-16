@@ -60,34 +60,34 @@ pub extern "stdcall" fn game_loop() -> DWORD {
         let _ = application.get_randomizer().read_messages().map(|maybe_payload| {
             if let Some(payload) = maybe_payload {
                 match payload {
-                     ServerMessage::ReceivedItems(received_items) => {
-                         let network_items = received_items.items;
-                         debug!("{:?}", network_items);
-                         let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-                         let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-                         let global_item_lookup = generate_item_translator();
+                    ServerMessage::ReceivedItems(received_items) => {
+                        let network_items = received_items.items;
+                        debug!("{:?}", network_items);
+                        let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
+                        let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                        let global_item_lookup = generate_item_translator();
 
-                         /* We have to do the diff here and see what items the player really should get */
+                        /* We have to do the diff here and see what items the player really should get */
 
-                         let mut count = 0;
-                         for item in network_items {
-                             let player_id = item.player;
-                             if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
-                                  let global_flag_id = global_flag_id.index;
-                                  if global_flags[global_flag_id as usize] != 255 {
-                                      count += global_flag_id;
-                                      items_to_give.push(GivenItem {
-                                          player_id: player_id as i32,
-                                          item_id: item.item as u32
-                                      });
-                                  }
-                             }
+                        let mut count = 0;
+                        for item in network_items {
+                            let player_id = item.player;
+                            if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
+                                 let global_flag_id = global_flag_id.index;
+                                 if global_flags[global_flag_id as usize] != 255 {
+                                     count += global_flag_id;
+                                     items_to_give.push(GivenItem {
+                                         player_id: player_id as i32,
+                                         item_id: item.item as u32
+                                     });
+                                 }
+                            }
 
-                             debug!("Received item {} from player ID {}.", item.item, player_id);
-                         }
-                     }
-                     _ => ()
-                 }
+                            debug!("Received item {} from player ID {}.", item.item, player_id);
+                        }
+                    }
+                    _ => ()
+                }
             }
         });
 
