@@ -11,6 +11,8 @@ use std::io::{self, BufRead};
 use std::pin::Pin;
 use tokio_tungstenite::tungstenite::Error;
 
+use crate::AppConfig;
+
 static CHANNEL_NAME: &str = "MultiworldSyncChannel";
 static GAME_NAME: &str = "La-Mulana";
 static CLIENT_NAME: &str = "la_mulana_rs-0.0.1";
@@ -27,7 +29,7 @@ pub trait Randomizer {
 pub struct LiveRandomizer {
     pub runtime: tokio::runtime::Runtime,
     pub client: Mutex<ArchipelagoClient>,
-    pub slot: String
+    pub app_config: AppConfig
 }
 
 pub struct ReceiveMessageError {
@@ -35,11 +37,10 @@ pub struct ReceiveMessageError {
 }
 
 impl LiveRandomizer {
-    pub fn new(server_url: &str, slot: &str) -> LiveRandomizer {
+    pub fn new(app_config: AppConfig) -> LiveRandomizer {
 
         // Connect to AP server
-        let server = server_url;
-        debug!("Connecting to {}...", server);
+        debug!("Connecting to {}...", &app_config.server_url);
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -47,14 +48,14 @@ impl LiveRandomizer {
             .unwrap();
 
         debug!("Created new runtime and about to block on client creation...");
-        let res = rt.block_on(async { ArchipelagoClient::new(&server).await });
+        let res = rt.block_on(async { ArchipelagoClient::new(&app_config.server_url).await });
         let mut client = res.unwrap();
 
         debug!("Done connecting to server");
         LiveRandomizer {
             runtime: rt,
             client: Mutex::new(client),
-            slot: slot.to_string()
+            app_config: app_config
         }
     }
 
@@ -111,10 +112,10 @@ impl LiveRandomizer {
     }
 
     fn connect(&mut self) {
-        debug!("About to connect to server with GAME_NAME of {} and slot {}...", GAME_NAME, self.slot);
+        debug!("About to connect to server with GAME_NAME of {}...", GAME_NAME);
         self.runtime.block_on(async {
             self.client.lock().unwrap()
-                .connect(GAME_NAME, &self.slot, None, Some(7), vec![CLIENT_NAME.to_string()])
+                .connect(GAME_NAME, &self.app_config.players[&self.app_config.local_player_id], &self.app_config.local_player_id.to_string(), None, Some(1), vec![], false)
                 .await
         }).expect("Could not connect to server");
     }

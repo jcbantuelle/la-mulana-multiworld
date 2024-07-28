@@ -167,7 +167,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let item_id = item.buff[1];
     let chest: &mut TaskData = get_application().read_address(item.addr[0]);
     let player_id_for_item = chest.sbuff[6];
-    let item_for_other = player_id_for_item != APPLICATION.get_app_config().user_id;
+    let item_for_other = player_id_for_item != APPLICATION.get_app_config().local_player_id;
 
     if acquired && item_for_other {
         item.sbuff[2] = 0;

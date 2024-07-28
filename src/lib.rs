@@ -1,6 +1,7 @@
 use std::fs;
 use std::ptr::null_mut;
 use lazy_static::lazy_static;
+use toml::value::Array;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use archipelago_rs::client::ArchipelagoError;
@@ -42,15 +43,20 @@ lazy_static!{
     pub static ref APPLICATION: Box<dyn Application + Sync> = tests::init_test_app();
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ArchipelagoPlayer {
+    pub id: i32,
+    pub name: String
+}
+
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
-    pub log_file_name: String,
     pub server_url: String,
-    pub user_id: i32,
+    pub log_file_name: String,
+    pub local_player_id: i32,
     #[serde_as(as = "HashMap<DisplayFromStr, _>")]
-    pub players: HashMap<i32, String>,
-    pub slot: String
+    pub players: HashMap<i32, String>
 }
 
 pub struct LiveApplication {
@@ -104,7 +110,7 @@ fn init_app() -> Box<dyn Application + Sync> {
     }).unwrap();
     init_logger(&app_config);
 
-    let randomizer = LiveRandomizer::new(&app_config.server_url, &app_config.slot);
+    let randomizer = LiveRandomizer::new(app_config.clone());
 
     Box::new(LiveApplication { address, randomizer, app_config })
 }
