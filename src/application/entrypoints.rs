@@ -127,7 +127,8 @@ pub extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
         let line = unsafe { &mut *line_header.add(2) };
 
         let item_for_text = if player_item.for_player { "For" } else { "From" };
-        let player_name = application.get_app_config().players.get(&player_item.player_id).unwrap();
+        let players = application.get_app_config().players();
+        let player_name = players.get(&player_item.player_id).unwrap();
 
         let popup = PlayerItemPopup {
             popup_id_address: &popup_dialog.id.uid as *const u32 as usize,

@@ -49,14 +49,18 @@ pub struct ArchipelagoPlayer {
     pub name: String
 }
 
-#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
     pub server_url: String,
     pub log_file_name: String,
     pub local_player_id: i32,
-    #[serde_as(as = "HashMap<DisplayFromStr, _>")]
-    pub players: HashMap<i32, String>
+    pub players_info: Vec<ArchipelagoPlayer>,
+}
+
+impl AppConfig {
+    fn players(&self) -> HashMap<i32, String> {
+        self.players_info.clone().into_iter().map(|player| (player.id, player.name)).collect::<HashMap<_,_>>()
+    }
 }
 
 pub struct LiveApplication {

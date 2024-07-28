@@ -115,7 +115,7 @@ impl LiveRandomizer {
         debug!("About to connect to server with GAME_NAME of {}...", GAME_NAME);
         self.runtime.block_on(async {
             self.client.lock().unwrap()
-                .connect(GAME_NAME, &self.app_config.players[&self.app_config.local_player_id], &self.app_config.local_player_id.to_string(), None, Some(1), vec![], false)
+                .connect(GAME_NAME, &self.app_config.players()[&self.app_config.local_player_id], &self.app_config.local_player_id.to_string(), None, Some(1), vec![], false)
                 .await
         }).expect("Could not connect to server");
     }
