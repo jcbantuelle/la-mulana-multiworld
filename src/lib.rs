@@ -1,32 +1,27 @@
 use std::fs;
 use std::ptr::null_mut;
-use lazy_static::lazy_static;
-use toml::value::Array;
-use std::collections::HashMap;
 use std::sync::Mutex;
-use archipelago_rs::client::ArchipelagoError;
-use archipelago_rs::protocol::{ClientMessage, ServerMessage};
+use archipelago::client::{ArchipelagoClient, ArchipelagoError};
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 
 use toml;
 use serde::{Serialize, Deserialize};
-use serde_with::{serde_as, DisplayFromStr};
 
 use winapi::shared::minwindef::*;
 use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use log::{debug, LevelFilter};
+use log::{LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
 use utils::show_message_box;
 use crate::application::Application;
-use crate::lm_structs::taskdata::TaskData;
-use crate::network::{LiveRandomizer, Randomizer, ReceivePayload, ReceiveMessageError};
 
 pub mod utils;
-pub mod network;
+pub mod archipelago;
 pub mod screenplay;
 pub mod application;
 pub mod lm_structs;
@@ -65,18 +60,8 @@ impl AppConfig {
 
 pub struct LiveApplication {
     pub address: usize,
-    pub randomizer: LiveRandomizer,
+    pub randomizer: Mutex<Result<ArchipelagoClient, ArchipelagoError>>,
     pub app_config: AppConfig
-}
-
-impl Randomizer for LiveRandomizer {
-    fn read_messages(&self) -> Result<Option<ServerMessage>, ArchipelagoError> {
-        self.read_messages()
-    }
-
-    fn send_message(&self, message: ClientMessage) {
-        self.send_message(message)
-    }
 }
 
 #[no_mangle]
@@ -114,7 +99,7 @@ fn init_app() -> Box<dyn Application + Sync> {
     }).unwrap();
     init_logger(&app_config);
 
-    let randomizer = LiveRandomizer::new(app_config.clone());
+    let randomizer = Mutex::new(ArchipelagoClient::new(app_config.clone()));
 
     Box::new(LiveApplication { address, randomizer, app_config })
 }
@@ -133,7 +118,6 @@ mod tests {
     use crate::application::{Application, ApplicationMemoryOps};
     use crate::network::{Randomizer, ReceivePayload};
     use lazy_static::lazy_static;
-    use tungstenite::Error;
 
     lazy_static!{
         pub static ref READ_ADDRESS_STACK: Mutex<Vec<u32>> = {

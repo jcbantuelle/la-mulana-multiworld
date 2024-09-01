@@ -1,6 +1,8 @@
+use std::sync::Mutex;
+
+use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::{AppConfig, LiveApplication, Application};
 use crate::application::{ApplicationMemoryOps, GAME_LOOP_ATTACH_ADDRESS, GAME_PROCESS_ADDRESS, INIT_ATTACH_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_SYMBOL_INIT_INTERCEPT, ITEM_SYMBOL_INIT_POINTER_ADDRESS, LEMEZA_ADDRESS, MOVEMENT_STATUS_ADDRESS, OPTION_POS_CX_ADDRESS, OPTION_POS_CY_ADDRESS, OPTION_SDATA_ADDRESS, OPTION_SDATA_NUM_ADDRESS, POPUP_DIALOG_DRAW_ADDRESS, POPUP_DIALOG_DRAW_INTERCEPT, POPUP_DIALOG_INIT_ADDRESS, SE_ADDRESS, SET_SE_ADDRESS, SET_VIEW_EVENT_NS_ADDRESS, WARP_MENU_STATUS_ADDRESS};
-use crate::network::Randomizer;
 use crate::lm_structs::taskdata::TaskData;
 use crate::application::entrypoints::{item_symbol_init_intercept, app_init, game_loop, popup_dialog_draw_intercept};
 
@@ -17,7 +19,7 @@ impl Application for LiveApplication {
         self.address
     }
 
-    fn get_randomizer(&self) -> &dyn Randomizer {
+    fn get_randomizer(&self) -> &Mutex<Result<ArchipelagoClient, ArchipelagoError>> {
         &self.randomizer
     }
 

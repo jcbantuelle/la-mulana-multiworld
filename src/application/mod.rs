@@ -4,7 +4,7 @@ pub mod live;
 use std::sync::Mutex;
 
 use crate::AppConfig;
-use crate::network::Randomizer;
+use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::lm_structs::taskdata::TaskData;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
@@ -37,7 +37,7 @@ pub static INVENTORY_ADDRESS: usize = 0x006d4db4;
 pub trait Application {
     fn attach(&self);
     fn get_address(&self) -> usize;
-    fn get_randomizer(&self) -> &dyn Randomizer;
+    fn get_randomizer(&self) -> &Mutex<Result<ArchipelagoClient, ArchipelagoError>>;
     fn get_app_config(&self) -> &AppConfig;
     fn give_item(&self, item: u32);
     fn create_dialog_popup(&self, item_id: u32);
