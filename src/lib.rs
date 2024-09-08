@@ -49,6 +49,7 @@ pub struct AppConfig {
     pub server_url: String,
     pub log_file_name: String,
     pub local_player_id: i32,
+    pub password: String,
     pub players_info: Vec<ArchipelagoPlayer>,
 }
 
@@ -99,7 +100,7 @@ fn init_app() -> Box<dyn Application + Sync> {
     }).unwrap();
     init_logger(&app_config);
 
-    let randomizer = Mutex::new(ArchipelagoClient::new(app_config.clone()));
+    let randomizer = Mutex::new(Err(ArchipelagoError::ConnectionClosed));
 
     Box::new(LiveApplication { address, randomizer, app_config })
 }

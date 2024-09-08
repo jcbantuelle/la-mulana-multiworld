@@ -7,6 +7,7 @@ use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
+use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::archipelago::protocol::{ClientMessage, LocationChecks};
 use crate::{APPLICATION, Application, get_application};
 use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
@@ -56,23 +57,32 @@ pub extern "stdcall" fn game_loop() -> DWORD {
     let application = get_application();
 
     thread::spawn(|| {
-        let messages = match application.get_randomizer().try_lock() {
-            Ok(mut randomizer) => randomizer.as_mut().unwrap().read_messages(),
+        match application.get_randomizer().try_lock() {
+            Ok(mut randomizer) => {
+                match randomizer.as_mut() {
+                    Ok(mut client) => {
+                        let message = client.read();
+                    },
+                    Err(mut error) => {
+                        match error {
+                            ArchipelagoError::ConnectionClosed => {
+                                let app_config = application.get_app_config();
+                                *randomizer = ArchipelagoClient::new(&app_config.server_url);
+                                let player_id = app_config.local_player_id;
+                                let players = app_config.players();
+                                let player_name = players.get(&player_id).unwrap();
+                                let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
+                                randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
+                            },
+                            _ => ()
+                        }
+                    }
+                }
+            }
             Err(_) => ()
         };
     });
         
-    // }
-    /* read_messages{
-        if ping {
-            respond with pong
-        } else if some_real_message{
-            push to message queue
-        } else if connnection_fucked {
-            try reconnect
-        }
-    }
-    */
     let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
     // if *game_init != 0 {
     //     iterate_over_message_queue{}
