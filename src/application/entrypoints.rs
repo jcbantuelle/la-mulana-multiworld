@@ -13,7 +13,7 @@ use crate::archipelago::protocol::{ClientMessage, LocationChecks, ServerMessage}
 use crate::lm_structs::map_struct::MapStruct;
 use crate::lm_structs::rcd_flag_op::RcdFlagOp;
 use crate::lm_structs::rcd_object::RcdObject;
-use crate::{APPLICATION, Application, get_application};
+use crate::{APPLICATION, Application, get_application, ArchipelagoItem};
 use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
 use crate::lm_structs::items::{generate_item_translator, ARCHIPELO_ITEM_LOOKUP};
 use crate::utils::show_message_box;
@@ -218,21 +218,28 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let map_struct: &mut MapStruct = get_application().read_address(item_source.event_addr);
     let rcd_object: &mut RcdObject = get_application().read_address(map_struct.rcd_object);
 
-    // if rcd_object.obj_type == 0x2c {
+    let mut item_details: Option<ArchipelagoItem> = None;
+    
+    if rcd_object.obj_type == 0x2c {
         // 3rd flag for chest sets item pickup
         let write_op_address = rcd_object.write_flags.wrapping_add(36 as usize);
         let write_op: &mut RcdFlagOp = get_application().read_address(write_op_address);
         let config_items = app_config.items();
-        let item_details = config_items.get(&write_op.flag_id).unwrap();
-    // }
+        item_details = Some((*config_items.get(&write_op.flag_id).unwrap()).clone());
+    }
 
-    let item_for_other = item_details.player_id != app_config.local_player_id;
+    match item_details {
+        Some(rcd_item) => {
+            if acquired {
+                unsafe { FOUND_ITEMS.push(rcd_item.location_id); }
 
-    if acquired {
-        unsafe { FOUND_ITEMS.push(item_details.location_id); }
-
-        if item_for_other {
-            item.sbuff[2] = 0;
+                if rcd_item.player_id != app_config.local_player_id {
+                    item.sbuff[2] = 0;
+                }
+            }
+        },
+        None => {
+            debug!("RCD Type Not Found: {}", rcd_object.obj_type);
         }
     }
 
@@ -240,9 +247,9 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
     let result = (item_symbol_back_func)(item);
 
-    if acquired && item_for_other {
+    if acquired && item_details.is_some() {
         let player_item = PlayerItem {
-            player_id: item_details.player_id,
+            player_id: item_details.unwrap().player_id,
             for_player: true
         };
 

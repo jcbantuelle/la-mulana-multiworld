@@ -45,7 +45,7 @@ pub struct ArchipelagoPlayer {
     pub name: String
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub struct ArchipelagoItem {
     pub flag: u16,
     pub location_id: u64,
