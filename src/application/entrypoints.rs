@@ -9,6 +9,9 @@ use winapi::um::processthreadsapi::ExitProcess;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::archipelago::protocol::{ClientMessage, LocationChecks};
+use crate::lm_structs::map_struct::MapStruct;
+use crate::lm_structs::rcd_flag_op::RcdFlagOp;
+use crate::lm_structs::rcd_object::RcdObject;
 use crate::{APPLICATION, Application, get_application};
 use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
 use crate::lm_structs::items::{generate_item_translator};
@@ -38,10 +41,12 @@ pub struct PlayerItemPopup {
 }
 
 lazy_static! {
-    static ref ITEMS_TO_GIVE: Mutex<Vec<GivenItem>> = Mutex::new(vec![]);
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
 }
+
+static mut FOUND_ITEMS: Vec<u64> = vec![];
+static mut LAST_SEND: Vec<u64> = vec![];
 
 pub extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
     if patch_version != 1 {
@@ -61,7 +66,24 @@ pub extern "stdcall" fn game_loop() -> DWORD {
             Ok(mut randomizer) => {
                 match randomizer.as_mut() {
                     Ok(mut client) => {
-                        let message = client.read();
+                        unsafe {
+                            let found_items = FOUND_ITEMS.clone();
+                            let last_send = LAST_SEND.clone();
+                            if !found_items.iter().all(|e| last_send.contains(e)) {
+                                let new_send = found_items.clone();
+                                client.location_checks(found_items);
+                                LAST_SEND = new_send;
+                            }
+                        }
+                        match client.read() {
+                            Ok(message_wrapper) => {
+                                match message_wrapper {
+                                    Some(message) => client.message_queue.push(message),
+                                    None => ()
+                                }
+                            },
+                            Err(_) => ()
+                        }
                     },
                     Err(mut error) => {
                         match error {
@@ -69,7 +91,7 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                                 let app_config = application.get_app_config();
                                 *randomizer = ArchipelagoClient::new(&app_config.server_url);
                                 let player_id = app_config.local_player_id;
-                                let players = app_config.players();
+                                let players = app_config.players_lookup();
                                 let player_name = players.get(&player_id).unwrap();
                                 let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
                                 randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
@@ -83,42 +105,42 @@ pub extern "stdcall" fn game_loop() -> DWORD {
         };
     });
         
-    let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
+    // let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
     // if *game_init != 0 {
-    //     iterate_over_message_queue{}
-    //     let _ = application.get_randomizer().read_messages().map(|maybe_payload| {
-            // if let Some(payload) = maybe_payload {
-            //     match payload {
-            //         ServerMessage::ReceivedItems(received_items) => {
-            //             let network_items = received_items.items;
-            //             debug!("{:?}", network_items);
-            //             let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-            //             let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-            //             let global_item_lookup = generate_item_translator();
+        // let _ = application.get_randomizer().read_messages().map(|maybe_payload| {
+        //     if let Some(payload) = maybe_payload {
+        //         match payload {
+        //             ServerMessage::ReceivedItems(received_items) => {
+        //                 let network_items = received_items.items;
+        //                 debug!("{:?}", network_items);
+        //                 let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
+        //                 let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+        //                 let global_item_lookup = generate_item_translator();
 
-            //             /* We have to do the diff here and see what items the player really should get */
+        //                 /* We have to do the diff here and see what items the player really should get */
 
-            //             let mut count = 0;
-            //             for item in network_items {
-            //                 let player_id = item.player;
-            //                 if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
-            //                      let global_flag_id = global_flag_id.index;
-            //                      if global_flags[global_flag_id as usize] != 255 {
-            //                          count += global_flag_id;
-            //                          items_to_give.push(GivenItem {
-            //                              player_id: player_id as i32,
-            //                              item_id: item.item as u32
-            //                          });
-            //                      }
-            //                 }
+        //                 let mut count = 0;
+        //                 for item in network_items {
+        //                     let player_id = item.player;
+        //                     if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
+        //                          let global_flag_id = global_flag_id.index;
+        //                          if global_flags[global_flag_id as usize] != 255 {
+        //                              count += global_flag_id;
+        //                              items_to_give.push(GivenItem {
+        //                                  player_id: player_id as i32,
+        //                                  item_id: item.item as u32
+        //                              });
+        //                          }
+        //                     }
 
-            //                 debug!("Received item {} from player ID {}.", item.item, player_id);
-            //             }
-            //         }
-            //         _ => ()
-            //     }
-            // }
+        //                     debug!("Received item {} from player ID {}.", item.item, player_id);
+        //                 }
+        //             }
+        //             _ => ()
+        //         }
+        //     }
         // });
+    // }
 
         // let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
         // if !items_to_give.is_empty() {
@@ -155,7 +177,7 @@ pub extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
         let line = unsafe { &mut *line_header.add(2) };
 
         let item_for_text = if player_item.for_player { "For" } else { "From" };
-        let players = application.get_app_config().players();
+        let players = application.get_app_config().players_lookup();
         let player_name = players.get(&player_item.player_id).unwrap();
 
         let popup = PlayerItemPopup {
@@ -192,14 +214,30 @@ pub extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
 }
 
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
+    let application = get_application();
+    let app_config = application.get_app_config();
     let acquired = item.hit_data > 0;
     let item_id = item.buff[1];
-    let chest: &mut TaskData = get_application().read_address(item.addr[0]);
-    let player_id_for_item = chest.sbuff[6];
-    let item_for_other = player_id_for_item != APPLICATION.get_app_config().local_player_id;
+    let item_source: &mut TaskData = get_application().read_address(item.addr[0]);
+    let map_struct: &mut MapStruct = get_application().read_address(item_source.event_addr);
+    let rcd_object: &mut RcdObject = get_application().read_address(map_struct.rcd_object);
 
-    if acquired && item_for_other {
-        item.sbuff[2] = 0;
+    // if rcd_object.obj_type == 0x2c {
+        // 3rd flag for chest sets item pickup
+        let write_op_address = rcd_object.write_flags.wrapping_add(36 as usize);
+        let write_op: &mut RcdFlagOp = get_application().read_address(write_op_address);
+        let config_items = app_config.items();
+        let item_details = config_items.get(&write_op.flag_id).unwrap();
+    // }
+
+    let item_for_other = item_details.player_id != app_config.local_player_id;
+
+    if acquired {
+        unsafe { FOUND_ITEMS.push(item_details.location_id); }
+
+        if item_for_other {
+            item.sbuff[2] = 0;
+        }
     }
 
     let item_symbol_back: &*const () = APPLICATION.read_address(ITEM_SYMBOL_BACK_ADDRESS);
@@ -208,7 +246,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
 
     if acquired && item_for_other {
         let player_item = PlayerItem {
-            player_id: player_id_for_item,
+            player_id: item_details.player_id,
             for_player: true
         };
 
@@ -218,7 +256,6 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         }
 
         APPLICATION.create_dialog_popup(item_id as u32);
-        // APPLICATION.get_randomizer().send_message(ClientMessage::LocationChecks(LocationChecks { locations: vec![item_id] }));
     }
 
     result

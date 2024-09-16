@@ -217,7 +217,7 @@ pub struct TaskData {
     pub backfunc: EventWithBool, // 0x284 (644) - 4 bytes
     pub hit_si: f32, // 0x288 (648) - 4 bytes
     pub system_buff: [i32;17], // 0x28C (652) - 68 bytes
-    pub event_addr: Void, // 0x2D0 (720) - 4 bytes
+    pub event_addr: usize, // 0x2D0 (720) - 4 bytes
     pub hit_data: i32, // 0x2D4 (724) - 4 bytes
     pub next: i16, // 0x2D8 (728) - 2 bytes
     pub back: i16, // 0x2DA (730) - 2 bytes
@@ -286,7 +286,7 @@ impl std::fmt::Display for TaskData {
     backfunc: {:p},
     hit_si: {},
     system_buff: {:?},
-    event_addr: {:p},
+    event_addr: {},
     hit_data: {},
     next: {},
     back: {},

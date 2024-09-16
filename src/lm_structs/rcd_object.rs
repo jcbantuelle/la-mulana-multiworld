@@ -1,0 +1,57 @@
+#[repr(C)]
+pub struct RcdObject {
+    pub obj_type: u16,
+    pub num_parameters: u8,
+    pub unknown1: u8,
+    pub parameters: [i32;32],
+    pub x: i32,
+    pub y: i32,
+    pub num_test_flags: u8,
+    pub num_write_flags: u8,
+    pub unknown2: u8,
+    pub unknown3: u8,
+    pub test_flags: usize,
+    pub write_flags: usize,
+    pub allow_creation: u8,
+    pub unknown4: u8,
+    pub unknown5: u8,
+    pub unknown6: u8,
+}
+
+impl std::fmt::Display for RcdObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "RcdObject Object
+    obj_type: {},
+    num_parameters: {},
+    unknown1: {},
+    parameters: {:?},
+    x: {},
+    y: {},
+    num_test_flags: {},
+    num_write_flags: {},
+    unknown2: {},
+    unknown3: {},
+    test_flags: {},
+    write_flags: {},
+    allow_creation: {},
+    unknown4: {},
+    unknown5: {},
+    unknown6: {}",
+               self.obj_type,
+               self.num_parameters,
+               self.unknown1,
+               self.parameters,
+               self.x,
+               self.y,
+               self.num_test_flags,
+               self.num_write_flags,
+               self.unknown2,
+               self.unknown3,
+               self.test_flags,
+               self.write_flags,
+               self.allow_creation,
+               self.unknown4,
+               self.unknown5,
+               self.unknown6)
+    }
+}

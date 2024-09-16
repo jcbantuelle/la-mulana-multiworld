@@ -36,6 +36,7 @@ pub struct ArchipelagoClient {
     ws: Client<Box<dyn NetworkStream + Send>>,
     room_info: RoomInfo,
     data_package: Option<DataPackageObject>,
+    pub message_queue: Vec<ServerMessage>,
 }
 
 impl ArchipelagoClient {
@@ -84,6 +85,7 @@ impl ArchipelagoClient {
             ws,
             room_info,
             data_package: None,
+            message_queue: vec![]
         })
     }
 
@@ -166,5 +168,10 @@ impl ArchipelagoClient {
             },
             Err(e) => return Err(ArchipelagoError::ConnectionClosed)
         }
+    }
+
+    pub fn location_checks(&mut self, locations: Vec<u64>) -> Result<(), ArchipelagoError> {
+        self.send(ClientMessage::LocationChecks(LocationChecks { locations }));
+        Ok(())
     }
 }

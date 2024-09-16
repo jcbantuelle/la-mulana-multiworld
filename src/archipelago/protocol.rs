@@ -125,7 +125,7 @@ pub struct ConnectUpdate {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LocationChecks {
-    pub locations: Vec<i32>,
+    pub locations: Vec<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

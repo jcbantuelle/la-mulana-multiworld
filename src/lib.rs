@@ -2,6 +2,7 @@ use std::fs;
 use std::ptr::null_mut;
 use std::sync::Mutex;
 use archipelago::client::{ArchipelagoClient, ArchipelagoError};
+use archipelago::protocol::ServerMessage;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
@@ -44,25 +45,38 @@ pub struct ArchipelagoPlayer {
     pub name: String
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ArchipelagoItem {
+    pub flag: u16,
+    pub location_id: u64,
+    pub player_id: i32,
+    pub obtain_value: i32
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
     pub server_url: String,
+    pub password: String,
     pub log_file_name: String,
     pub local_player_id: i32,
-    pub password: String,
-    pub players_info: Vec<ArchipelagoPlayer>,
+    pub players: Vec<ArchipelagoPlayer>,
+    pub item_mapping: Vec<ArchipelagoItem>,
 }
 
 impl AppConfig {
-    fn players(&self) -> HashMap<i32, String> {
-        self.players_info.clone().into_iter().map(|player| (player.id, player.name)).collect::<HashMap<_,_>>()
+    fn players_lookup(&self) -> HashMap<i32, String> {
+        self.players.clone().into_iter().map(|player| (player.id, player.name)).collect::<HashMap<_,_>>()
+    }
+
+    fn items(&self) -> HashMap<u16, ArchipelagoItem> {
+        self.item_mapping.clone().into_iter().map(|mapping| (mapping.flag, mapping)).collect::<HashMap<_,_>>()
     }
 }
 
 pub struct LiveApplication {
     pub address: usize,
     pub randomizer: Mutex<Result<ArchipelagoClient, ArchipelagoError>>,
-    pub app_config: AppConfig
+    pub app_config: AppConfig,
 }
 
 #[no_mangle]
@@ -102,7 +116,7 @@ fn init_app() -> Box<dyn Application + Sync> {
 
     let randomizer = Mutex::new(Err(ArchipelagoError::ConnectionClosed));
 
-    Box::new(LiveApplication { address, randomizer, app_config })
+    Box::new(LiveApplication { address, randomizer, app_config})
 }
 
 fn get_application() -> &'static Box<dyn Application + Sync> {
