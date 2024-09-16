@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use log::debug;
 use std::sync::Mutex;
 use std::thread;
@@ -8,13 +9,13 @@ use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
-use crate::archipelago::protocol::{ClientMessage, LocationChecks};
+use crate::archipelago::protocol::{ClientMessage, LocationChecks, ServerMessage};
 use crate::lm_structs::map_struct::MapStruct;
 use crate::lm_structs::rcd_flag_op::RcdFlagOp;
 use crate::lm_structs::rcd_object::RcdObject;
 use crate::{APPLICATION, Application, get_application};
 use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
-use crate::lm_structs::items::{generate_item_translator};
+use crate::lm_structs::items::{generate_item_translator, ARCHIPELO_ITEM_LOOKUP};
 use crate::utils::show_message_box;
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
@@ -43,6 +44,7 @@ pub struct PlayerItemPopup {
 lazy_static! {
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+    static ref MESSAGE_QUEUE: Mutex<VecDeque<ServerMessage>> = Mutex::new(VecDeque::new());
 }
 
 static mut FOUND_ITEMS: Vec<u64> = vec![];
@@ -78,7 +80,10 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                         match client.read() {
                             Ok(message_wrapper) => {
                                 match message_wrapper {
-                                    Some(message) => client.message_queue.push(message),
+                                    Some(message) => {
+                                        let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                                        message_queue.push_back(message);
+                                    },
                                     None => ()
                                 }
                             },
@@ -105,65 +110,54 @@ pub extern "stdcall" fn game_loop() -> DWORD {
         };
     });
         
-    // let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
-    // if *game_init != 0 {
-        // let _ = application.get_randomizer().read_messages().map(|maybe_payload| {
-        //     if let Some(payload) = maybe_payload {
-        //         match payload {
-        //             ServerMessage::ReceivedItems(received_items) => {
-        //                 let network_items = received_items.items;
-        //                 debug!("{:?}", network_items);
-        //                 let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-        //                 let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-        //                 let global_item_lookup = generate_item_translator();
+    let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
+    if *game_init != 0 {
+        if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
+            if let Some(message) = message_queue.pop_front() {
+                match message {
+                    ServerMessage::ReceivedItems(received_items) => {
+                        let network_items = received_items.items;
+                        debug!("{:?}", network_items);
+                        let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                        let global_item_lookup = generate_item_translator();
 
-        //                 /* We have to do the diff here and see what items the player really should get */
+                        /* We have to do the diff here and see what items the player really should get */
 
-        //                 let mut count = 0;
-        //                 for item in network_items {
-        //                     let player_id = item.player;
-        //                     if let Some(global_flag_id) = global_item_lookup.get(&(item.item as u8)) {
-        //                          let global_flag_id = global_flag_id.index;
-        //                          if global_flags[global_flag_id as usize] != 255 {
-        //                              count += global_flag_id;
-        //                              items_to_give.push(GivenItem {
-        //                                  player_id: player_id as i32,
-        //                                  item_id: item.item as u32
-        //                              });
-        //                          }
-        //                     }
+                        for item in network_items {
+                            let player_id = item.player;
+                            if let Some(player_item) = PLAYER_ITEM.lock().ok().as_mut() {
+                                if player_item.is_none() {
+                                    **player_item = Some(PlayerItem {
+                                        player_id,
+                                        for_player: false
+                                    });
+                                }
+                            }
+                            else {
+                                debug!("game_loop.give_item: PLAYER_ITEM could not be locked.");
+                            }
 
-        //                     debug!("Received item {} from player ID {}.", item.item, player_id);
-        //                 }
-        //             }
-        //             _ => ()
-        //         }
-        //     }
-        // });
-    // }
+                            if let Some(item) = ARCHIPELO_ITEM_LOOKUP.get(&(item.item as u64)) {
+                                application.give_item(*item);
+                            }
 
-        // let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-        // if !items_to_give.is_empty() {
-        //     if let Some(player_item) = PLAYER_ITEM.try_lock().ok().as_mut() {
-        //         if player_item.is_none() {
-        //             let next_item = items_to_give.pop().unwrap();
-        //             **player_item = Some(PlayerItem {
-        //                 player_id: next_item.player_id,
-        //                 for_player: false
-        //             });
-        //             application.give_item(next_item.item_id);
-        //         }
-        //     }
-        // }
+                            debug!("Received item {} from player ID {}.", item.item, player_id);
+                        }
+                    }
+                    _ => ()
+                }
+            }
+        }
 
-        // if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
-        //     if let Some(popup) = popup_option.as_ref() {
-        //         if popup.popup_id != *application.read_address::<u32>(popup.popup_id_address) {
-        //             *application.read_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
-        //             **popup_option = None;
-        //         }
-        //     }
-        // }
+        if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
+            if let Some(popup) = popup_option.as_ref() {
+                if popup.popup_id != *application.read_address::<u32>(popup.popup_id_address) {
+                    *application.read_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
+                    **popup_option = None;
+                }
+            }
+        }
+    }
 
     get_time()
 }
