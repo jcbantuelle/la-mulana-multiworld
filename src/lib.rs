@@ -50,7 +50,7 @@ pub struct ArchipelagoItem {
     pub flag: u16,
     pub location_id: u64,
     pub player_id: i32,
-    pub obtain_value: i32
+    pub obtain_value: u8
 }
 
 #[derive(Serialize, Deserialize, Clone)]
