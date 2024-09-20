@@ -103,6 +103,8 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                                 let player_name = players.get(&player_id).unwrap();
                                 let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
                                 randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
+                                randomizer.as_mut().unwrap().sync();
+
                             },
                             _ => ()
                         }
@@ -123,7 +125,6 @@ pub extern "stdcall" fn game_loop() -> DWORD {
             match message.unwrap() {
                 ServerMessage::ReceivedItems(received_items) => {
                     let network_items = received_items.items;
-                    debug!("{:?}", network_items);
 
                     for ap_item in network_items {
                         let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();

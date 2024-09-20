@@ -142,7 +142,7 @@ impl ArchipelagoClient {
         tags: Vec<String>,
         slot_data: bool,
     ) -> Result<Connected, ArchipelagoError> {
-        self.send(ClientMessage::Connect(Connect {
+        match self.send(ClientMessage::Connect(Connect {
             game: game.to_string(),
             name: name.to_string(),
             uuid: uuid.to_string(),
@@ -151,7 +151,10 @@ impl ArchipelagoClient {
             items_handling,
             tags,
             slot_data,
-        }));
+        })) {
+            Ok(_) => (),
+            Err(_) => return Err(ArchipelagoError::ConnectionClosed)
+        };
 
         match self.read() {
             Ok(message) => {
@@ -166,12 +169,26 @@ impl ArchipelagoClient {
                     None => return Err(ArchipelagoError::ConnectionClosed)
                 }
             },
-            Err(e) => return Err(ArchipelagoError::ConnectionClosed)
+            Err(_) => return Err(ArchipelagoError::ConnectionClosed)
         }
     }
 
     pub fn location_checks(&mut self, locations: Vec<u64>) -> Result<(), ArchipelagoError> {
-        self.send(ClientMessage::LocationChecks(LocationChecks { locations }));
-        Ok(())
+        match self.send(ClientMessage::LocationChecks(LocationChecks { locations })) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(ArchipelagoError::ConnectionClosed)
+        }
+    }
+
+    /**
+     * Sent to server to request a ReceivedItems packet to synchronize items.
+     *
+     * Will buffer any non-ReceivedItems packets returned
+     */
+    pub fn sync(&mut self) -> Result<(), ArchipelagoError> {
+        match self.send(ClientMessage::Sync) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(ArchipelagoError::ConnectionClosed)
+        }
     }
 }
