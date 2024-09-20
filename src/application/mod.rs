@@ -32,7 +32,8 @@ pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
 pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
 pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
 pub static GLOBAL_FLAGS_ADDRESS: usize = 0x006d5a70;
-pub static INVENTORY_ADDRESS: usize = 0x006d4db4;
+pub static INVENTORY_SCREEN: usize = 0x006d4db4;
+pub static INVENTORY_WORDS: usize = 0x006d5650;
 
 pub trait Application {
     fn attach(&self);

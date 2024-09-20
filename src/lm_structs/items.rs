@@ -25,7 +25,7 @@ pub struct Value {
 }
 
 lazy_static! {
-    pub static ref ARCHIPELAGO_ITEM_LOOKUP: HashMap<u64, u32> = HashMap::from([
+    pub static ref ARCHIPELAGO_ITEM_LOOKUP: HashMap<u64, usize> = HashMap::from([
         (2359001, 1),
         (2359002, 2),
         (2359004, 3),

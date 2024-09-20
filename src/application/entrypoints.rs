@@ -11,7 +11,7 @@ use winapi::um::processthreadsapi::ExitProcess;
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::archipelago::protocol::{ClientMessage, LocationChecks, ServerMessage};
 use crate::{APPLICATION, Application, get_application, ArchipelagoItem};
-use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
+use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS, INVENTORY_WORDS};
 use crate::lm_structs::items::{generate_item_translator, ARCHIPELAGO_ITEM_LOOKUP};
 use crate::utils::show_message_box;
 use crate::lm_structs::taskdata::TaskData;
@@ -77,8 +77,6 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                         ).map(|(_,v)|
                             v.location_id
                         ).collect();
-
-                        debug!("Found Items: {:?}", found_items);
                         
                         client.location_checks(found_items);
 
@@ -126,24 +124,20 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                 ServerMessage::ReceivedItems(received_items) => {
                     let network_items = received_items.items;
                     debug!("{:?}", network_items);
-                    let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-                    let global_item_lookup = generate_item_translator();
 
-                    /* We have to do the diff here and see what items the player really should get */
-
-                    for item in network_items {
-                        let player_id = item.player;
-                        if let Some(player_item) = PLAYER_ITEM.lock().ok().as_mut() {
-                            if player_item.is_none() {
+                    for ap_item in network_items {
+                        let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
+                        let inventory_pointer: &mut usize = application.read_address(INVENTORY_WORDS);
+                        let inventory: &[u16;114] = application.read_address(*inventory_pointer);
+                        if *item > 104 || inventory[*item] == 0 {
+                            let player_id = ap_item.player;
+                            if let Some(player_item) = PLAYER_ITEM.lock().ok().as_mut() {
                                 **player_item = Some(PlayerItem {
                                     player_id,
                                     for_player: false
                                 });
                             }
-                        }
-
-                        if let Some(item) = ARCHIPELAGO_ITEM_LOOKUP.get(&(item.item as u64)) {
-                            application.give_item(*item);
+                            application.give_item(*item as u32);
                         }
                     }
                 }
