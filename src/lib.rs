@@ -1,30 +1,28 @@
 use std::fs;
 use std::ptr::null_mut;
+use std::sync::Mutex;
+use archipelago::client::{ArchipelagoClient, ArchipelagoError};
+use archipelago::protocol::ServerMessage;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 use toml;
 use serde::{Serialize, Deserialize};
-use serde_with::{serde_as, DisplayFromStr};
 
 use winapi::shared::minwindef::*;
 use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use log::{debug, LevelFilter};
+use log::{LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
-use tungstenite::Error;
 
 use utils::show_message_box;
 use crate::application::Application;
-use crate::lm_structs::taskdata::TaskData;
-use crate::network::{LiveRandomizer, Randomizer, ReceivePayload};
 
 pub mod utils;
-pub mod network;
+pub mod archipelago;
 pub mod screenplay;
 pub mod application;
 pub mod lm_structs;
@@ -41,30 +39,44 @@ lazy_static!{
     pub static ref APPLICATION: Box<dyn Application + Sync> = tests::init_test_app();
 }
 
-#[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ArchipelagoPlayer {
+    pub id: i32,
+    pub name: String
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
+pub struct ArchipelagoItem {
+    pub flag: u16,
+    pub location_id: u64,
+    pub player_id: i32,
+    pub obtain_value: u8
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
-    pub log_file_name: String,
     pub server_url: String,
-    pub user_id: i32,
-    #[serde_as(as = "HashMap<DisplayFromStr, _>")]
-    pub players: HashMap<i32, String>
+    pub password: String,
+    pub log_file_name: String,
+    pub local_player_id: i32,
+    pub players: Vec<ArchipelagoPlayer>,
+    pub item_mapping: Vec<ArchipelagoItem>,
+}
+
+impl AppConfig {
+    fn players_lookup(&self) -> HashMap<i32, String> {
+        self.players.clone().into_iter().map(|player| (player.id, player.name)).collect::<HashMap<_,_>>()
+    }
+
+    fn items(&self) -> HashMap<u16, ArchipelagoItem> {
+        self.item_mapping.clone().into_iter().map(|mapping| (mapping.flag, mapping)).collect::<HashMap<_,_>>()
+    }
 }
 
 pub struct LiveApplication {
     pub address: usize,
-    pub randomizer: LiveRandomizer,
-    pub app_config: AppConfig
-}
-
-impl Randomizer for LiveRandomizer {
-    fn read_messages(&self) -> Result<ReceivePayload, Error> {
-        self.read_messages()
-    }
-
-    fn send_message(&self, message: &str) {
-        self.send_message(message)
-    }
+    pub randomizer: Mutex<Result<ArchipelagoClient, ArchipelagoError>>,
+    pub app_config: AppConfig,
 }
 
 #[no_mangle]
@@ -102,9 +114,9 @@ fn init_app() -> Box<dyn Application + Sync> {
     }).unwrap();
     init_logger(&app_config);
 
-    let randomizer = LiveRandomizer::new(&app_config.server_url, app_config.user_id);
+    let randomizer = Mutex::new(Err(ArchipelagoError::ConnectionClosed));
 
-    Box::new(LiveApplication { address, randomizer, app_config })
+    Box::new(LiveApplication { address, randomizer, app_config})
 }
 
 fn get_application() -> &'static Box<dyn Application + Sync> {
@@ -115,22 +127,23 @@ fn get_application() -> &'static Box<dyn Application + Sync> {
 mod tests {
     use std::ops::Deref;
     use std::sync::Mutex;
-    use crate::{AppConfig, TaskData};
+    use archipelago_rs::client::ArchipelagoError;
+    use archipelago_rs::protocol::{ClientMessage, ServerMessage};
+    use crate::{AppConfig, ReceiveMessageError, TaskData};
     use crate::application::{Application, ApplicationMemoryOps};
     use crate::network::{Randomizer, ReceivePayload};
     use lazy_static::lazy_static;
-    use tungstenite::Error;
 
     lazy_static!{
         pub static ref READ_ADDRESS_STACK: Mutex<Vec<u32>> = {
             Mutex::new(vec![])
         };
 
-        pub static ref READ_PAYLOAD_STACK: Mutex<Vec<Result<ReceivePayload, Error>>> = {
+        pub static ref READ_PAYLOAD_STACK: Mutex<Vec<Result<Option<ServerMessage>, ArchipelagoError>>> = {
             Mutex::new(vec![])
         };
 
-        pub static ref SENT_MESSAGES: Mutex<Vec<String>> = {
+        pub static ref SENT_MESSAGES: Mutex<Vec<ClientMessage>> = {
             Mutex::new(vec![])
         };
 
@@ -138,6 +151,10 @@ mod tests {
             Box::new(
                 TestRandomizer {}
             )
+        };
+
+        pub static ref ITEMS_RECEIVED: Mutex<Vec<u32>> = {
+            Mutex::new(vec![])
         };
     }
 
@@ -151,7 +168,7 @@ mod tests {
         stack.push(u);
     }
 
-    pub fn add_to_read_payload_stack(input: Result<ReceivePayload, Error>) {
+    pub fn add_to_read_payload_stack(input: Result<Option<ServerMessage>, ArchipelagoError>) {
         let stack_mutex = &*READ_PAYLOAD_STACK;
         let mut stack = stack_mutex.lock().unwrap();
         stack.push(input);
@@ -181,7 +198,9 @@ mod tests {
         }
 
         fn give_item(&self, item: u32) {
-            todo!()
+            let items_mutex = &*ITEMS_RECEIVED;
+            let mut items = items_mutex.lock().unwrap();
+            items.push(item);
         }
 
         fn create_dialog_popup(&self, item_id: u32) {
@@ -222,16 +241,16 @@ mod tests {
     }
 
     impl Randomizer for TestRandomizer {
-        fn read_messages(&self) -> Result<ReceivePayload, Error> {
+        fn read_messages(&self) -> Result<std::option::Option<ServerMessage>, ArchipelagoError> {
             let stack_mutex = &*READ_PAYLOAD_STACK;
             let mut stack = stack_mutex.lock().unwrap();
             stack.pop().expect("No payload left in READ_ADDRESS_STACK")
         }
 
-        fn send_message(&self, message: &str) {
+        fn send_message(&self, message: ClientMessage) {
             let messages_mutex = &*SENT_MESSAGES;
             let mut messages = messages_mutex.lock().unwrap();
-            messages.push(message.to_string());
+            messages.push(message);
 
         }
     }
@@ -243,7 +262,10 @@ mod tests {
     impl ApplicationMemoryOps for TestApplication {
         fn read_address<T>(&self, offset: usize) -> &mut T {
             unsafe {
-                let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
+                let stack_mutex = &*READ_ADDRESS_STACK;
+                let mut stack = stack_mutex.lock().unwrap();
+                let addr = stack.pop().expect("No address left in READ_ADDRESS_STACK") as usize;
+
                 &mut*(addr as *mut T)
             }
         }

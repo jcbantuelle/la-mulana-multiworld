@@ -1,16 +1,19 @@
+use std::collections::VecDeque;
 use log::debug;
 use std::sync::Mutex;
+use std::thread;
 use lazy_static::lazy_static;
 
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use crate::{APPLICATION, Application, get_application};
-use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS};
-use crate::lm_structs::items::{generate_item_translator};
+use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
+use crate::archipelago::protocol::{ClientMessage, LocationChecks, ServerMessage};
+use crate::{APPLICATION, Application, get_application, ArchipelagoItem};
+use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS, INVENTORY_WORDS};
+use crate::lm_structs::items::{generate_item_translator, ARCHIPELAGO_ITEM_LOOKUP};
 use crate::utils::show_message_box;
-use crate::network::{RandomizerMessage, serialize_message};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -36,9 +39,9 @@ pub struct PlayerItemPopup {
 }
 
 lazy_static! {
-    static ref ITEMS_TO_GIVE: Mutex<Vec<GivenItem>> = Mutex::new(vec![]);
     static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+    static ref MESSAGE_QUEUE: Mutex<VecDeque<ServerMessage>> = Mutex::new(VecDeque::new());
 }
 
 pub extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
@@ -50,54 +53,96 @@ pub extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
         }
     }
 }
-
+ 
 pub extern "stdcall" fn game_loop() -> DWORD {
     let application = get_application();
-    let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
-    if *game_init != 0 {
-        let _ = application.get_randomizer().read_messages().map(|payload| {
-            let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-            let global_flags: &[u8;2055] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-            let global_item_lookup = generate_item_translator();
 
-            /* We have to do the diff here and see what items the player really should get */
-
-            for item in payload.message.items {
-                let player_id = item.player_id;
-                if let Some(global_flag_id) = global_item_lookup.get(&item.item_id) {
-                    let global_flag_id = global_flag_id.index;
-                    if global_flags[global_flag_id as usize] != 255 {
-                        items_to_give.push(GivenItem {
-                            player_id: player_id as i32,
-                            item_id: item.item_id as u32
-                        });
-                    }
-                }
-
-                debug!("Received item {} from player ID {}.", item.item_id, player_id);
-            }
-        });
-
-        let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-        if !items_to_give.is_empty() {
-            if let Some(player_item) = PLAYER_ITEM.try_lock().ok().as_mut() {
-                if player_item.is_none() {
-                    let next_item = items_to_give.pop().unwrap();
-                    **player_item = Some(PlayerItem {
-                        player_id: next_item.player_id,
-                        for_player: false
-                    });
-                    application.give_item(next_item.item_id);
-                }
+    if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
+        if let Some(popup) = popup_option.as_ref() {
+            if popup.popup_id != *application.read_address::<u32>(popup.popup_id_address) {
+                *application.read_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
+                **popup_option = None;
             }
         }
+    }
 
-        if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
-            if let Some(popup) = popup_option.as_ref() {
-                if popup.popup_id != *application.read_address::<u32>(popup.popup_id_address) {
-                    *application.read_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
-                    **popup_option = None;
+    thread::spawn(|| {
+        match application.get_randomizer().try_lock() {
+            Ok(mut randomizer) => {
+                match randomizer.as_mut() {
+                    Ok(mut client) => {
+                        let global_flags: &[u8;4096] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                        let found_items: Vec<u64> = application.get_app_config().items().iter().filter(|(k,v)|
+                            global_flags[**k as usize] == v.obtain_value
+                        ).map(|(_,v)|
+                            v.location_id
+                        ).collect();
+                        
+                        client.location_checks(found_items);
+
+                        match client.read() {
+                            Ok(message_wrapper) => {
+                                match message_wrapper {
+                                    Some(message) => {
+                                        let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                                        message_queue.push_back(message);
+                                    },
+                                    None => ()
+                                }
+                            },
+                            Err(_) => ()
+                        }
+                    },
+                    Err(mut error) => {
+                        match error {
+                            ArchipelagoError::ConnectionClosed => {
+                                let app_config = application.get_app_config();
+                                *randomizer = ArchipelagoClient::new(&app_config.server_url);
+                                let player_id = app_config.local_player_id;
+                                let players = app_config.players_lookup();
+                                let player_name = players.get(&player_id).unwrap();
+                                let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
+                                randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
+                                randomizer.as_mut().unwrap().sync();
+
+                            },
+                            _ => ()
+                        }
+                    }
                 }
+            }
+            Err(_) => ()
+        };
+    });
+        
+    let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
+    if *game_init != 0 {
+        let mut message: Option<ServerMessage> = None;
+        if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
+            message = message_queue.pop_front();
+        }
+        if message.is_some() {
+            match message.unwrap() {
+                ServerMessage::ReceivedItems(received_items) => {
+                    let network_items = received_items.items;
+
+                    for ap_item in network_items {
+                        let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
+                        let inventory_pointer: &mut usize = application.read_address(INVENTORY_WORDS);
+                        let inventory: &[u16;114] = application.read_address(*inventory_pointer);
+                        if *item > 104 || inventory[*item] == 0 {
+                            let player_id = ap_item.player;
+                            if let Some(player_item) = PLAYER_ITEM.lock().ok().as_mut() {
+                                **player_item = Some(PlayerItem {
+                                    player_id,
+                                    for_player: false
+                                });
+                            }
+                            application.give_item(*item as u32);
+                        }
+                    }
+                }
+                _ => ()
             }
         }
     }
@@ -113,13 +158,21 @@ pub extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
         let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
         let line = unsafe { &mut *line_header.add(2) };
 
-        let item_for_text = if player_item.for_player { "For" } else { "From" };
-        let player_name = application.get_app_config().players.get(&player_item.player_id).unwrap();
+        let popup_text = if player_item.for_player {
+            format!("For Another Player")
+        } else {
+            let player_id = &player_item.player_id;
+            let server_name = "Server".to_string();
+            let players = application.get_app_config().players_lookup();
+            let player_name = players.get(player_id).unwrap_or(&server_name);
+            format!("From {}", player_name)
+        };
+        
 
         let popup = PlayerItemPopup {
             popup_id_address: &popup_dialog.id.uid as *const u32 as usize,
             popup_id: popup_dialog.id.uid,
-            encoded: screenplay::encode(format!("  {} {}", item_for_text, player_name)),
+            encoded: screenplay::encode(format!("  {}", popup_text)),
             line_address: line as *const ScriptSubHeader as usize,
             old_line: (*line).clone()
         };
@@ -152,11 +205,9 @@ pub extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let acquired = item.hit_data > 0;
     let item_id = item.buff[1];
-    let chest: &mut TaskData = get_application().read_address(item.addr[0]);
-    let player_id_for_item = chest.sbuff[6];
-    let item_for_other = player_id_for_item != APPLICATION.get_app_config().user_id;
+    let for_other_player = item_id == 83;
 
-    if acquired && item_for_other {
+    if for_other_player {
         item.sbuff[2] = 0;
     }
 
@@ -164,10 +215,10 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
     let result = (item_symbol_back_func)(item);
 
-    if acquired && item_for_other {
+    if acquired && for_other_player {
         let player_item = PlayerItem {
-            player_id: player_id_for_item,
-            for_player: true
+            for_player: true,
+            player_id: 0
         };
 
         {
@@ -175,14 +226,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
             *player_item_option = Some(player_item);
         }
 
-        let global_flags: &[u8;2055] = APPLICATION.read_address(GLOBAL_FLAGS_ADDRESS);
         APPLICATION.create_dialog_popup(item_id as u32);
-        APPLICATION.get_randomizer().send_message(&serialize_message (
-            RandomizerMessage {
-                player_id: APPLICATION.get_app_config().user_id,
-                global_flags: global_flags.to_vec()
-            }
-        ))
     }
 
     result
@@ -201,12 +245,14 @@ pub fn get_time() -> DWORD {
 
 #[cfg(test)]
 mod tests {
-    use std::io::ErrorKind;
-    use crate::{APPLICATION, Application, ReceivePayload};
-    use crate::application::entrypoints::game_loop;
+    use archipelago_rs::client::ArchipelagoError;
+    use archipelago_rs::protocol::{NetworkItem, ServerMessage};
+    use archipelago_rs::protocol::ReceivedItems;
+    use crate::{APPLICATION, Application, ReceivePayload, screenplay};
+    use crate::application::entrypoints::{game_loop, PLAYER_ITEM_POPUP, PlayerItemPopup};
     use crate::application::{GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS};
-    use crate::network::ReceiveMessage;
-    use crate::tests::{TestApplication, add_to_read_address_stack, calculate_address, add_to_read_payload_stack, READ_PAYLOAD_STACK};
+    use crate::lm_structs::script_header::ScriptSubHeader;
+    use crate::tests::{add_to_read_address_stack, calculate_address, add_to_read_payload_stack, READ_PAYLOAD_STACK, ITEMS_RECEIVED};
 
     #[test]
     fn test_game_loop_with_error_from_receive_payload() {
@@ -215,12 +261,64 @@ mod tests {
         add_to_read_address_stack(calculate_address(&global_flags, GLOBAL_FLAGS_ADDRESS));
         add_to_read_address_stack(calculate_address(&game_init, GAME_INIT_ADDRESS));
         add_to_read_payload_stack(
-            Err(tungstenite::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "Test network error")))
+            Err(
+                ArchipelagoError::ConnectionClosed
+            )
         );
 
         game_loop();
 
         let read_payload_stack = &*READ_PAYLOAD_STACK;
         assert_eq!(read_payload_stack.lock().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_game_loop_getting_item_from_server() {
+        let game_init = 1;
+        let global_flags: [u8;2055] = [0u8; 2055];
+        let subscript_header = ScriptSubHeader {
+            pointer: 0,
+            data_num: 0,
+            font_num: 0,
+        };
+        let popup_id = 1; // It doesn't match the id of the popup above
+        let popup_id_address = calculate_address(&popup_id, 0) as usize;
+        let popup = PlayerItemPopup {
+            popup_id_address,
+            popup_id: 0,
+            encoded: screenplay::encode(format!("  {} {}", "Test", "Test")),
+            line_address: 0,
+            old_line: subscript_header
+        };
+        let mut popup_option = PLAYER_ITEM_POPUP.lock().unwrap();
+        *popup_option = Some(popup);
+
+        add_to_read_address_stack(calculate_address(&global_flags, GLOBAL_FLAGS_ADDRESS));
+        add_to_read_address_stack(calculate_address(&game_init, GAME_INIT_ADDRESS));
+
+        add_to_read_payload_stack(
+            Ok(
+                Some(
+                    ServerMessage::ReceivedItems(
+                        ReceivedItems {
+                            index: 1,
+                            items: vec![
+                                NetworkItem {
+                                    item: 1,
+                                    location: 0,
+                                    player: 0,
+                                    flags: 0,
+                                }
+                            ],
+                        }
+                    )
+                )
+            )
+        );
+
+        game_loop();
+
+        let items_received_mutex = &*ITEMS_RECEIVED;
+        assert_eq!(items_received_mutex.lock().unwrap().len(), 1);
     }
 }

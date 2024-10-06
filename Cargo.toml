@@ -9,11 +9,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 winapi = { "version" = "0.3.9", "features" = ["ntdef", "minwindef", "winnt", "libloaderapi", "winuser", "processthreadsapi", "timeapi"] }
-tungstenite = { version = "0.19.0", features = ["native-tls"] }
 url = "2.0.0"
 serde = { version = "1.0", features = ["derive"]}
 serde_with = "2.2.0"
 serde_json = "1.0"
+serde_repr = "0.1"
 lazy_static = "1.4.0"
 log4rs = { "version" ="1.0.0", "features" = ["file_appender"] }
 log = "0.4.16"
@@ -22,6 +22,8 @@ tracing = "0.1.37"
 async-trait = "0.1.52"
 tracing-subscriber = "0.3.9"
 mockall = "0.11.4"
+websocket = "0.27.1"
+thiserror = "1.0"
 
 [profile.release]
 opt-level = "z"
