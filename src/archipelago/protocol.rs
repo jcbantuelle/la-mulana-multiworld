@@ -97,8 +97,8 @@ pub struct NetworkSlot {
 pub fn network_version() -> NetworkVersion {
     NetworkVersion {
         major: 0,
-        minor: 4,
-        build: 5,
+        minor: 5,
+        build: 1,
         class: "Version".to_string(),
     }
 }
@@ -196,13 +196,14 @@ pub struct SetNotify {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RoomInfo {
     pub version: NetworkVersion,
+    pub generator_version: NetworkVersion,
     pub tags: Vec<String>,
     pub password: bool,
     pub permissions: HashMap<String, Permission>,
     pub hint_cost: i32,
     pub location_check_points: i32,
     pub games: Vec<String>,
-    pub datapackage_versions: HashMap<String, i32>,
+    pub datapackage_checksums: HashMap<String, String>,
     pub seed_name: String,
     pub time: f32,
 }
