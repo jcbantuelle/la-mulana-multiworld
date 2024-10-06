@@ -2,14 +2,20 @@
 
 This project modifies La-Mulana to enable Multiworld support. It is very much in an alpha state at the moment and is likely to have both logic and gameplay bugs. If you encounter a problem, please [open an issue](https://github.com/jcbantuelle/Archipelago/issues) with as much detail as possible about what you experienced vs what the expected behavior was. Additionally, please provide the downloaded zip containing your config, rcd, and dat files.
 
-## Requirements
+## Requirements to Play
 
-La-Mulana Version 1.0
+* La-Mulana Version 1.0, modded with the provided BPS file
+* A running Archipelago Server with the [La-Mulana world](https://github.com/jcbantuelle/Archipelago/tree/lamulana) included
+* Downloaded and updated script.rcd and script_code.dat files, and lamulana-config.toml file
 
 ## Setup Instructions
 
 1. Modify your LaMulanaWin.exe using Floating IPS, using the provided LaMulanaMultiworld.bps file
 1. Add the provided DLL, `LaMulanaMW.dll` to the same location as LaMulanaWin.exe
+1. Generate the Archipelago game, referencing the [provided sample](https://github.com/jcbantuelle/la-mulana-multiworld/blob/main/Cargo.toml) (Please note many of these features do not currently work)
+1. Download the Archipelago provided zip for your game, containing `script.rcd`, `script_code.dat`, and `lamulana-config.toml`
+1. Open lamulana-config.toml in a text editor and update the `server_url` to the domain and port of the Archipelago server. *Do not* include the leading protocol (e.g. http://). Also update the `password` to the correct text if there is one, or delete the text and leave it empty if there isn't one.
+1. Place `lamulana-config.toml` in the root of your La-Mulana install directory. Place `script.rcd` in `data/mapdata`, replacing the existing file. Place `script_code.rcd` in `data/language/en`, replacing the existing file.
 
 ## Building from Source
 

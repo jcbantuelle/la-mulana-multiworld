@@ -1,0 +1,74 @@
+La-Mulana:
+  progression_balancing: 50
+  accessibility: items
+  GuardianSpecificAnkhJewels: true
+  ShopDensity: 47
+  RandomizeNPCs: false
+  RandomizeCoinChests: false
+  RandomizeTrapItems: false
+  RandomizeCursedChests: false
+  CursedChestCount: 4
+  RandomizeDracuetsShop: false
+  HellTempleReward: false
+  RandomizeSeals: false
+  StartingLocation:
+    surface: 1
+    gate_of_guidance: 0
+    mausoleum_of_the_giants: 0
+    temple_of_the_sun: 0
+    spring_in_the_sky: 0
+    inferno_cavern: 0
+    chamber_of_extinction: 0
+    twin_labyrinths_front: 0
+    endless_corridor: 0
+    gate_of_illusion: 0
+    graveyard_of_the_giants: 0
+    temple_of_moonlight: 0
+    tower_of_the_goddess: 0
+    tower_of_ruin: 0
+    chamber_of_birth: 0
+    twin_labyrinths_back: 0
+    gate_of_time_surface: 0
+    random: 0
+  StartingWeapon:
+    leather_whip: 0
+    knife: 0
+    key_sword: 0
+    axe: 0
+    katana: 0
+    shuriken: 0
+    rolling_shuriken: 0
+    earth_spear: 0
+    flare_gun: 0
+    bomb: 0
+    chakram: 0
+    caltrops: 0
+    pistol: 0
+    random: 1
+  HolyGrailShuffle: start_with
+  MiraiShuffle: start_with
+  HermesBootsShuffle: false
+  TextTraxShuffle: start_with
+  RandomizeTransitions: false
+  RandomizeBacksideDoors: false
+  RequireIceCape: false
+  RequireFlareGun: false
+  RequireKeyFairyCombo: true
+  AutoScanGrailTablets: true
+  AlternateMotherAnkh: true
+  AncientLaMulaneseLearned: true
+  HardCombatLogic: false
+  SubweaponOnly: false
+  RaindropsInLogic: true
+  CatPausingInLogic: true
+  LampGlitchInLogic: true
+  local_items: []
+  non_local_items: []
+  start_inventory:
+    Provocative Bathing Suit: 1
+  start_hints: []
+  priority_locations: []
+  exclude_locations: []
+  start_location_hints: []
+game: La-Mulana
+name: Lemeza{NUMBER}
