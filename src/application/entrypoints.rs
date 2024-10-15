@@ -104,7 +104,6 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                                 let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
                                 randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
                                 randomizer.as_mut().unwrap().sync();
-
                             },
                             _ => ()
                         }
@@ -130,7 +129,7 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                         let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
                         let inventory_pointer: &mut usize = application.read_address(INVENTORY_WORDS);
                         let inventory: &[u16;114] = application.read_address(*inventory_pointer);
-                        if *item > 104 || inventory[*item] == 0 {
+                        if *item.item_id > 104 || inventory[*item.item_id] == 0 {
                             let player_id = ap_item.player;
                             if let Some(player_item) = PLAYER_ITEM.lock().ok().as_mut() {
                                 **player_item = Some(PlayerItem {
@@ -138,7 +137,9 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                                     for_player: false
                                 });
                             }
-                            application.give_item(*item as u32);
+                            application.give_item(*item.item_id as u32);
+                            let global_flags: &[u8;4096] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                            global_flags[*item.flag] = *item.value
                         }
                     }
                 }
@@ -167,7 +168,6 @@ pub extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
             let player_name = players.get(player_id).unwrap_or(&server_name);
             format!("From {}", player_name)
         };
-        
 
         let popup = PlayerItemPopup {
             popup_id_address: &popup_dialog.id.uid as *const u32 as usize,
