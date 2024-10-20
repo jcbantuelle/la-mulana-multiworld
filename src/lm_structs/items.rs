@@ -26,7 +26,7 @@ pub struct Value {
 
 pub struct Item {
     pub item_id: usize,
-    pub item_name: String,
+    pub item_name: &'static str,
     pub flag: usize,
     pub value: u8
 }

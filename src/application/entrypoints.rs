@@ -129,7 +129,7 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                         let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
                         let inventory_pointer: &mut usize = application.read_address(INVENTORY_WORDS);
                         let inventory: &[u16;114] = application.read_address(*inventory_pointer);
-                        if *item.item_id > 104 || inventory[*item.item_id] == 0 {
+                        if item.item_id > 104 || inventory[item.item_id] == 0 {
                             let player_id = ap_item.player;
                             if let Some(player_item) = PLAYER_ITEM.lock().ok().as_mut() {
                                 **player_item = Some(PlayerItem {
@@ -137,9 +137,9 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                                     for_player: false
                                 });
                             }
-                            application.give_item(*item.item_id as u32);
-                            let global_flags: &[u8;4096] = application.read_address(GLOBAL_FLAGS_ADDRESS);
-                            global_flags[*item.flag] = *item.value
+                            application.give_item(item.item_id as u32);
+                            let global_flags: &mut [u8;4096] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                            global_flags[item.flag] = item.value
                         }
                     }
                 }
