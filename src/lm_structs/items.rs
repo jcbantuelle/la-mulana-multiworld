@@ -94,7 +94,7 @@ lazy_static! {
         (2359060, Item{item_id: 47, item_name: "Ring", flag: 0xb0, value: 1}),
         (2359061, Item{item_id: 48, item_name: "Scalesphere", flag: 0xb1, value: 2}),
         (2359062, Item{item_id: 49, item_name: "Gauntlet", flag: 0xb2, value: 2}),
-        (2359063, Item{item_id: 50, item_name: "Anchor", flag: 0x228, value: 2}),
+        (2359063, Item{item_id: 50, item_name: "Anchor", flag: 0x84c, value: 2}),
         (2359064, Item{item_id: 51, item_name: "Plane Model", flag: 0xb4, value: 2}),
         (2359065, Item{item_id: 52, item_name: "Philosopher's Ocarina", flag: 0xb5, value: 2}),
         (2359066, Item{item_id: 53, item_name: "Feather", flag: 0xb6, value: 2}),
