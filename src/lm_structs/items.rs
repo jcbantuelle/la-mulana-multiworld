@@ -47,7 +47,7 @@ lazy_static! {
         (2359013, Item{item_id: 13, item_name: "Chakram", flag: 0x88, value: 1}),
         (2359014, Item{item_id: 14, item_name: "Caltrops", flag: 0x89, value: 1}),
         (2359015, Item{item_id: 15, item_name: "Pistol", flag: 0x8a, value: 1}),
-        (2359016, Item{item_id: 16, item_name: "Buckler", flag: 0x8b, value: 1}),
+        (2359016, Item{item_id: 16, item_name: "Buckler", flag: 0x862, value: 1}),
         (2359017, Item{item_id: 75, item_name: "Fake Silver Shield", flag: 0x82e, value: 1}),
         (2359018, Item{item_id: 17, item_name: "Silver Shield", flag: 0x8c, value: 1}),
         (2359019, Item{item_id: 18, item_name: "Angel Shield", flag: 0x8d, value: 2}),
