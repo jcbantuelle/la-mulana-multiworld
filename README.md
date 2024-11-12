@@ -23,8 +23,7 @@ The project is built in Rust. If you don't already have an environment configure
 
 ## Future Plans
 
-* Add Quality of Life Features, such as:
-  * Instant read tablets for easy warping
+* Add Quality of Life Features, including:
   * Skip mantra puzzle
   * Save at Ankhs
   * Display accurate item names from shop NPCs
@@ -35,7 +34,9 @@ The project is built in Rust. If you don't already have an environment configure
 
 ## Known Issues
 
-None atm, but there are probably a lot of unknown issues
+* Mr. Fishman (original) shop is overridden by the Alternate version. The Alt Shop should open in a different location to allow access to both
+* Mulbruk conversations need to be reworked
+* Xelpud interactions related to the diary chest need to be reworked
 
 ## Credits
 
@@ -44,5 +45,7 @@ Thank you to [thezerothcat](https://github.com/thezerothcat), the creator of the
 Thank you to [Planeswater](https://github.com/Planeswater), who ported all of the randomization logic into an Archipelago world format. This was a huge lift and the project would have been significantly delayed without all of that effort.
 
 Thank you to [smurfton](https://github.com/smurfton) for your work reverse engineering the game's binary file formats and documenting them. This reference was invaluable for enabling this project.
+
+Thank you to Squiggly for the extensive testing and feedback.
 
 Finally, I'm forever indebted to [worsety](https://github.com/worsety) and SeerSkye, without who this project would literally not exist. Thank you both for your constant and detailed answers to my questions, your encyclopedic knowledge of the game source, and your guidance and support throughout this process. The La-Mulana community is lucky to have you both.
