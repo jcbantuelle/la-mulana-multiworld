@@ -33,6 +33,7 @@ pub struct Item {
 
 lazy_static! {
     pub static ref ARCHIPELAGO_ITEM_LOOKUP: HashMap<u64, Item> = HashMap::from([
+        (2359000, Item{item_id: 0, item_name: "Leather Whip", flag: 0x863, value=1}),
         (2359001, Item{item_id: 1, item_name: "Chain Whip", flag: 0x7d, value: 1}),
         (2359002, Item{item_id: 2, item_name: "Flail Whip", flag: 0x7e, value: 1}),
         (2359004, Item{item_id: 3, item_name: "Knife", flag: 0x7f, value: 1}),
