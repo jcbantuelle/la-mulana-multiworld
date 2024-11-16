@@ -132,7 +132,7 @@ pub extern "stdcall" fn game_loop() -> DWORD {
                         let global_flags: &mut [u8;4096] = application.read_address(GLOBAL_FLAGS_ADDRESS);
 
                         let give_item = if item.item_id == 70 || item.item_id == 19 || item.item_id == 69 {
-                            global_flags[item.flag] > 0
+                            global_flags[item.flag] == 0
                         } else {
                             item.item_id > 104 || inventory[item.item_id] == 0
                         };
