@@ -1,3 +1,6 @@
+#![feature(unboxed_closures)]
+#![feature(tuple_trait)]
+
 use std::fs;
 use std::ptr::null_mut;
 use std::sync::Mutex;
@@ -85,6 +88,13 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
         return true;
     }
     APPLICATION.attach();
+    true
+}
+
+#[no_mangle]
+extern "stdcall" fn application_initialize() -> bool {
+    APPLICATION.attach();
+
     true
 }
 

@@ -3,17 +3,16 @@ use log::debug;
 use std::sync::Mutex;
 use std::thread;
 use lazy_static::lazy_static;
-
+use retour::static_detour;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use winapi::um::processthreadsapi::ExitProcess;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::archipelago::protocol::{ClientMessage, LocationChecks, ServerMessage};
-use crate::{APPLICATION, Application, get_application, ArchipelagoItem};
-use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS, INVENTORY_WORDS};
-use crate::lm_structs::items::{generate_item_translator, ARCHIPELAGO_ITEM_LOOKUP};
-use crate::utils::show_message_box;
+use crate::{APPLICATION, get_application, ArchipelagoItem};
+use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS, INVENTORY_WORDS, GAME_LOOP_ADDRESS, POPUP_DIALOG_DRAW_ADDRESS};
+use crate::lm_structs::items::{ARCHIPELAGO_ITEM_LOOKUP};
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -44,17 +43,12 @@ lazy_static! {
     static ref MESSAGE_QUEUE: Mutex<VecDeque<ServerMessage>> = Mutex::new(VecDeque::new());
 }
 
-pub extern "stdcall" fn app_init(patch_version: winapi::shared::ntdef::INT) {
-    if patch_version != 1 {
-        let init_message = format!("EXE Patch Version does not match DLL. Please re-patch.");
-        show_message_box(&init_message);
-        unsafe {
-            ExitProcess(1);
-        }
-    }
-}
- 
-pub extern "stdcall" fn game_loop() -> DWORD {
+pub type FnGameLoop = extern "stdcall" fn() -> DWORD;
+pub type FnPopupDialogDrawIntercept = extern "C" fn(&TaskData);
+pub type FnItemSymbolInitIntercept = extern "C" fn(&mut TaskData);
+
+const FOO: Mutex<bool> = Mutex::new(true);
+pub fn game_loop() -> DWORD {
     let application = get_application();
 
     if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
@@ -158,7 +152,7 @@ pub extern "stdcall" fn game_loop() -> DWORD {
     get_time()
 }
 
-pub extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
+pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
     let application = get_application();
     let mut player_item_option = PLAYER_ITEM.lock().unwrap();
     if let Some(player_item) = player_item_option.as_ref() {
@@ -202,14 +196,15 @@ pub extern "stdcall" fn popup_dialog_draw_intercept(popup_dialog: &TaskData) {
     }
 }
 
-pub extern "stdcall" fn item_symbol_init_intercept(item: &mut TaskData) {
-    let item_symbol_init: &*const () = get_application().read_address(ITEM_SYMBOL_INIT_ADDRESS);
-    let item_symbol_init_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(item_symbol_init) };
-    (item_symbol_init_func)(item);
+pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
+    debug!("item_symbol_init_intercept called");
+    let application = get_application();
     item.rfunc = item_symbol_back_intercept as EventWithBool;
+    application.original_item_symbol_init(item);
 }
 
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
+    debug!("item_symbol_back_intercept called");
     let acquired = item.hit_data > 0;
     let item_id = item.buff[1];
     let for_other_player = item_id == 83;

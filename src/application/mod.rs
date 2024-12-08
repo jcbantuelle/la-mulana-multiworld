@@ -2,10 +2,14 @@ pub mod entrypoints;
 pub mod live;
 
 use std::sync::Mutex;
-
+use websocket::futures::task::Task;
 use crate::AppConfig;
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::lm_structs::taskdata::TaskData;
+
+pub static INIT_ADDRESS: usize = 0x006ab21b;
+pub static GAME_LOOP_ADDRESS: usize = 0x0066f1c0;
+pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
 
 pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
 pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
@@ -26,7 +30,6 @@ pub static SET_SE_ADDRESS: usize = 0x00417600;
 pub static SE_ADDRESS: usize = 0x006d2708;
 pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
 pub static POPUP_DIALOG_INIT_ADDRESS: usize = 0x00591520;
-pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
 pub static SCRIPT_HEADER_POINTER_ADDRESS: usize = 0x006d296c;
 pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
 pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
@@ -42,7 +45,7 @@ pub trait Application {
     fn get_app_config(&self) -> &AppConfig;
     fn give_item(&self, item: u32);
     fn create_dialog_popup(&self, item_id: u32);
-    fn popup_dialog_draw(&self, popup_dialog: &TaskData);
+    fn popup_dialog_draw(&self, popup_dialog: &'static TaskData);
     fn pause_game_process(&self);
     fn disable_movement(&self);
     fn disable_warp_menu(&self);
@@ -50,6 +53,7 @@ pub trait Application {
     fn play_sound_effect(&self, effect_id: u32);
     fn option_stuck(&self, option_num: u32);
     fn option_pos(&self, x: f32, y: f32);
+    fn original_item_symbol_init(&self, item: &'static mut TaskData);
 }
 
 pub trait ApplicationMemoryOps {

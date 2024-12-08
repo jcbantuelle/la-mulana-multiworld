@@ -2,17 +2,43 @@ use std::sync::Mutex;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::{AppConfig, LiveApplication, Application};
-use crate::application::{ApplicationMemoryOps, GAME_LOOP_ATTACH_ADDRESS, GAME_PROCESS_ADDRESS, INIT_ATTACH_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_SYMBOL_INIT_INTERCEPT, ITEM_SYMBOL_INIT_POINTER_ADDRESS, LEMEZA_ADDRESS, MOVEMENT_STATUS_ADDRESS, OPTION_POS_CX_ADDRESS, OPTION_POS_CY_ADDRESS, OPTION_SDATA_ADDRESS, OPTION_SDATA_NUM_ADDRESS, POPUP_DIALOG_DRAW_ADDRESS, POPUP_DIALOG_DRAW_INTERCEPT, POPUP_DIALOG_INIT_ADDRESS, SE_ADDRESS, SET_SE_ADDRESS, SET_VIEW_EVENT_NS_ADDRESS, WARP_MENU_STATUS_ADDRESS};
+use crate::application::{ApplicationMemoryOps, GAME_LOOP_ADDRESS, GAME_PROCESS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, ITEM_SYMBOL_INIT_INTERCEPT, ITEM_SYMBOL_INIT_POINTER_ADDRESS, LEMEZA_ADDRESS, MOVEMENT_STATUS_ADDRESS, OPTION_POS_CX_ADDRESS, OPTION_POS_CY_ADDRESS, OPTION_SDATA_ADDRESS, OPTION_SDATA_NUM_ADDRESS, POPUP_DIALOG_DRAW_ADDRESS, POPUP_DIALOG_DRAW_INTERCEPT, POPUP_DIALOG_INIT_ADDRESS, SE_ADDRESS, SET_SE_ADDRESS, SET_VIEW_EVENT_NS_ADDRESS, WARP_MENU_STATUS_ADDRESS};
 use crate::lm_structs::taskdata::TaskData;
-use crate::application::entrypoints::{item_symbol_init_intercept, app_init, game_loop, popup_dialog_draw_intercept};
+use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
+use winapi::shared::ntdef::INT;
+
+use std::error::Error;
+use std::marker::Tuple;
+use std::mem;
+use log::{debug, error, trace};
+use retour::{Function, static_detour, StaticDetour};
+use winapi::shared::minwindef::DWORD;
+use crate::utils::show_message_box;
+
+static_detour! {
+    static GameLoopDetour: extern "stdcall" fn() -> DWORD;
+}
+
+static_detour! {
+    static PopupDialogDrawInterceptDetour: extern "C" fn(&'static TaskData);
+}
+
+static_detour! {
+    static ItemSymbolInitInterceptDetour: extern "C" fn(&'static mut TaskData);
+}
 
 impl Application for LiveApplication {
     fn attach(&self) {
-        *self.read_address(INIT_ATTACH_ADDRESS) = app_init as usize;
-        *self.read_address(GAME_LOOP_ATTACH_ADDRESS) = game_loop as usize;
-        *self.read_address(POPUP_DIALOG_DRAW_INTERCEPT) = popup_dialog_draw_intercept as usize;
-        *self.read_address(ITEM_SYMBOL_INIT_POINTER_ADDRESS) = item_symbol_init_intercept as usize;
-        *self.read_address(ITEM_SYMBOL_INIT_INTERCEPT) = item_symbol_init_intercept as usize;
+        unsafe {
+            let game_loop_addr: FnGameLoop = std::mem::transmute(self.get_address().wrapping_add(GAME_LOOP_ADDRESS));
+            let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
+
+            let popup_dialog_draw_intercept_addr: FnPopupDialogDrawIntercept = std::mem::transmute(self.get_address().wrapping_add(POPUP_DIALOG_DRAW_ADDRESS));
+            let _ = self.enable_detour(PopupDialogDrawInterceptDetour.initialize(popup_dialog_draw_intercept_addr, popup_dialog_draw_intercept), "PopupDialogDrawInterceptDetour");
+
+            let item_symbol_init_intercept_addr: FnItemSymbolInitIntercept = std::mem::transmute(self.get_address().wrapping_add(ITEM_SYMBOL_INIT_ADDRESS));
+            let _ = self.enable_detour(ItemSymbolInitInterceptDetour.initialize(item_symbol_init_intercept_addr, item_symbol_init_intercept), "ItemSymbolInitInterceptDetour");
+        }
     }
 
     fn get_address(&self) -> usize {
@@ -55,10 +81,8 @@ impl Application for LiveApplication {
         self.play_sound_effect(0x618);
     }
 
-    fn popup_dialog_draw(&self, popup_dialog: &TaskData) {
-        let popup_dialog_draw: &*const () = self.read_address(POPUP_DIALOG_DRAW_ADDRESS);
-        let popup_dialog_draw_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(popup_dialog_draw) };
-        (popup_dialog_draw_func)(popup_dialog);
+    fn popup_dialog_draw(&self, popup_dialog: &'static TaskData) {
+        PopupDialogDrawInterceptDetour.call(popup_dialog);
     }
 
     fn pause_game_process(&self) {
@@ -101,6 +125,36 @@ impl Application for LiveApplication {
     fn option_pos(&self, x: f32, y: f32) {
         *self.read_address(OPTION_POS_CX_ADDRESS) = x;
         *self.read_address(OPTION_POS_CY_ADDRESS) = y;
+    }
+
+    fn original_item_symbol_init(&self, item: &'static mut TaskData) {
+        debug!("live.application.original_item_symbol_item called!");
+        ItemSymbolInitInterceptDetour.call(item)
+    }
+}
+
+impl LiveApplication {
+    unsafe fn enable_detour<'a, T: Function>(&self, detour_result: Result<&'a StaticDetour<T>, retour::Error>, detour_name: &str) -> &'a StaticDetour<T> {
+        match detour_result {
+            Ok(e) => {
+                match e.enable() {
+                    Ok(_) => {
+                        debug!("Detour is enabled for {}", detour_name);
+                        e
+                    },
+                    Err(e) => {
+                        let error_message = format!("Error enabling detour {}: {}", detour_name, e);
+                        error!("{}", error_message);
+                        panic!("{}", error_message)
+                    }
+                }
+            },
+            Err(e) => {
+                let error_message = format!("Error attaching to detour {}: {}", detour_name, e);
+                error!("{}", error_message);
+                panic!("{}", error_message)
+            }
+        }
     }
 }
 

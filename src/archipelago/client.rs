@@ -78,7 +78,7 @@ impl ArchipelagoClient {
                     None => return Err(ArchipelagoError::ConnectionClosed)
                 }
             },
-            Err(e) => return Err(ArchipelagoError::ConnectionClosed)
+            Err(_) => return Err(ArchipelagoError::ConnectionClosed)
         };
 
         Ok(ArchipelagoClient {
