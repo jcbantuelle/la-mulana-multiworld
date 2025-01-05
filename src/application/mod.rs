@@ -2,41 +2,83 @@ pub mod entrypoints;
 pub mod live;
 
 use std::sync::Mutex;
-use websocket::futures::task::Task;
 use crate::AppConfig;
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::lm_structs::taskdata::TaskData;
+use phf::phf_map;
 
-pub static INIT_ADDRESS: usize = 0x006ab21b;
-pub static GAME_LOOP_ADDRESS: usize = 0x0066f1c0;
-pub static POPUP_DIALOG_DRAW_ADDRESS: usize = 0x005917b0;
+pub struct AppAddresses {
+    pub game_loop_address: usize,
+    pub popup_dialog_draw_address: usize,
+    pub game_init_address: usize,
+    pub lemeza_address: usize,
+    pub game_process_address: usize,
+    pub warp_menu_status_address: usize,
+    pub movement_status_address: usize,
+    pub option_sdata_num_address: usize,
+    pub option_sdata_address: usize,
+    pub option_pos_cx_address: usize,
+    pub option_pos_cy_address: usize,
+    pub set_view_event_ns_address: usize,
+    pub set_se_address: usize,
+    pub se_address: usize,
+    pub item_get_area_init_address: usize,
+    pub popup_dialog_init_address: usize,
+    pub script_header_pointer_address: usize,
+    pub item_symbol_init_address: usize,
+    pub item_symbol_back_address: usize,
+    pub global_flags_address: usize,
+    pub inventory_words: usize
+}
 
-pub static INIT_ATTACH_ADDRESS: usize = 0xdb9060;
-pub static GAME_LOOP_ATTACH_ADDRESS: usize = 0xdb9064;
-pub static POPUP_DIALOG_DRAW_INTERCEPT: usize = 0xdb9068;
-pub static GAME_INIT_ADDRESS: usize = 0x00db753c;
-pub static LEMEZA_ADDRESS: usize = 0x00db7538;
-pub static GAME_PROCESS_ADDRESS: usize = 0x00db7178;
-pub static WARP_MENU_STATUS_ADDRESS: usize = 0x006d59cc;
-pub static MOVEMENT_STATUS_ADDRESS: usize = 0x006d59c0;
-pub static ITEM_SYMBOL_INIT_INTERCEPT: usize = 0xdb906c;
-pub static OPTION_SDATA_NUM_ADDRESS: usize = 0x00db6fb7;
-pub static OPTION_SDATA_ADDRESS: usize = 0x00db7048;
-pub static OPTION_POS_CX_ADDRESS: usize = 0x00db7168;
-pub static OPTION_POS_CY_ADDRESS: usize = 0x00db714c;
-pub static SET_VIEW_EVENT_NS_ADDRESS: usize = 0x00507160;
-pub static SET_TASK_ADDRESS: usize = 0x00607570;
-pub static SET_SE_ADDRESS: usize = 0x00417600;
-pub static SE_ADDRESS: usize = 0x006d2708;
-pub static ITEM_GET_AREA_INIT_ADDRESS: usize = 0x004b8950;
-pub static POPUP_DIALOG_INIT_ADDRESS: usize = 0x00591520;
-pub static SCRIPT_HEADER_POINTER_ADDRESS: usize = 0x006d296c;
-pub static ITEM_SYMBOL_INIT_POINTER_ADDRESS: usize = 0x006d1174;
-pub static ITEM_SYMBOL_INIT_ADDRESS: usize = 0x004b8ae0;
-pub static ITEM_SYMBOL_BACK_ADDRESS: usize = 0x004b8e70;
-pub static GLOBAL_FLAGS_ADDRESS: usize = 0x006d5a70;
-pub static INVENTORY_SCREEN: usize = 0x006d4db4;
-pub static INVENTORY_WORDS: usize = 0x006d5650;
+const ADDRESS_LOOKUP: phf::Map<&'static str, AppAddresses> = phf_map! {
+    "1.0.0.1" => AppAddresses {
+        game_loop_address: 0x0066f1c0,
+        popup_dialog_draw_address: 0x005917b0,
+        game_init_address: 0x00db753c,
+        lemeza_address: 0x00db7538,
+        game_process_address: 0x00db7178,
+        warp_menu_status_address: 0x006d59cc,
+        movement_status_address: 0x006d59c0,
+        option_sdata_num_address: 0x00db6fb7,
+        option_sdata_address: 0x00db7048,
+        option_pos_cx_address: 0x00db7168,
+        option_pos_cy_address: 0x00db714c,
+        set_view_event_ns_address: 0x00507160,
+        set_se_address: 0x00417600,
+        se_address: 0x006d2708,
+        item_get_area_init_address: 0x004b8950,
+        popup_dialog_init_address: 0x00591520,
+        script_header_pointer_address: 0x006d296c,
+        item_symbol_init_address: 0x004b8ae0,
+        item_symbol_back_address: 0x004b8e70,
+        global_flags_address: 0x006d5a70,
+        inventory_words: 0x006d5650,
+    },
+    "1.6.6.2" => AppAddresses {
+        game_loop_address: 0x6714a0,
+        popup_dialog_draw_address: 0x593900,
+        game_init_address: 0,
+        lemeza_address: 0,
+        game_process_address: 0,
+        warp_menu_status_address: 0,
+        movement_status_address: 0,
+        option_sdata_num_address: 0,
+        option_sdata_address: 0,
+        option_pos_cx_address: 0,
+        option_pos_cy_address: 0,
+        set_view_event_ns_address: 0,
+        set_se_address: 0,
+        se_address: 0,
+        item_get_area_init_address: 0,
+        popup_dialog_init_address: 0,
+        script_header_pointer_address: 0,
+        item_symbol_init_address: 0x4ba8b0,
+        item_symbol_back_address: 0,
+        global_flags_address: 0,
+        inventory_words: 0,
+    }
+};
 
 pub trait Application {
     fn attach(&self);
@@ -54,6 +96,7 @@ pub trait Application {
     fn option_stuck(&self, option_num: u32);
     fn option_pos(&self, x: f32, y: f32);
     fn original_item_symbol_init(&self, item: &'static mut TaskData);
+    fn app_addresses(&self) -> &AppAddresses;
 }
 
 pub trait ApplicationMemoryOps {

@@ -3,16 +3,14 @@ use log::debug;
 use std::sync::Mutex;
 use std::thread;
 use lazy_static::lazy_static;
-use retour::static_detour;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
-use winapi::um::processthreadsapi::ExitProcess;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
-use crate::archipelago::protocol::{ClientMessage, LocationChecks, ServerMessage};
-use crate::{APPLICATION, get_application, ArchipelagoItem};
-use crate::application::{ApplicationMemoryOps, GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS, ITEM_SYMBOL_BACK_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, SCRIPT_HEADER_POINTER_ADDRESS, INVENTORY_WORDS, GAME_LOOP_ADDRESS, POPUP_DIALOG_DRAW_ADDRESS};
-use crate::lm_structs::items::{ARCHIPELAGO_ITEM_LOOKUP};
+use crate::archipelago::protocol::ServerMessage;
+use crate::{APPLICATION, get_application};
+use crate::application::ApplicationMemoryOps;
+use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -47,9 +45,9 @@ pub type FnGameLoop = extern "stdcall" fn() -> DWORD;
 pub type FnPopupDialogDrawIntercept = extern "C" fn(&TaskData);
 pub type FnItemSymbolInitIntercept = extern "C" fn(&mut TaskData);
 
-const FOO: Mutex<bool> = Mutex::new(true);
 pub fn game_loop() -> DWORD {
     let application = get_application();
+    let app_addresses = application.app_addresses();
 
     if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
         if let Some(popup) = popup_option.as_ref() {
@@ -64,15 +62,15 @@ pub fn game_loop() -> DWORD {
         match application.get_randomizer().try_lock() {
             Ok(mut randomizer) => {
                 match randomizer.as_mut() {
-                    Ok(mut client) => {
-                        let global_flags: &[u8;4096] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                    Ok(client) => {
+                        let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
                         let found_items: Vec<u64> = application.get_app_config().items().iter().filter(|(k,v)|
                             global_flags[**k as usize] == v.obtain_value
                         ).map(|(_,v)|
                             v.location_id
                         ).collect();
                         
-                        client.location_checks(found_items);
+                        let _ = client.location_checks(found_items);
 
                         match client.read() {
                             Ok(message_wrapper) => {
@@ -87,7 +85,7 @@ pub fn game_loop() -> DWORD {
                             Err(_) => ()
                         }
                     },
-                    Err(mut error) => {
+                    Err(error) => {
                         match error {
                             ArchipelagoError::ConnectionClosed => {
                                 let app_config = application.get_app_config();
@@ -96,8 +94,8 @@ pub fn game_loop() -> DWORD {
                                 let players = app_config.players_lookup();
                                 let player_name = players.get(&player_id).unwrap();
                                 let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
-                                randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
-                                randomizer.as_mut().unwrap().sync();
+                                let _ = randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
+                                let _ = randomizer.as_mut().unwrap().sync();
                             },
                             _ => ()
                         }
@@ -108,7 +106,7 @@ pub fn game_loop() -> DWORD {
         };
     });
         
-    let game_init: &mut u32 = application.read_address(GAME_INIT_ADDRESS);
+    let game_init: &mut u32 = application.read_address(app_addresses.game_init_address);
     if *game_init != 0 {
         let mut message: Option<ServerMessage> = None;
         if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
@@ -121,9 +119,9 @@ pub fn game_loop() -> DWORD {
 
                     for ap_item in network_items {
                         let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
-                        let inventory_pointer: &mut usize = application.read_address(INVENTORY_WORDS);
+                        let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
                         let inventory: &[u16;114] = application.read_address(*inventory_pointer);
-                        let global_flags: &mut [u8;4096] = application.read_address(GLOBAL_FLAGS_ADDRESS);
+                        let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
 
                         let give_item = if item.item_id == 70 || item.item_id == 19 || item.item_id == 69 {
                             global_flags[item.flag] == 0
@@ -154,9 +152,11 @@ pub fn game_loop() -> DWORD {
 
 pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
     let application = get_application();
+    let app_addresses = application.app_addresses();
     let mut player_item_option = PLAYER_ITEM.lock().unwrap();
+
     if let Some(player_item) = player_item_option.as_ref() {
-        let script_header: &*const ScriptHeader = application.read_address(SCRIPT_HEADER_POINTER_ADDRESS);
+        let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer_address);
         let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
         let line = unsafe { &mut *line_header.add(2) };
 
@@ -204,6 +204,8 @@ pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
 }
 
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
+    let application = get_application();
+    let app_addresses = application.app_addresses();
     debug!("item_symbol_back_intercept called");
     let acquired = item.hit_data > 0;
     let item_id = item.buff[1];
@@ -213,7 +215,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         item.sbuff[2] = 0;
     }
 
-    let item_symbol_back: &*const () = APPLICATION.read_address(ITEM_SYMBOL_BACK_ADDRESS);
+    let item_symbol_back: &*const () = APPLICATION.read_address(app_addresses.item_symbol_back_address);
     let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
     let result = (item_symbol_back_func)(item);
 

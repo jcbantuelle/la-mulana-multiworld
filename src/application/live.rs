@@ -1,16 +1,12 @@
 use std::sync::Mutex;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
-use crate::{AppConfig, LiveApplication, Application};
-use crate::application::{ApplicationMemoryOps, GAME_LOOP_ADDRESS, GAME_PROCESS_ADDRESS, ITEM_GET_AREA_INIT_ADDRESS, ITEM_SYMBOL_INIT_ADDRESS, ITEM_SYMBOL_INIT_INTERCEPT, ITEM_SYMBOL_INIT_POINTER_ADDRESS, LEMEZA_ADDRESS, MOVEMENT_STATUS_ADDRESS, OPTION_POS_CX_ADDRESS, OPTION_POS_CY_ADDRESS, OPTION_SDATA_ADDRESS, OPTION_SDATA_NUM_ADDRESS, POPUP_DIALOG_DRAW_ADDRESS, POPUP_DIALOG_DRAW_INTERCEPT, POPUP_DIALOG_INIT_ADDRESS, SE_ADDRESS, SET_SE_ADDRESS, SET_VIEW_EVENT_NS_ADDRESS, WARP_MENU_STATUS_ADDRESS};
+use crate::{AppConfig, LiveApplication, Application, get_application_version};
+use crate::application::{ADDRESS_LOOKUP, AppAddresses, ApplicationMemoryOps};
 use crate::lm_structs::taskdata::TaskData;
 use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
-use winapi::shared::ntdef::INT;
 
-use std::error::Error;
-use std::marker::Tuple;
-use std::mem;
-use log::{debug, error, trace};
+use log::{debug, error};
 use retour::{Function, static_detour, StaticDetour};
 use winapi::shared::minwindef::DWORD;
 use crate::utils::show_message_box;
@@ -29,15 +25,23 @@ static_detour! {
 
 impl Application for LiveApplication {
     fn attach(&self) {
-        unsafe {
-            let game_loop_addr: FnGameLoop = std::mem::transmute(self.get_address().wrapping_add(GAME_LOOP_ADDRESS));
-            let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
+        let version = get_application_version();
 
-            let popup_dialog_draw_intercept_addr: FnPopupDialogDrawIntercept = std::mem::transmute(self.get_address().wrapping_add(POPUP_DIALOG_DRAW_ADDRESS));
-            let _ = self.enable_detour(PopupDialogDrawInterceptDetour.initialize(popup_dialog_draw_intercept_addr, popup_dialog_draw_intercept), "PopupDialogDrawInterceptDetour");
+        if let Some(app_addresses) = ADDRESS_LOOKUP.get(&version) {
+            unsafe {
+                let game_loop_addr: FnGameLoop = std::mem::transmute(self.get_address().wrapping_add(app_addresses.game_loop_address));
+                let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
 
-            let item_symbol_init_intercept_addr: FnItemSymbolInitIntercept = std::mem::transmute(self.get_address().wrapping_add(ITEM_SYMBOL_INIT_ADDRESS));
-            let _ = self.enable_detour(ItemSymbolInitInterceptDetour.initialize(item_symbol_init_intercept_addr, item_symbol_init_intercept), "ItemSymbolInitInterceptDetour");
+                let popup_dialog_draw_intercept_addr: FnPopupDialogDrawIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.popup_dialog_draw_address));
+                let _ = self.enable_detour(PopupDialogDrawInterceptDetour.initialize(popup_dialog_draw_intercept_addr, popup_dialog_draw_intercept), "PopupDialogDrawInterceptDetour");
+
+                let item_symbol_init_intercept_addr: FnItemSymbolInitIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.item_symbol_init_address));
+                let _ = self.enable_detour(ItemSymbolInitInterceptDetour.initialize(item_symbol_init_intercept_addr, item_symbol_init_intercept), "ItemSymbolInitInterceptDetour");
+            }
+        }
+        else {
+            let error_message = format!("Unsupported version {}.", version);
+            show_message_box(&error_message);
         }
     }
 
@@ -59,18 +63,19 @@ impl Application for LiveApplication {
         self.option_stuck(160);
         self.option_stuck(120);
         self.option_stuck(39);
-
-        let item_get_area_init: *const usize = self.read_address(ITEM_GET_AREA_INIT_ADDRESS);
-        let set_view_event_ns: &*const () = self.read_address(SET_VIEW_EVENT_NS_ADDRESS);
+        let app_addresses = self.app_addresses();
+        let item_get_area_init: *const usize = self.read_address(app_addresses.item_get_area_init_address);
+        let set_view_event_ns: &*const () = self.read_address(app_addresses.set_view_event_ns_address);
         let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
         (set_view_event_ns_func)(16, item_get_area_init);
     }
 
     fn create_dialog_popup(&self, item_id: u32) {
         self.option_stuck(item_id);
+        let app_addresses = self.app_addresses();
 
-        let popup_dialog_init: *const usize = self.read_address(POPUP_DIALOG_INIT_ADDRESS);
-        let set_task: &*const () = self.read_address(SET_VIEW_EVENT_NS_ADDRESS);
+        let popup_dialog_init: *const usize = self.read_address(app_addresses.popup_dialog_init_address);
+        let set_task: &*const () = self.read_address(app_addresses.set_view_event_ns_address);
         let set_task_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_task) };
         (set_task_func)(16, popup_dialog_init);
 
@@ -86,50 +91,62 @@ impl Application for LiveApplication {
     }
 
     fn pause_game_process(&self) {
-        let val: &mut u32 = self.read_address(GAME_PROCESS_ADDRESS);
+        let app_addresses = self.app_addresses();
+        let val: &mut u32 = self.read_address(app_addresses.game_process_address);
         *val |= 2;
     }
 
     fn disable_movement(&self) {
-        let val: &mut u32 = self.read_address(MOVEMENT_STATUS_ADDRESS);
+        let app_addresses = self.app_addresses();
+        let val: &mut u32 = self.read_address(app_addresses.movement_status_address);
         *val |= 1;
     }
 
     fn disable_warp_menu(&self) {
-        let val: &mut u32 = self.read_address(WARP_MENU_STATUS_ADDRESS);
+        let app_addresses = self.app_addresses();
+        let val: &mut u32 = self.read_address(app_addresses.warp_menu_status_address);
         *val |= 0x100000;
     }
 
     fn set_lemeza_item_pose(&self) {
-        let lemeza_address: &mut usize = self.read_address(LEMEZA_ADDRESS);
+        let app_addresses = self.app_addresses();
+        let lemeza_address: &mut usize = self.read_address(app_addresses.lemeza_address);
         let lemeza: &mut TaskData = self.read_address(*lemeza_address);
         (*lemeza).sbuff[6] = 0xf;
     }
 
     fn play_sound_effect(&self, effect_id: u32) {
-        let se_address: &mut u32 = self.read_address(SE_ADDRESS);
-        let set_se: &*const () = self.read_address(SET_SE_ADDRESS);
+        let app_addresses = self.app_addresses();
+        let se_address: &mut u32 = self.read_address(app_addresses.se_address);
+        let set_se: &*const () = self.read_address(app_addresses.set_se_address);
         let set_se_func: extern "C" fn(u32, u32, u32, u32, u32, u32) = unsafe { std::mem::transmute(set_se) };
         (set_se_func)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
     }
 
     fn option_stuck(&self, option_num: u32) {
-        let s_data_num: &mut u8 = self.read_address(OPTION_SDATA_NUM_ADDRESS);
+        let app_addresses = self.app_addresses();
+        let s_data_num: &mut u8 = self.read_address(app_addresses.option_sdata_address);
         if *s_data_num < 32 {
-            let s_data: &mut [u32;32] = self.read_address(OPTION_SDATA_ADDRESS);
+            let s_data: &mut [u32;32] = self.read_address(app_addresses.option_sdata_address);
             s_data[*s_data_num as usize] = option_num;
             *s_data_num = *s_data_num + 1
         }
     }
 
     fn option_pos(&self, x: f32, y: f32) {
-        *self.read_address(OPTION_POS_CX_ADDRESS) = x;
-        *self.read_address(OPTION_POS_CY_ADDRESS) = y;
+        let app_addresses = self.app_addresses();
+        *self.read_address(app_addresses.option_pos_cx_address) = x;
+        *self.read_address(app_addresses.option_pos_cy_address) = y;
     }
 
     fn original_item_symbol_init(&self, item: &'static mut TaskData) {
         debug!("live.application.original_item_symbol_item called!");
         ItemSymbolInitInterceptDetour.call(item)
+    }
+
+    fn app_addresses(&self) -> &AppAddresses {
+        // Okay to unwrap here with version vetted at DLL load
+        ADDRESS_LOOKUP.get(&self.app_version).unwrap()
     }
 }
 
@@ -166,4 +183,3 @@ impl ApplicationMemoryOps for LiveApplication {
         }
     }
 }
-
