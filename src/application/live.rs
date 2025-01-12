@@ -12,7 +12,7 @@ use winapi::shared::minwindef::DWORD;
 use crate::utils::show_message_box;
 
 static_detour! {
-    static GameLoopDetour: extern "stdcall" fn() -> DWORD;
+    static GameLoopDetour: extern "C" fn();
 }
 
 static_detour! {

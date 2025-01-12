@@ -41,11 +41,11 @@ lazy_static! {
     static ref MESSAGE_QUEUE: Mutex<VecDeque<ServerMessage>> = Mutex::new(VecDeque::new());
 }
 
-pub type FnGameLoop = extern "stdcall" fn() -> DWORD;
+pub type FnGameLoop = extern "C" fn();
 pub type FnPopupDialogDrawIntercept = extern "C" fn(&TaskData);
 pub type FnItemSymbolInitIntercept = extern "C" fn(&mut TaskData);
 
-pub fn game_loop() -> DWORD {
+pub fn game_loop() {
     let application = get_application();
     let app_addresses = application.app_addresses();
 
@@ -146,8 +146,6 @@ pub fn game_loop() -> DWORD {
             }
         }
     }
-
-    get_time()
 }
 
 pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
@@ -197,7 +195,6 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
 }
 
 pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
-    debug!("item_symbol_init_intercept called");
     let application = get_application();
     item.rfunc = item_symbol_back_intercept as EventWithBool;
     application.original_item_symbol_init(item);
@@ -206,7 +203,6 @@ pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let application = get_application();
     let app_addresses = application.app_addresses();
-    debug!("item_symbol_back_intercept called");
     let acquired = item.hit_data > 0;
     let item_id = item.buff[1];
     let for_other_player = item_id == 83;

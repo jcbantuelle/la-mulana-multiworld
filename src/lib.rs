@@ -92,13 +92,6 @@ extern "stdcall" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_rese
     true
 }
 
-#[no_mangle]
-extern "stdcall" fn application_initialize() -> bool {
-    APPLICATION.attach();
-
-    true
-}
-
 fn read_config() -> Result<AppConfig, String> {
     let file_contents = fs::read_to_string(CONFIG_FILENAME).map_err(|e| format!("Error reading config: {}", e.to_string()))?;
     let app_config = toml::from_str::<AppConfig>(&file_contents).map_err(|e| format!("Error parsing config: {}", e.to_string()))?;
