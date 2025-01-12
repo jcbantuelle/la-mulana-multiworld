@@ -1,15 +1,15 @@
 use std::collections::VecDeque;
-use log::debug;
 use std::sync::Mutex;
 use std::thread;
 use lazy_static::lazy_static;
+use log::warn;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::archipelago::protocol::ServerMessage;
 use crate::{APPLICATION, get_application};
-use crate::application::ApplicationMemoryOps;
+use crate::application::{Application, ApplicationMemoryOps};
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
@@ -69,40 +69,38 @@ pub fn game_loop() {
                         ).map(|(_,v)|
                             v.location_id
                         ).collect();
-                        
-                        let _ = client.location_checks(found_items);
 
-                        match client.read() {
-                            Ok(message_wrapper) => {
-                                match message_wrapper {
-                                    Some(message) => {
-                                        let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
-                                        message_queue.push_back(message);
+                        match client.location_checks(found_items) {
+                            Ok(_) => {
+                                match client.read() {
+                                    Ok(message_wrapper) => {
+                                        match message_wrapper {
+                                            Some(message) => {
+                                                let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                                                message_queue.push_back(message);
+                                            },
+                                            None => ()
+                                        }
                                     },
-                                    None => ()
+                                    Err(_) => ()
                                 }
                             },
-                            Err(_) => ()
+                            Err(_) => {
+                                *randomizer = reconnect_to_server(application);
+                            }
                         }
                     },
                     Err(error) => {
                         match error {
                             ArchipelagoError::ConnectionClosed => {
-                                let app_config = application.get_app_config();
-                                *randomizer = ArchipelagoClient::new(&app_config.server_url);
-                                let player_id = app_config.local_player_id;
-                                let players = app_config.players_lookup();
-                                let player_name = players.get(&player_id).unwrap();
-                                let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
-                                let _ = randomizer.as_mut().unwrap().connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
-                                let _ = randomizer.as_mut().unwrap().sync();
+                                *randomizer = reconnect_to_server(application);
                             },
                             _ => ()
                         }
                     }
                 }
             }
-            Err(_) => ()
+            Err(_) => () // Okay to pass when cannot lock
         };
     });
         
@@ -242,6 +240,18 @@ pub fn get_time() -> DWORD {
     0
 }
 
+pub fn reconnect_to_server(application: &Box<dyn Application + Sync>) -> Result<ArchipelagoClient, ArchipelagoError> {
+    let app_config = application.get_app_config();
+    ArchipelagoClient::new(&app_config.server_url).map(|mut randomizer| {
+        let player_id = app_config.local_player_id;
+        let players = app_config.players_lookup();
+        let player_name = players.get(&player_id).unwrap();
+        let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
+        let _ = randomizer.connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
+        let _ = randomizer.sync();
+        randomizer
+    })
+}
 
 #[cfg(test)]
 mod tests {
