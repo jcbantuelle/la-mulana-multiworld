@@ -4,39 +4,37 @@ This project modifies La-Mulana to enable Multiworld support. It is very much in
 
 ## Requirements to Play
 
-* La-Mulana Version 1.0, modded with the provided BPS file
+* La-Mulana Version 1.0.0.1 or 1.6.6.2 (Steam), unmodded
 * A running Archipelago Server with the [La-Mulana world](https://github.com/jcbantuelle/Archipelago/tree/lamulana) included
-* Downloaded and updated script.rcd and script_code.dat files, and lamulana-config.toml file
+* Downloaded and updated script.rcd, script_code.dat, and lm_00.sav files, and lamulana-config.toml file
 
 ## Setup Instructions
 
-1. Modify your LaMulanaWin.exe using Floating IPS, using the provided LaMulanaMultiworld.bps file
-1. Add the provided DLL, `LaMulanaMW.dll` to the same location as LaMulanaWin.exe
-1. Generate the Archipelago game, referencing the [provided sample](https://github.com/jcbantuelle/la-mulana-multiworld/blob/main/Cargo.toml) (Please note many of these features do not currently work)
-1. Download the Archipelago provided zip for your game, containing `script.rcd`, `script_code.dat`, and `lamulana-config.toml`
+1. Download the [DLL](https://github.com/jcbantuelle/la-mulana-multiworld/blob/main/bin/LaMulanaMW.dll) and [Launcher](https://github.com/jcbantuelle/la-mulana-multiworld/blob/main/bin/la-mulana-multiworld-launch.exe), placing them in the root directory of your La-Mulana install (where `LaMulanaWin.exe` is)
+1. Generate the Archipelago game, referencing the [provided sample](https://github.com/jcbantuelle/la-mulana-multiworld/blob/main/example.yaml) (Please note many of these options are not currently implemented. See Currently Unsupported Options below)
+1. Download the Archipelago provided zip for your game, containing `script.rcd`, `script_code.dat`, `lm_00.sav`, and `lamulana-config.toml`
 1. Open lamulana-config.toml in a text editor and update the `server_url` to the domain and port of the Archipelago server. *Do not* include the leading protocol (e.g. http://). Also update the `password` to the correct text if there is one, or delete the text and leave it empty if there isn't one.
-1. Place `lamulana-config.toml` in the root of your La-Mulana install directory. Place `script.rcd` in `data/mapdata`, replacing the existing file. Place `script_code.rcd` in `data/language/en`, replacing the existing file.
+1. Place `lamulana-config.toml` in the root of your La-Mulana install directory. Place `script.rcd` in `data/mapdata`, replacing the existing file. Place `script_code.rcd` in `data/language/en`, replacing the existing file. Place `lm_00.sav` in `data/save`, replacing the existing file if there is one.
+1. Run the game using the provided launcher, `la-mulana-multiworld-launch.exe`, and load the first save file in the list to begin.
 
 ## Building from Source
 
-The project is built in Rust. If you don't already have an environment configured, you'll need to install it and run `rustup target add i686-pc-windows-msvc` to add the correct build target. To compile the source to a DLL, run `cargo build --release --target=i686-pc-windows-msvc`
+The project is built in Rust. If you don't already have an environment configured, you'll need to install it and run `rustup target add i686-pc-windows-msvc` to add the correct build target. To compile the DLL, run `cargo build --release --target=i686-pc-windows-msvc` from the project root. To compile the launcher, run `cargo build --release` from `/launcher`
 
-## Future Plans
+## Currently Unsupported Options
 
-* Add Quality of Life Features, including:
-  * Skip mantra puzzle
-  * Save at Ankhs
-  * Display accurate item names from shop NPCs
-* Include Coin Chests and Trap items in item shuffle
-* Randomize starting location
-* Randomize transitions
-* Randomize NPCs
+*	RandomizeCoinChests
+* RandomizeTrapItems
+* RandomizeNPCs
+* RandomizeSeals
+* StartingLocation
+*	RandomizeTransitions
+*	RandomizeBacksideDoors
 
 ## Known Issues
 
-* Mr. Fishman (original) shop is overridden by the Alternate version. The Alt Shop should open in a different location to allow access to both
-* Mulbruk conversations need to be reworked
-* Xelpud interactions related to the diary chest need to be reworked
+* Sacred Orbs will not sell out in a shop
+* Swapping your Main Hand weapon without having one equipped (if you start with a subweapon)
 
 ## Credits
 
