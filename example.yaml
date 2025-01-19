@@ -6,10 +6,10 @@ La-Mulana:
   RandomizeNPCs: false
   RandomizeCoinChests: false
   RandomizeTrapItems: false
-  RandomizeCursedChests: false
+  RandomizeCursedChests: true
   CursedChestCount: 4
   RandomizeDracuetsShop: false
-  HellTempleReward: false
+  HellTempleReward: true
   RandomizeSeals: false
   StartingLocation:
     surface: 1
@@ -51,21 +51,19 @@ La-Mulana:
   TextTraxShuffle: start_with
   RandomizeTransitions: false
   RandomizeBacksideDoors: false
-  RequireIceCape: false
-  RequireFlareGun: false
+  RequireIceCape: true
+  RequireFlareGun: true
   RequireKeyFairyCombo: true
   AutoScanGrailTablets: true
   AlternateMotherAnkh: true
   AncientLaMulaneseLearned: true
   HardCombatLogic: false
   SubweaponOnly: false
-  RaindropsInLogic: true
-  CatPausingInLogic: true
-  LampGlitchInLogic: true
+  RaindropsInLogic: false
+  CatPausingInLogic: false
+  LampGlitchInLogic: false
   local_items: []
   non_local_items: []
-  start_inventory:
-    Provocative Bathing Suit: 1
   start_hints: []
   priority_locations: []
   exclude_locations: []

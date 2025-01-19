@@ -132,7 +132,6 @@ fn get_application_version() -> String {
     let file_path = "LaMulanaWin.exe";
 
     if let Ok(map) = FileMap::open(&file_path) {
-        debug!("Reading version for LaMulana.exe.");
         let file = PeFile::from_bytes(&map).unwrap();
 
         let resources = file.resources().unwrap();
