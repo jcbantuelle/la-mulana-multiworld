@@ -1,11 +1,12 @@
+#![feature(unboxed_closures)]
+#![feature(tuple_trait)]
+
 use std::fs;
 use std::ptr::null_mut;
 use std::sync::Mutex;
 use archipelago::client::{ArchipelagoClient, ArchipelagoError};
-use archipelago::protocol::ServerMessage;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-
 use toml;
 use serde::{Serialize, Deserialize};
 
@@ -14,9 +15,11 @@ use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use log::{LevelFilter};
+use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
+use pelite::FileMap;
+use pelite::pe32::{Pe, PeFile};
 
 use utils::show_message_box;
 use crate::application::Application;
@@ -77,6 +80,7 @@ pub struct LiveApplication {
     pub address: usize,
     pub randomizer: Mutex<Result<ArchipelagoClient, ArchipelagoError>>,
     pub app_config: AppConfig,
+    pub app_version: String
 }
 
 #[no_mangle]
@@ -115,12 +119,31 @@ fn init_app() -> Box<dyn Application + Sync> {
     init_logger(&app_config);
 
     let randomizer = Mutex::new(Err(ArchipelagoError::ConnectionClosed));
+    let app_version = get_application_version();
 
-    Box::new(LiveApplication { address, randomizer, app_config})
+    Box::new(LiveApplication { address, randomizer, app_config, app_version})
 }
 
 fn get_application() -> &'static Box<dyn Application + Sync> {
     &*APPLICATION
+}
+
+fn get_application_version() -> String {
+    let file_path = "LaMulanaWin.exe";
+
+    if let Ok(map) = FileMap::open(&file_path) {
+        let file = PeFile::from_bytes(&map).unwrap();
+
+        let resources = file.resources().unwrap();
+        let version_info = resources.version_info().unwrap();
+
+        let fixed_file_info = version_info.fixed().unwrap();
+        fixed_file_info.dwFileVersion.to_string()
+    }
+    else {
+        debug!("Could not open LaMulanaWin.exe to detect version");
+        panic!()
+    }
 }
 
 #[cfg(test)]

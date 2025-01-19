@@ -1,0 +1,10 @@
+[package]
+name = "la-mulana-multiworld-launch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dll-syringe = {  version = "0.15.2", features = ["into-x86-from-x64"] }
+
+[profile.release]
+opt-level = "z"

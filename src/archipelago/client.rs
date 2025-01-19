@@ -5,8 +5,7 @@
 // THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 use thiserror::Error;
-use log::{error, debug};
-use websocket::message::Type;
+use log::{error};
 use websocket::{ClientBuilder, WebSocketError, OwnedMessage};
 use websocket::sync::Client;
 use websocket::sync::stream::NetworkStream;
@@ -78,7 +77,7 @@ impl ArchipelagoClient {
                     None => return Err(ArchipelagoError::ConnectionClosed)
                 }
             },
-            Err(e) => return Err(ArchipelagoError::ConnectionClosed)
+            Err(_) => return Err(ArchipelagoError::ConnectionClosed)
         };
 
         Ok(ArchipelagoClient {
@@ -92,7 +91,7 @@ impl ArchipelagoClient {
     pub fn send(&mut self, message: ClientMessage) -> Result<(), ArchipelagoError> {
         let request = serde_json::to_string(&[message])?;
         let message = OwnedMessage::Text(request);
-        self.ws.send_message(&message);
+        let _ = self.ws.send_message(&message);
         Ok(())
     }
 
@@ -109,7 +108,7 @@ impl ArchipelagoClient {
                 match message {
                     OwnedMessage::Ping(ping) => {
                         let pong = OwnedMessage::Pong(ping);
-                        ws.send_message(&pong);
+                        let _ = ws.send_message(&pong);
                         Ok(None)
                     },
                     OwnedMessage::Text(response) => {
