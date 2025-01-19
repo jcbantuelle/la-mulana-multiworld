@@ -140,7 +140,6 @@ impl Application for LiveApplication {
     }
 
     fn original_item_symbol_init(&self, item: &'static mut TaskData) {
-        debug!("live.application.original_item_symbol_item called!");
         ItemSymbolInitInterceptDetour.call(item)
     }
 
@@ -156,7 +155,6 @@ impl LiveApplication {
             Ok(e) => {
                 match e.enable() {
                     Ok(_) => {
-                        debug!("Detour is enabled for {}", detour_name);
                         e
                     },
                     Err(e) => {
