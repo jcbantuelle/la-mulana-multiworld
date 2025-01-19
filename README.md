@@ -23,13 +23,13 @@ The project is built in Rust. If you don't already have an environment configure
 
 ## Currently Unsupported Options
 
-*	RandomizeCoinChests
+* RandomizeCoinChests
 * RandomizeTrapItems
 * RandomizeNPCs
 * RandomizeSeals
 * StartingLocation
-*	RandomizeTransitions
-*	RandomizeBacksideDoors
+* RandomizeTransitions
+* RandomizeBacksideDoors
 
 ## Known Issues
 
