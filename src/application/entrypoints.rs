@@ -52,7 +52,7 @@ pub fn game_loop() {
 
     if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
         if let Some(popup) = popup_option.as_ref() {
-            if popup.popup_id != *application.read_address::<u32>(popup.popup_id_address) {
+            if popup.popup_id != *application.read_raw_address::<u32>(popup.popup_id_address) {
                 *application.read_raw_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
                 **popup_option = None;
             }
