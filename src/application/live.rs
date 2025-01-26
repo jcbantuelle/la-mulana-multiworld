@@ -180,4 +180,11 @@ impl ApplicationMemoryOps for LiveApplication {
             &mut*(addr as *mut T)
         }
     }
+
+    fn read_raw_address<T>(&self, address: usize) -> &mut T {
+        unsafe {
+            let addr: usize = std::mem::transmute(address);
+            &mut*(addr as *mut T)
+        }
+    }
 }

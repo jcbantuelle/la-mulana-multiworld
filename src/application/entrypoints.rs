@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use std::thread;
 use lazy_static::lazy_static;
 use log::warn;
+use log::debug;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 
@@ -52,7 +53,7 @@ pub fn game_loop() {
     if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
         if let Some(popup) = popup_option.as_ref() {
             if popup.popup_id != *application.read_address::<u32>(popup.popup_id_address) {
-                *application.read_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
+                *application.read_raw_address::<ScriptSubHeader>(popup.line_address) = popup.old_line;
                 **popup_option = None;
             }
         }
@@ -118,7 +119,7 @@ pub fn game_loop() {
                     for ap_item in network_items {
                         let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
                         let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
-                        let inventory: &[u16;114] = application.read_address(*inventory_pointer);
+                        let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
                         let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
 
                         let give_item = if item.item_id == 70 || item.item_id == 19 || item.item_id == 69 {
@@ -183,7 +184,6 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
             data_num: popup.encoded.len() as i32,
             font_num: (popup.encoded.len() - 3) as i32
         };
-
         application.popup_dialog_draw(popup_dialog);
 
         *player_item_option = None;
@@ -209,7 +209,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         item.sbuff[2] = 0;
     }
 
-    let item_symbol_back: &*const () = APPLICATION.read_address(app_addresses.item_symbol_back_address);
+    let item_symbol_back: &*const () = application.read_address(app_addresses.item_symbol_back_address);
     let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
     let result = (item_symbol_back_func)(item);
 
@@ -224,7 +224,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
             *player_item_option = Some(player_item);
         }
 
-        APPLICATION.create_dialog_popup(item_id as u32);
+        application.create_dialog_popup(item_id as u32);
     }
 
     result

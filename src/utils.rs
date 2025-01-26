@@ -4,9 +4,9 @@ use std::os::windows::ffi::OsStrExt;
 use winapi::um::winuser::{MB_OK, MessageBoxW};
 
 pub fn show_message_box(message: &str) {
-    let converted_message = create_wstring(message).as_ptr();
+    let converted_message = create_wstring(message);
     unsafe {
-        MessageBoxW(null_mut(), converted_message, null_mut(), MB_OK);
+        MessageBoxW(null_mut(), converted_message.as_ptr(), null_mut(), MB_OK);
     }
 }
 
