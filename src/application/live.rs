@@ -125,7 +125,7 @@ impl Application for LiveApplication {
 
     fn option_stuck(&self, option_num: u32) {
         let app_addresses = self.app_addresses();
-        let s_data_num: &mut u8 = self.read_address(app_addresses.option_sdata_address);
+        let s_data_num: &mut u8 = self.read_address(app_addresses.option_sdata_num_address);
         if *s_data_num < 32 {
             let s_data: &mut [u32;32] = self.read_address(app_addresses.option_sdata_address);
             s_data[*s_data_num as usize] = option_num;
