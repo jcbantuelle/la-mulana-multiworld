@@ -42,8 +42,8 @@ const ADDRESS_LOOKUP: phf::Map<&'static str, AppAddresses> = phf_map! {
         movement_status_address: 0x006d59c0,
         option_sdata_num_address: 0x00db6fb7,
         option_sdata_address: 0x00db7048,
-        option_pos_cx_address: 0x00db7168,
-        option_pos_cy_address: 0x00db714c,
+        option_pos_cy_address: 0x00db7168,
+        option_pos_cx_address: 0x00db714c,
         set_view_event_ns_address: 0x00507160,
         set_se_address: 0x00417600,
         se_address: 0x006d2708,
@@ -101,12 +101,20 @@ pub trait Application {
 
 pub trait ApplicationMemoryOps {
     fn read_address<V>(&self, offset: usize) -> &mut V;
+    fn read_raw_address<V>(&self, address: usize) -> &mut V;
 }
 
 impl ApplicationMemoryOps for Box<dyn Application + Sync> {
     fn read_address<T>(&self, offset: usize) -> &mut T {
         unsafe {
             let addr: usize = std::mem::transmute(self.get_address().wrapping_add(offset));
+            &mut*(addr as *mut T)
+        }
+    }
+
+    fn read_raw_address<T>(&self, address: usize) -> &mut T {
+        unsafe {
+            let addr: usize = std::mem::transmute(address);
             &mut*(addr as *mut T)
         }
     }
