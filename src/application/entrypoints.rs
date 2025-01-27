@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
+use std::collections::HashMap;
 use std::thread;
 use lazy_static::lazy_static;
 use log::warn;
@@ -9,6 +10,7 @@ use winapi::um::timeapi::timeGetTime;
 
 use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::archipelago::protocol::ServerMessage;
+use crate::lm_structs::taskdata;
 use crate::{APPLICATION, get_application};
 use crate::application::{Application, ApplicationMemoryOps};
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
@@ -23,6 +25,7 @@ pub struct GivenItem {
     pub item_id: u32
 }
 
+#[derive(Clone)]
 pub struct PlayerItem {
     pub player_id: i32,
     pub for_player: bool
@@ -37,7 +40,7 @@ pub struct PlayerItemPopup {
 }
 
 lazy_static! {
-    static ref PLAYER_ITEM: Mutex<Option<PlayerItem>> = Mutex::new(None);
+    static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
     static ref MESSAGE_QUEUE: Mutex<VecDeque<ServerMessage>> = Mutex::new(VecDeque::new());
 }
@@ -130,12 +133,13 @@ pub fn game_loop() {
 
                         if give_item {
                             let player_id = ap_item.player;
-                            if let Some(player_item) = PLAYER_ITEM.lock().ok().as_mut() {
-                                **player_item = Some(PlayerItem {
+                            if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
+                                player_items.insert(item.item_id as i32, PlayerItem {
                                     player_id,
                                     for_player: false
                                 });
                             }
+
                             application.give_item(item.item_id as u32);
                             global_flags[item.flag] = item.value
                         }
@@ -150,9 +154,9 @@ pub fn game_loop() {
 pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
     let application = get_application();
     let app_addresses = application.app_addresses();
-    let mut player_item_option = PLAYER_ITEM.lock().unwrap();
+    let mut player_items = PLAYER_ITEMS.lock().unwrap();
 
-    if let Some(player_item) = player_item_option.as_ref() {
+    if let Some(player_item) = player_items.get(&popup_dialog.sbuff[0]) {
         let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer_address);
         let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
         let line = unsafe { &mut *line_header.add(2) };
@@ -166,6 +170,7 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
             let player_name = players.get(player_id).unwrap_or(&server_name);
             format!("From {}", player_name)
         };
+        player_items.remove(&popup_dialog.sbuff[0]);
 
         let popup = PlayerItemPopup {
             popup_id_address: &popup_dialog.id.uid as *const u32 as usize,
@@ -185,8 +190,6 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
             font_num: (popup.encoded.len() - 3) as i32
         };
         application.popup_dialog_draw(popup_dialog);
-
-        *player_item_option = None;
     } else {
         application.popup_dialog_draw(popup_dialog);
     }
@@ -214,14 +217,11 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let result = (item_symbol_back_func)(item);
 
     if acquired && for_other_player {
-        let player_item = PlayerItem {
-            for_player: true,
-            player_id: 0
-        };
-
-        {
-            let mut player_item_option = PLAYER_ITEM.lock().unwrap();
-            *player_item_option = Some(player_item);
+        if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
+            player_items.insert(item_id, PlayerItem {
+                for_player: true,
+                player_id: 0
+            });
         }
 
         application.create_dialog_popup(item_id as u32);
