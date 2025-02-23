@@ -14,7 +14,7 @@ This project modifies La-Mulana to enable Multiworld support. It is very much in
 1. Generate the Archipelago game, referencing the [provided sample](https://github.com/jcbantuelle/la-mulana-multiworld/blob/main/example.yaml) (Please note many of these options are not currently implemented. See Currently Unsupported Options below)
 1. Download the Archipelago provided zip for your game, containing `script.rcd`, `script_code.dat`, `lm_00.sav`, and `lamulana-config.toml`
 1. Open lamulana-config.toml in a text editor and update the `server_url` to the domain and port of the Archipelago server. *Do not* include the leading protocol (e.g. http://). Also update the `password` to the correct text if there is one, or delete the text and leave it empty if there isn't one.
-1. Place `lamulana-config.toml` in the root of your La-Mulana install directory. Place `script.rcd` in `data/mapdata`, replacing the existing file. Place `script_code.rcd` in `data/language/en`, replacing the existing file. Place `lm_00.sav` in `data/save`, replacing the existing file if there is one.
+1. Place `lamulana-config.toml` in the root of your La-Mulana install directory. Place `script.rcd` in `data/mapdata`, replacing the existing file. Place `script_code.rcd` in `data/language/en`, replacing the existing file. Place `lm_00.sav` in the save directory, replacing the existing file if there is one.
 1. Run the game using the provided launcher, `la-mulana-multiworld-launch.exe`, and load the first save file in the list to begin.
 
 ## Building from Source
