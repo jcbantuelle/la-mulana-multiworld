@@ -143,6 +143,10 @@ impl Application for LiveApplication {
         ItemSymbolInitInterceptDetour.call(item)
     }
 
+    fn original_game_loop(&self) {
+        GameLoopDetour.call()
+    }
+
     fn app_addresses(&self) -> &AppAddresses {
         // Okay to unwrap here with version vetted at DLL load
         ADDRESS_LOOKUP.get(&self.app_version).unwrap()
