@@ -149,6 +149,7 @@ pub fn game_loop() {
             }
         }
     }
+    application.original_game_loop()
 }
 
 pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {

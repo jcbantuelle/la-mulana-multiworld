@@ -96,6 +96,7 @@ pub trait Application {
     fn option_stuck(&self, option_num: u32);
     fn option_pos(&self, x: f32, y: f32);
     fn original_item_symbol_init(&self, item: &'static mut TaskData);
+    fn original_game_loop(&self);
     fn app_addresses(&self) -> &AppAddresses;
 }
 
