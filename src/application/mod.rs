@@ -1,9 +1,6 @@
 pub mod entrypoints;
 pub mod live;
 
-use std::sync::Mutex;
-use crate::AppConfig;
-use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::lm_structs::taskdata::TaskData;
 use phf::phf_map;
 
@@ -83,19 +80,7 @@ const ADDRESS_LOOKUP: phf::Map<&'static str, AppAddresses> = phf_map! {
 pub trait Application {
     fn attach(&self);
     fn get_address(&self) -> usize;
-    fn get_randomizer(&self) -> &Mutex<Result<ArchipelagoClient, ArchipelagoError>>;
-    fn get_app_config(&self) -> &AppConfig;
-    fn give_item(&self, item: u32);
-    fn create_dialog_popup(&self, item_id: u32);
-    fn popup_dialog_draw(&self, popup_dialog: &'static TaskData);
-    fn pause_game_process(&self);
-    fn disable_movement(&self);
-    fn disable_warp_menu(&self);
-    fn set_lemeza_item_pose(&self);
-    fn play_sound_effect(&self, effect_id: u32);
-    fn option_stuck(&self, option_num: u32);
-    fn option_pos(&self, x: f32, y: f32);
-    fn original_item_symbol_init(&self, item: &'static mut TaskData);
+    fn popup_dialog_draw(&self, popup_dialog: &'static mut TaskData);
     fn original_game_loop(&self);
     fn app_addresses(&self) -> &AppAddresses;
 }
