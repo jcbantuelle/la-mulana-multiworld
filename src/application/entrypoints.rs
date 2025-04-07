@@ -1,5 +1,7 @@
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
+use std::collections::HashMap;
+use lazy_static::lazy_static;
 
 use crate::get_application;
 use crate::application::ApplicationMemoryOps;
@@ -9,6 +11,12 @@ use crate::screenplay;
 
 pub type FnGameLoop = extern "C" fn();
 pub type FnPopupDialogDrawIntercept = extern "C" fn(&mut TaskData);
+
+lazy_static! {
+    pub static ref EGG_LOOKUP: HashMap<String, i32> = HashMap::from([
+        ("1-4-2".to_string(), 82)
+    ]);
+}
 
 pub fn game_loop() {
     let application = get_application();
@@ -38,19 +46,22 @@ pub fn game_loop() {
 pub fn popup_dialog_draw_intercept(popup_dialog: &'static mut TaskData) {
     let application = get_application();
 
-    // let item_id = popup_dialog.sbuff[0];
-    // let field = popup_dialog.field_no;
-    // let screen = popup_dialog.room_no;
-    // let room = popup_dialog.view_no;
+    let item_id = popup_dialog.sbuff[0];
+    let field = popup_dialog.field_no;
+    let screen = popup_dialog.room_no;
+    let room = popup_dialog.view_no;
 
-    // // If item is Waterproof Case
-    // if item_id == 36 {
-    //     // If Surface Skeleton Scan room
-    //     if field == 1 && screen == 4 && room == 2 {
-    //         // Replace item image with corresponding graphic from 01menu / text from card 1
-    //         popup_dialog.sbuff[0] = 60;
-    //     }
-    // }
+    let room_key = format!("{field}-{screen}-{room}");
+
+    if item_id == 36 {
+        let egg_id_option = EGG_LOOKUP.get(&room_key);
+        match egg_id_option {
+            Some(egg_id) => {
+                popup_dialog.sbuff[0] = *egg_id;
+            },
+            None => ()            
+        }
+    }
     application.popup_dialog_draw(popup_dialog);
 }
 
