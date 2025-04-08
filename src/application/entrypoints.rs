@@ -1,3 +1,4 @@
+use log::debug;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 use std::collections::HashMap;
@@ -14,7 +15,7 @@ pub type FnPopupDialogDrawIntercept = extern "C" fn(&mut TaskData);
 
 lazy_static! {
     pub static ref EGG_LOOKUP: HashMap<String, i32> = HashMap::from([
-        ("1-4-2".to_string(), 82)
+        ("1-2-1".to_string(), 190)
     ]);
 }
 
@@ -59,7 +60,7 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static mut TaskData) {
             Some(egg_id) => {
                 popup_dialog.sbuff[0] = *egg_id;
             },
-            None => ()            
+            None => ()
         }
     }
     application.popup_dialog_draw(popup_dialog);

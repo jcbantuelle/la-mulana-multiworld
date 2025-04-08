@@ -28,8 +28,8 @@ impl Application for LiveApplication {
                 let game_loop_addr: FnGameLoop = std::mem::transmute(self.get_address().wrapping_add(app_addresses.game_loop_address));
                 let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
 
-                // let popup_dialog_draw_intercept_addr: FnPopupDialogDrawIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.popup_dialog_draw_address));
-                // let _ = self.enable_detour(PopupDialogDrawInterceptDetour.initialize(popup_dialog_draw_intercept_addr, popup_dialog_draw_intercept), "PopupDialogDrawInterceptDetour");
+                let popup_dialog_draw_intercept_addr: FnPopupDialogDrawIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.popup_dialog_draw_address));
+                let _ = self.enable_detour(PopupDialogDrawInterceptDetour.initialize(popup_dialog_draw_intercept_addr, popup_dialog_draw_intercept), "PopupDialogDrawInterceptDetour");
             }
         }
         else {
