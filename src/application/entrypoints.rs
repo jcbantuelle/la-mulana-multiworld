@@ -13,9 +13,15 @@ use crate::screenplay;
 pub type FnGameLoop = extern "C" fn();
 pub type FnPopupDialogDrawIntercept = extern "C" fn(&mut TaskData);
 
+pub enum EggType {
+    SingleEgg {egg_id: i32},
+    MultiEgg {flag: usize, egg_ids: Vec<i32>}
+}
+
 lazy_static! {
-    pub static ref EGG_LOOKUP: HashMap<String, i32> = HashMap::from([
-        ("1-2-1".to_string(), 190)
+    pub static ref EGG_LOOKUP: HashMap<String, EggType> = HashMap::from([
+        ("1-2-1".to_string(), EggType::SingleEgg{egg_id: 190}),
+        ("1-3-0".to_string(), EggType::MultiEgg{flag: 0xa28, egg_ids: vec![191,192]})
     ]);
 }
 
@@ -46,6 +52,9 @@ pub fn game_loop() {
 
 pub fn popup_dialog_draw_intercept(popup_dialog: &'static mut TaskData) {
     let application = get_application();
+    let app_addresses = application.app_addresses();
+
+    let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
 
     let item_id = popup_dialog.sbuff[0];
     let field = popup_dialog.field_no;
@@ -57,8 +66,18 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static mut TaskData) {
     if item_id == 36 {
         let egg_id_option = EGG_LOOKUP.get(&room_key);
         match egg_id_option {
-            Some(egg_id) => {
+            Some(EggType::SingleEgg{egg_id }) => {
                 popup_dialog.sbuff[0] = *egg_id;
+            },
+            Some(EggType::MultiEgg{flag, egg_ids }) => {
+                let flag_value = global_flags[*flag];
+                match egg_ids.get((flag_value-1) as usize) {
+                    Some(egg_id) => {
+                        popup_dialog.sbuff[0] = *egg_id;
+                    },
+                    None => ()
+                }
+                
             },
             None => ()
         }
