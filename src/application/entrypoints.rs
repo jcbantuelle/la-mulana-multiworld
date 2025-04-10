@@ -67,19 +67,25 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static mut TaskData) {
         let egg_id_option = EGG_LOOKUP.get(&room_key);
         match egg_id_option {
             Some(EggType::SingleEgg{egg_id }) => {
+                debug!("{} - SingleEgg. Displaying ID {}", room_key, egg_id);
                 popup_dialog.sbuff[0] = *egg_id;
             },
             Some(EggType::MultiEgg{flag, egg_ids }) => {
                 let flag_value = global_flags[*flag];
                 match egg_ids.get((flag_value-1) as usize) {
                     Some(egg_id) => {
+                        debug!("{} - MultiEgg for flag {} with value {}. Displaying ID {}", room_key, flag, flag_value, egg_id);
                         popup_dialog.sbuff[0] = *egg_id;
                     },
-                    None => ()
+                    None => {
+                        debug!("{} - MultiEgg but no matching index for flag {} with value {}. Default Egg fallback", room_key, flag, flag_value);
+                    }
                 }
                 
             },
-            None => ()
+            None => {
+                debug!("{} - No Egg matching room, Default Egg fallback", room_key);
+            }
         }
     }
     application.popup_dialog_draw(popup_dialog);
