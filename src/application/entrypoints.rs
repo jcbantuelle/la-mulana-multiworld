@@ -157,11 +157,11 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static mut TaskData) {
     let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
 
     let item_id = popup_dialog.sbuff[0];
-    let field = popup_dialog.field_no;
-    let screen = popup_dialog.room_no;
-    let room = popup_dialog.view_no;
+    let zone: &mut u8 = application.read_address(app_addresses.current_zone_address);
+    let room: &mut u8 = application.read_address(app_addresses.current_room_address);
+    let screen: &mut u8 = application.read_address(app_addresses.current_screen_address);
 
-    let room_key = format!("{field}-{screen}-{room}");
+    let room_key = format!("{zone}-{room}-{screen}");
 
     if item_id == 36 {
         let egg_id_option = EGG_LOOKUP.get(&room_key);
