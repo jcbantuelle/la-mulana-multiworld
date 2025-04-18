@@ -71,7 +71,7 @@ lazy_static! {
         ("12-9-1".to_string(), EggType::SingleEgg{egg_id: 177}),
         ("12-6-0".to_string(), EggType::SingleEgg{egg_id: 177}),
         ("14-1-1".to_string(), EggType::SingleEgg{egg_id: 182}),
-        ("14-8-2".to_string(), EggType::SingleEgg{egg_id: 182}),
+        ("14-8-2".to_string(), EggType::SingleEgg{egg_id: 177}),
         ("17-8-0".to_string(), EggType::SingleEgg{egg_id: 200}),
         ("15-4-0".to_string(), EggType::SingleEgg{egg_id: 201}),
         ("17-10-1".to_string(), EggType::SingleEgg{egg_id: 200}),
@@ -120,7 +120,29 @@ lazy_static! {
         ("13-0-1".to_string(), EggType::SingleEgg{egg_id: 209}),
         ("0-4-1".to_string(), EggType::SingleEgg{egg_id: 215}),
         ("14-2-1".to_string(), EggType::SingleEgg{egg_id: 182}),
-        ("7-15-1".to_string(), EggType::SingleEgg{egg_id: 182})
+        ("7-15-1".to_string(), EggType::SingleEgg{egg_id: 218}),
+        ("18-8-1".to_string(), EggType::SingleEgg{egg_id: 219}),
+        ("9-9-1".to_string(), EggType::SingleEgg{egg_id: 218}),
+        ("0-7-0".to_string(), EggType::SingleEgg{egg_id: 193}),
+        ("10-9-1".to_string(), EggType::SingleEgg{egg_id: 198}),
+        ("3-8-0".to_string(), EggType::SingleEgg{egg_id: 174}),
+        ("0-3-1".to_string(), EggType::SingleEgg{egg_id: 180}),
+        ("18-5-1".to_string(), EggType::SingleEgg{egg_id: 219}),
+        ("8-3-2".to_string(), EggType::SingleEgg{egg_id: 220}),
+        ("13-1-1".to_string(), EggType::SingleEgg{egg_id: 220}),
+        ("9-3-0".to_string(), EggType::SingleEgg{egg_id: 179}),
+        ("1-5-2".to_string(), EggType::SingleEgg{egg_id: 170}),
+        ("11-4-2".to_string(), EggType::SingleEgg{egg_id: 207}),
+        ("11-7-1".to_string(), EggType::SingleEgg{egg_id: 171}),
+        ("4-2-1".to_string(), EggType::SingleEgg{egg_id: 214}),
+        ("19-3-1".to_string(), EggType::SingleEgg{egg_id: 202}),
+        ("17-4-0".to_string(), EggType::SingleEgg{egg_id: 200}),
+        ("7-12-0".to_string(), EggType::SingleEgg{egg_id: 191}),
+        ("7-12-2".to_string(), EggType::SingleEgg{egg_id: 191}),
+        ("7-3-0".to_string(), EggType::SingleEgg{egg_id: 191}),
+        ("7-3-2".to_string(), EggType::SingleEgg{egg_id: 191}),
+        ("7-2-0".to_string(), EggType::SingleEgg{egg_id: 196}),
+        ("2-6-1".to_string(), EggType::SingleEgg{egg_id: 216})
     ]);
 }
 
@@ -137,7 +159,39 @@ pub fn game_loop() {
         let inventory_descriptions_card = unsafe { (*script_header.add(2)).data as *mut ScriptSubHeader};
         let waterproof_case_line = unsafe { &mut *inventory_descriptions_card.add(36) };
 
-        let eggs_found_text = format!("Easter Egg：You've found {egg_count} so far");
+        let max_eggs: u8 = EGG_LOOKUP.values().fold(0, |acc, room| {
+            match room {
+                EggType::SingleEgg { egg_id } => {
+                    acc + 1
+                },
+                EggType::MultiEgg { flag, egg_ids } => {
+                    acc + (egg_ids.len() as u8)
+                }
+            }
+        });
+
+        let egg_percent = (egg_count as f64) / (max_eggs as f64);
+        let percentage_message = if egg_percent == 0.0 {
+            "It's empty"
+        } else if egg_percent <= 0.1 {
+            "The bottom is still visible"
+        } else if egg_percent <= 0.3 {
+            "The bottom is no longer visible"
+        } else if egg_percent <= 0.5 {
+            "It's starting to fill up"
+        } else if egg_percent <= 0.7 {
+            "It's getting pretty full"
+        } else if egg_percent <= 0.9 {
+            "There's not much room left"
+        } else if egg_percent < 1.0 {
+            "It's almost overflowing"
+        } else {
+            "It's too full to add even a single egg"
+        };
+
+        let eggs_text = if egg_count == 1 { "egg" } else { "eggs" };
+
+        let eggs_found_text = format!("Easter Basket：Contains {egg_count} {eggs_text}. {percentage_message}.");
         let space_count = eggs_found_text.chars().filter(|c| *c == ' ').count();
         let mut encoded_eggs_found_text = screenplay::encode(eggs_found_text);
         encoded_eggs_found_text.push(0x000a);
@@ -178,12 +232,14 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static mut TaskData) {
                         popup_dialog.sbuff[0] = *egg_id;
                     },
                     None => {
+                        popup_dialog.sbuff[0] = 221;
                         debug!("{} - MultiEgg but no matching index for flag {} with value {}. Default Egg fallback", room_key, flag, flag_value);
                     }
                 }
                 
             },
             None => {
+                popup_dialog.sbuff[0] = 221;
                 debug!("{} - No Egg matching room, Default Egg fallback", room_key);
             }
         }
