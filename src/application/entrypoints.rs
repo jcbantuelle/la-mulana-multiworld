@@ -159,18 +159,7 @@ pub fn game_loop() {
         let inventory_descriptions_card = unsafe { (*script_header.add(2)).data as *mut ScriptSubHeader};
         let waterproof_case_line = unsafe { &mut *inventory_descriptions_card.add(36) };
 
-        let max_eggs: u8 = EGG_LOOKUP.values().fold(0, |acc, room| {
-            match room {
-                EggType::SingleEgg { egg_id } => {
-                    acc + 1
-                },
-                EggType::MultiEgg { flag, egg_ids } => {
-                    acc + (egg_ids.len() as u8)
-                }
-            }
-        });
-
-        let egg_percent = (egg_count as f64) / (max_eggs as f64);
+        let egg_percent = (egg_count as f64) / (100 as f64);
         let percentage_message = if egg_percent == 0.0 {
             "It's empty"
         } else if egg_percent <= 0.1 {
