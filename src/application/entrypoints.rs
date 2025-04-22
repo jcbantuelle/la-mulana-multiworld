@@ -71,7 +71,7 @@ lazy_static! {
         ("12-9-1".to_string(), EggType::SingleEgg{egg_id: 177}),
         ("12-6-0".to_string(), EggType::SingleEgg{egg_id: 177}),
         ("14-1-1".to_string(), EggType::SingleEgg{egg_id: 182}),
-        ("14-8-2".to_string(), EggType::SingleEgg{egg_id: 177}),
+        ("14-8-2".to_string(), EggType::SingleEgg{egg_id: 176}),
         ("17-8-0".to_string(), EggType::SingleEgg{egg_id: 200}),
         ("15-4-0".to_string(), EggType::SingleEgg{egg_id: 201}),
         ("17-10-1".to_string(), EggType::SingleEgg{egg_id: 200}),
