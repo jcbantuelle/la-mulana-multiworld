@@ -87,7 +87,7 @@ impl Application for LiveApplication {
     }
 
     fn popup_dialog_draw(&self, popup_dialog: &'static TaskData) {
-        PopupDialogDrawInterceptDetour.call(popup_dialog);
+        PopupDialogDrawInterceptDetour.call(popup_dialog)
     }
 
     fn pause_game_process(&self) {
