@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::thread;
 use lazy_static::lazy_static;
 use log::warn;
-use log::debug;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 
@@ -12,7 +11,7 @@ use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
 use crate::archipelago::protocol::ServerMessage;
 use crate::lm_structs::taskdata;
 use crate::{APPLICATION, get_application};
-use crate::application::{Application, ApplicationMemoryOps};
+use crate::application::{AppAddresses, Application, ApplicationMemoryOps};
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
 use crate::lm_structs::taskdata::TaskData;
 use crate::lm_structs::taskdata::EventWithBool;
@@ -51,69 +50,13 @@ pub type FnItemSymbolInitIntercept = extern "C" fn(&mut TaskData);
 pub fn game_loop() {
     let application = get_application();
     let app_addresses = application.app_addresses();
-
-    if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
-        if let Some(popup) = popup_option.as_ref() {
-            if popup.popup_id != *application.read_raw_address::<u32>(popup.popup_id_address) {
-                let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer_address);
-                let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
-                let line = unsafe { &mut *line_header.add(2) };
-                line.pointer = DEFAULT_POPUP_SCRIPT.as_ptr() as usize;
-                line.data_num = 2;
-                line.font_num = 1;
-            }
-        }
-    }
-
-    thread::spawn(|| {
-        match application.get_randomizer().try_lock() {
-            Ok(mut randomizer) => {
-                match randomizer.as_mut() {
-                    Ok(client) => {
-                        let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
-                        let found_items: Vec<u64> = application.get_app_config().items().iter().filter(|(k,v)|
-                            global_flags[**k as usize] == 2
-                        ).map(|(_,v)|
-                            v.location_id
-                        ).collect();
-
-                        match client.location_checks(found_items) {
-                            Ok(_) => {
-                                match client.read() {
-                                    Ok(message_wrapper) => {
-                                        match message_wrapper {
-                                            Some(message) => {
-                                                let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
-                                                message_queue.push_back(message);
-                                            },
-                                            None => ()
-                                        }
-                                    },
-                                    Err(_) => ()
-                                }
-                            },
-                            Err(_) => {
-                                *randomizer = reconnect_to_server(application);
-                            }
-                        }
-                    },
-                    Err(error) => {
-                        match error {
-                            ArchipelagoError::ConnectionClosed => {
-                                *randomizer = reconnect_to_server(application);
-                            },
-                            _ => ()
-                        }
-                    }
-                }
-            }
-            Err(_) => () // Okay to pass when cannot lock
-        };
-    });
-        
     let game_init: &mut u32 = application.read_address(app_addresses.game_init_address);
     let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
+
     if *game_init != 0 && global_flags[0x863] > 0 {
+        display_item_if_available(application, app_addresses);
+        get_updates_from_server();
+
         let mut message: Option<ServerMessage> = None;
         if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
             message = message_queue.pop_front();
@@ -243,6 +186,72 @@ pub fn get_time() -> DWORD {
 #[cfg(test)]
 pub fn get_time() -> DWORD {
     0
+}
+
+fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addresses: &AppAddresses) {
+    if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
+        if let Some(popup) = popup_option.as_ref() {
+            if popup.popup_id != *application.read_raw_address::<u32>(popup.popup_id_address) {
+                let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer_address);
+                let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
+                let line = unsafe { &mut *line_header.add(2) };
+                line.pointer = DEFAULT_POPUP_SCRIPT.as_ptr() as usize;
+                line.data_num = 2;
+                line.font_num = 1;
+            }
+        }
+    }
+}
+
+fn get_updates_from_server() {
+    thread::spawn(|| {
+        let application = get_application();
+        let app_addresses = application.app_addresses();
+
+        match application.get_randomizer().try_lock() {
+            Ok(mut randomizer) => {
+                match randomizer.as_mut() {
+                    Ok(client) => {
+                        let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
+                        let found_items: Vec<u64> = application.get_app_config().items().iter().filter(|(k,v)|
+                            global_flags[**k as usize] == 2
+                        ).map(|(_,v)|
+                            v.location_id
+                        ).collect();
+
+                        match client.location_checks(found_items) {
+                            Ok(_) => {
+                                match client.read() {
+                                    Ok(message_wrapper) => {
+                                        match message_wrapper {
+                                            Some(message) => {
+                                                let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                                                message_queue.push_back(message);
+                                            },
+                                            None => ()
+                                        }
+                                    },
+                                    Err(_) => ()
+                                }
+                            },
+                            Err(_) => {
+                                *randomizer = reconnect_to_server(application);
+                            }
+                        }
+                    },
+                    Err(error) => {
+                        match error {
+                            ArchipelagoError::ConnectionClosed => {
+                                *randomizer = reconnect_to_server(application);
+                            },
+                            _ => ()
+                        }
+                    }
+                }
+            }
+            Err(_) => () // Okay to pass when cannot lock
+        };
+    });
 }
 
 pub fn reconnect_to_server(application: &Box<dyn Application + Sync>) -> Result<ArchipelagoClient, ArchipelagoError> {
