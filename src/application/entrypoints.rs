@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use std::thread;
 use lazy_static::lazy_static;
-use log::warn;
+use log::{debug, warn};
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 
@@ -231,7 +231,9 @@ fn get_updates_from_server() {
                                             None => ()
                                         }
                                     },
-                                    Err(_) => ()
+                                    Err(e) => {
+                                        *randomizer = reconnect_to_server(application);
+                                    }
                                 }
                             },
                             Err(_) => {
@@ -244,12 +246,15 @@ fn get_updates_from_server() {
                             ArchipelagoError::ConnectionClosed => {
                                 *randomizer = reconnect_to_server(application);
                             },
-                            _ => ()
+                            e => {
+                                debug!("Error detected where the connection to the server is in an unknown state.  Attempting to reestablish a connection....");
+                                *randomizer = reconnect_to_server(application);
+                            }
                         }
                     }
                 }
             }
-            Err(_) => () // Okay to pass when cannot lock
+            Err(_) => {}
         };
     });
 }
