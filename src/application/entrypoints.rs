@@ -88,7 +88,7 @@ pub fn game_loop() {
                             }
 
                             application.give_item(item.item_id as u32);
-                            global_flags[item.flag] = item.value
+                            global_flags[item.flag] = 2
                         }
                     }
                 }
