@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use std::thread;
 use lazy_static::lazy_static;
-use log::warn;
+use log::{debug, trace};
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 
@@ -67,7 +67,7 @@ pub fn game_loop() {
                     let network_items = received_items.items;
 
                     for ap_item in network_items {
-                        let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
+                        let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item)).unwrap();
                         let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
                         let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
                         let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
@@ -213,7 +213,7 @@ fn get_updates_from_server() {
                 match randomizer.as_mut() {
                     Ok(client) => {
                         let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
-                        let found_items: Vec<u64> = application.get_app_config().items().iter().filter(|(k,v)|
+                        let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,v)|
                             global_flags[**k as usize] == 2
                         ).map(|(_,v)|
                             v.location_id
@@ -235,6 +235,7 @@ fn get_updates_from_server() {
                                 }
                             },
                             Err(_) => {
+                                trace!("Error getting location checks. Calling reconnect.");
                                 *randomizer = reconnect_to_server(application);
                             }
                         }
@@ -242,6 +243,7 @@ fn get_updates_from_server() {
                     Err(error) => {
                         match error {
                             ArchipelagoError::ConnectionClosed => {
+                                trace!("Connection closed. Calling reconnect.");
                                 *randomizer = reconnect_to_server(application);
                             },
                             _ => ()
@@ -257,12 +259,14 @@ fn get_updates_from_server() {
 pub fn reconnect_to_server(application: &Box<dyn Application + Sync>) -> Result<ArchipelagoClient, ArchipelagoError> {
     let app_config = application.get_app_config();
     ArchipelagoClient::new(&app_config.server_url).map(|mut randomizer| {
+        trace!("Reconnecting to server {}.", app_config.server_url);
         let player_id = app_config.local_player_id;
         let players = app_config.players_lookup();
         let player_name = players.get(&player_id).unwrap();
         let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
         let _ = randomizer.connect("La-Mulana", &player_name, &player_id.to_string(), password, Some(1), vec![], false);
         let _ = randomizer.sync();
+        trace!("Resynced items.");
         randomizer
     })
 }

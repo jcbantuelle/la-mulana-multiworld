@@ -15,7 +15,7 @@ use winapi::um::winnt::DLL_PROCESS_ATTACH;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::ExitProcess;
 
-use log::{debug, LevelFilter};
+use log::{debug, warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use pelite::FileMap;
@@ -51,7 +51,7 @@ pub struct ArchipelagoPlayer {
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub struct ArchipelagoItem {
     pub flag: u16,
-    pub location_id: u64,
+    pub location_id: i64,
     pub player_id: i32,
     pub obtain_value: u8
 }
@@ -120,6 +120,7 @@ fn init_app() -> Box<dyn Application + Sync> {
 
     let randomizer = Mutex::new(Err(ArchipelagoError::ConnectionClosed));
     let app_version = get_application_version();
+    debug!("Starting lamulana multiworld injection for version {}.", app_version);
 
     Box::new(LiveApplication { address, randomizer, app_config, app_version})
 }
@@ -141,7 +142,7 @@ fn get_application_version() -> String {
         fixed_file_info.dwFileVersion.to_string()
     }
     else {
-        debug!("Could not open LaMulanaWin.exe to detect version");
+        warn!("Could not open LaMulanaWin.exe to detect version");
         panic!()
     }
 }

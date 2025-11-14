@@ -6,7 +6,7 @@ use crate::application::{ADDRESS_LOOKUP, AppAddresses, ApplicationMemoryOps};
 use crate::lm_structs::taskdata::TaskData;
 use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
 
-use log::{debug, error};
+use log::{debug, error, trace};
 use retour::{Function, static_detour, StaticDetour};
 use winapi::shared::minwindef::DWORD;
 use crate::utils::show_message_box;
@@ -37,6 +37,7 @@ impl Application for LiveApplication {
 
                 let item_symbol_init_intercept_addr: FnItemSymbolInitIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.item_symbol_init_address));
                 let _ = self.enable_detour(ItemSymbolInitInterceptDetour.initialize(item_symbol_init_intercept_addr, item_symbol_init_intercept), "ItemSymbolInitInterceptDetour");
+                trace!("Enabled all detours.");
             }
         }
         else {

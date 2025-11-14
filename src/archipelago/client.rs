@@ -4,12 +4,15 @@
 // The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 // THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+use std::error::Error;
 use thiserror::Error;
-use log::{error};
-use websocket::{ClientBuilder, WebSocketError, OwnedMessage};
+use log::{error, warn};
+use websocket::{WebSocketError, OwnedMessage, WebSocketResult};
+use websocket::client::ClientBuilder;
 use websocket::sync::Client;
-use websocket::sync::stream::NetworkStream;
 use crate::archipelago::protocol::*;
+use std::net::TcpStream;
+use std::time::Duration;
 
 #[derive(Error, Debug)]
 pub enum ArchipelagoError {
@@ -32,7 +35,7 @@ pub enum ArchipelagoError {
  * A convenience layer to manage your connection to and communication with Archipelago
  */
 pub struct ArchipelagoClient {
-    ws: Client<Box<dyn NetworkStream + Send>>,
+    ws: Client<TcpStream>,
     room_info: RoomInfo,
     data_package: Option<DataPackageObject>,
     pub message_queue: Vec<ServerMessage>,
@@ -44,26 +47,21 @@ impl ArchipelagoClient {
      */
     pub fn new(url: &str) -> Result<ArchipelagoClient, ArchipelagoError> {
         // Attempt WSS, downgrade to WS if the TLS handshake fails
-        let mut wss_url = String::new();
-        wss_url.push_str("wss://");
-        wss_url.push_str(url);
-
-        let mut ws = match ClientBuilder::new(&wss_url).unwrap().connect(None) {
+        let ws_url = format!("ws://{}", url);
+        let wss_url = format!("wss://{}", url);
+        let mut ws = match Self::connect_to(&wss_url, &url).or_else(|_| Self::connect_to(&ws_url, &url)) {
             Ok(result) => result,
             Err(_) => {
-                let mut ws_url = String::new();
-                ws_url.push_str("ws://");
-                ws_url.push_str(url);
-
-                match ClientBuilder::new(&ws_url).unwrap().connect(None) {
+                let tcp_stream = Self::create_tcp_stream_with_timeout(url)?;
+                match ClientBuilder::new(&ws_url).unwrap().connect_on(tcp_stream) {
                     Ok(result) => result,
                     Err(error) => {
-                        return Err(ArchipelagoError::NetworkError(error))        
+                        return Err(ArchipelagoError::NetworkError(error))
                     }
                 }
-            },
+            }
         };
-        
+
         let room_info = match Self::recv(&mut ws) {
             Ok(message) => {
                 match message {
@@ -88,6 +86,28 @@ impl ArchipelagoClient {
         })
     }
 
+    fn connect_to(ws_url: &str, url: &str) -> Result<Client<TcpStream>, ArchipelagoError> {
+        let tcp_stream = Self::create_tcp_stream_with_timeout(url)?;
+        ClientBuilder::new(&ws_url).unwrap().connect_on(tcp_stream).map_err(|e| {
+            ArchipelagoError::NetworkError(e)
+        })
+    }
+
+    fn create_tcp_stream_with_timeout(url: &str) -> Result<TcpStream, ArchipelagoError> {
+        let default_timeout = Duration::from_secs(10);
+        match TcpStream::connect(url) {
+            Ok(tcp_stream) => {
+                tcp_stream.set_read_timeout(Some(default_timeout)).expect("set_read_timeout failed");
+                tcp_stream.set_write_timeout(Some(default_timeout)).expect("set_write_timeout failed");
+                Ok(tcp_stream)
+            },
+            Err(e) => {
+                warn!("Could not connect to url: {}", e);
+                Err(ArchipelagoError::NetworkError(WebSocketError::from(e)))
+            }
+        }
+    }
+
     pub fn send(&mut self, message: ClientMessage) -> Result<(), ArchipelagoError> {
         let request = serde_json::to_string(&[message])?;
         let message = OwnedMessage::Text(request);
@@ -102,7 +122,7 @@ impl ArchipelagoClient {
     /**
      * Read a message from the server
      */
-    fn recv(ws: &mut Client<Box<dyn NetworkStream + Send>>) -> Result<Option<ServerMessage>, ArchipelagoError> {
+    fn recv(ws: &mut Client<TcpStream>) -> Result<Option<ServerMessage>, ArchipelagoError> {
         match ws.recv_message() {
             Ok(message) => {
                 match message {
@@ -137,7 +157,7 @@ impl ArchipelagoClient {
         name: &str,
         uuid: &str,
         password: Option<&str>,
-        items_handling: Option<i32>,
+        items_handling: Option<i64>,
         tags: Vec<String>,
         slot_data: bool,
     ) -> Result<Connected, ArchipelagoError> {
@@ -172,7 +192,7 @@ impl ArchipelagoClient {
         }
     }
 
-    pub fn location_checks(&mut self, locations: Vec<u64>) -> Result<(), ArchipelagoError> {
+    pub fn location_checks(&mut self, locations: Vec<i64>) -> Result<(), ArchipelagoError> {
         match self.send(ClientMessage::LocationChecks(LocationChecks { locations })) {
             Ok(_) => Ok(()),
             Err(_) => Err(ArchipelagoError::ConnectionClosed)
