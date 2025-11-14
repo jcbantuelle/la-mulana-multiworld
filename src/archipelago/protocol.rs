@@ -110,7 +110,7 @@ pub struct Connect {
     pub password: Option<String>,
     pub name: String,
     pub version: NetworkVersion,
-    pub items_handling: Option<i32>,
+    pub items_handling: Option<i64>,
     pub tags: Vec<String>,
     pub uuid: String,
     pub game: String,
@@ -119,18 +119,18 @@ pub struct Connect {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConnectUpdate {
-    pub items_handling: i32,
+    pub items_handling: i64,
     pub tags: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LocationChecks {
-    pub locations: Vec<u64>,
+    pub locations: Vec<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LocationScouts {
-    pub locations: Vec<i32>,
+    pub locations: Vec<i64>,
     pub create_as_hint: i32,
 }
 
@@ -218,7 +218,7 @@ pub struct Connected {
     pub team: i32,
     pub slot: i32,
     pub players: Vec<NetworkPlayer>,
-    pub missing_locations: Vec<i32>,
+    pub missing_locations: Vec<i64>,
     pub checked_locations: Vec<i64>,
     pub slot_data: Value,
     pub slot_info: HashMap<String, NetworkSlot>, // TODO: docs claim this is an int key. they are lying?
@@ -251,8 +251,8 @@ pub struct RoomUpdate {
     // Exclusive to RoomUpdate
     pub hint_points: Option<i32>,
     pub players: Option<Vec<NetworkPlayer>>,
-    pub checked_locations: Option<Vec<i32>>,
-    pub missing_locations: Option<Vec<i32>>,
+    pub checked_locations: Option<Vec<i64>>,
+    pub missing_locations: Option<Vec<i64>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -291,8 +291,8 @@ pub struct DataPackageObject {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameData {
-    pub item_name_to_id: HashMap<String, i32>,
-    pub location_name_to_id: HashMap<String, i32>,
+    pub item_name_to_id: HashMap<String, i64>,
+    pub location_name_to_id: HashMap<String, i64>,
     pub version: i32,
 }
 

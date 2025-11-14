@@ -157,7 +157,7 @@ impl ArchipelagoClient {
         name: &str,
         uuid: &str,
         password: Option<&str>,
-        items_handling: Option<i32>,
+        items_handling: Option<i64>,
         tags: Vec<String>,
         slot_data: bool,
     ) -> Result<Connected, ArchipelagoError> {
@@ -192,7 +192,7 @@ impl ArchipelagoClient {
         }
     }
 
-    pub fn location_checks(&mut self, locations: Vec<u64>) -> Result<(), ArchipelagoError> {
+    pub fn location_checks(&mut self, locations: Vec<i64>) -> Result<(), ArchipelagoError> {
         match self.send(ClientMessage::LocationChecks(LocationChecks { locations })) {
             Ok(_) => Ok(()),
             Err(_) => Err(ArchipelagoError::ConnectionClosed)

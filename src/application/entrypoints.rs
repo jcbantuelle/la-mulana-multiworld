@@ -213,7 +213,7 @@ fn get_updates_from_server() {
                 match randomizer.as_mut() {
                     Ok(client) => {
                         let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
-                        let found_items: Vec<u64> = application.get_app_config().items().iter().filter(|(k,v)|
+                        let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,v)|
                             global_flags[**k as usize] == 2
                         ).map(|(_,v)|
                             v.location_id
