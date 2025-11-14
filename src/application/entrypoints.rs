@@ -67,7 +67,7 @@ pub fn game_loop() {
                     let network_items = received_items.items;
 
                     for ap_item in network_items {
-                        let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item as u64)).unwrap();
+                        let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item)).unwrap();
                         let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
                         let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
                         let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);

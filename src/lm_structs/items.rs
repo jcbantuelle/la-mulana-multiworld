@@ -8,7 +8,7 @@ pub struct Item {
 }
 
 lazy_static! {
-    pub static ref ARCHIPELAGO_ITEM_LOOKUP: HashMap<u64, Item> = HashMap::from([
+    pub static ref ARCHIPELAGO_ITEM_LOOKUP: HashMap<i64, Item> = HashMap::from([
         (2359000, Item{item_id: 0, item_name: "Leather Whip", flag: 0x863}),
         (2359001, Item{item_id: 1, item_name: "Chain Whip", flag: 0x7d}),
         (2359002, Item{item_id: 2, item_name: "Flail Whip", flag: 0x7e}),

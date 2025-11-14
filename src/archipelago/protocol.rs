@@ -72,8 +72,8 @@ pub struct NetworkPlayer {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NetworkItem {
-    pub item: i32,
-    pub location: i32,
+    pub item: i64,
+    pub location: i64,
     pub player: i32,
     pub flags: i32,
 }
@@ -219,7 +219,7 @@ pub struct Connected {
     pub slot: i32,
     pub players: Vec<NetworkPlayer>,
     pub missing_locations: Vec<i32>,
-    pub checked_locations: Vec<i32>,
+    pub checked_locations: Vec<i64>,
     pub slot_data: Value,
     pub slot_info: HashMap<String, NetworkSlot>, // TODO: docs claim this is an int key. they are lying?
 }
