@@ -213,7 +213,6 @@ fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addr
 }
 
 fn get_updates_from_server() {
-    debug!("Getting updates from server");
     thread::spawn(|| {
         let application = get_application();
         let app_addresses = application.app_addresses();
