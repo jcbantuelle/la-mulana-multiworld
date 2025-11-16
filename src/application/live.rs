@@ -8,7 +8,6 @@ use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, pop
 
 use log::{debug, error, trace};
 use retour::{Function, static_detour, StaticDetour};
-use winapi::shared::minwindef::DWORD;
 use crate::utils::show_message_box;
 
 static_detour! {
@@ -59,6 +58,7 @@ impl Application for LiveApplication {
     }
 
     fn give_item(&self, item: u32) {
+        debug!("Giving item ID {}", item);
         self.option_pos(0.0, 0.0);
         self.option_stuck(item);
         self.option_stuck(160);
@@ -69,9 +69,11 @@ impl Application for LiveApplication {
         let set_view_event_ns: &*const () = self.read_address(app_addresses.set_view_event_ns_address);
         let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
         (set_view_event_ns_func)(16, item_get_area_init);
+        trace!("set_view_event_ns_func called");
     }
 
     fn create_dialog_popup(&self, item_id: u32) {
+        debug!("Creating dialog popup for item ID {}", item_id);
         self.option_stuck(item_id);
         let app_addresses = self.app_addresses();
 
@@ -79,12 +81,18 @@ impl Application for LiveApplication {
         let set_task: &*const () = self.read_address(app_addresses.set_view_event_ns_address);
         let set_task_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_task) };
         (set_task_func)(16, popup_dialog_init);
+        trace!("Called popup_dialog_init for item ID {}", item_id);
 
         self.pause_game_process();
+        trace!("Pause game process for item ID {}", item_id);
         self.set_lemeza_item_pose();
+        trace!("Set item pose for item ID {}", item_id);
         self.disable_warp_menu();
+        trace!("Disabled warp menu for item ID {}", item_id);
         self.disable_movement();
+        trace!("Disabled movement for item ID {}", item_id);
         self.play_sound_effect(0x618);
+        trace!("Played sound effect for item ID {}", item_id);
     }
 
     fn popup_dialog_draw(&self, popup_dialog: &'static TaskData) {
