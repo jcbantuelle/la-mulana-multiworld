@@ -242,7 +242,15 @@ fn get_updates_from_server() {
                                         }
                                     },
                                     Err(e) => {
-                                        warn!("Failed to read location checks: {}", e);
+                                        match e {
+                                            ArchipelagoError::ConnectionClosed => {
+                                                warn!("Detected server closed connection on location check. Attempting reconnect");
+                                                *randomizer = reconnect_to_server(application);
+                                            }
+                                            archipelago_error => {
+                                                warn!("Failed to read location checks: {}", archipelago_error);
+                                            }
+                                        }
                                     }
                                 }
                             },
