@@ -62,6 +62,7 @@ pub struct AppConfig {
     pub password: String,
     pub log_file_name: String,
     pub local_player_id: i32,
+    pub log_level: String,
     pub players: Vec<ArchipelagoPlayer>,
     pub item_mapping: Vec<ArchipelagoItem>,
 }
@@ -99,12 +100,21 @@ fn read_config() -> Result<AppConfig, String> {
 }
 
 fn init_logger(app_config: &AppConfig) {
+    let level_filter = match app_config.log_level.as_str() {
+        "OFF" => LevelFilter::Off,
+        "ERROR" => LevelFilter::Error,
+        "WARN" => LevelFilter::Warn,
+        "INFO" => LevelFilter::Info,
+        "DEBUG" => LevelFilter::Debug,
+        "TRACE" => LevelFilter::Trace,
+        _ => LevelFilter::Debug,
+    };
     let file_appender = FileAppender::builder()
         .build(&app_config.log_file_name)
         .unwrap();
     let log_config = Config::builder()
         .appender(Appender::builder().build("lamulanamw", Box::new(file_appender)))
-        .build(Root::builder().appender("lamulanamw").build(LevelFilter::Debug))
+        .build(Root::builder().appender("lamulanamw").build(level_filter))
         .unwrap();
     log4rs::init_config(log_config).unwrap();
 }
