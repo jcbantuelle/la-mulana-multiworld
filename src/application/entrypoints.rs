@@ -63,7 +63,7 @@ pub fn game_loop() {
         if message.is_some() {
             match message.unwrap() {
                 ServerMessage::ReceivedItems(received_items) => {
-                    debug!("Received items from server: {}", received_items);
+                    debug!("Received {} items from server", received_items.items.len());
                     let network_items = received_items.items;
 
                     for ap_item in network_items {
@@ -86,7 +86,7 @@ pub fn game_loop() {
                             let player_id = ap_item.player;
                             debug!("Giving item {} to player {}", item.item_id, player_id);
                             if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
-                                debug!("Inserting item {} into player items hash for player", item.item_id, player_id);
+                                debug!("Inserting item {} into player items hash for player {}", item.item_id, player_id);
                                 player_items.insert(item.item_id as i32, PlayerItem {
                                     player_id,
                                     for_player: false
