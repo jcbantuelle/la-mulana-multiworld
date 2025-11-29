@@ -6,12 +6,10 @@
 
 use thiserror::Error;
 use log::warn;
-use websocket::{WebSocketError, OwnedMessage};
-use websocket::client::ClientBuilder;
-use websocket::sync::Client;
 use crate::archipelago::protocol::*;
 use std::net::TcpStream;
 use std::time::Duration;
+use tungstenite::{accept, WebSocket, Message, Error};
 
 #[derive(Error, Debug)]
 pub enum ArchipelagoError {
@@ -25,16 +23,18 @@ pub enum ArchipelagoError {
     #[error("data failed to serialize")]
     FailedSerialize(#[from] serde_json::Error),
     #[error("unexpected non-text result from websocket")]
-    NonTextWebsocketResult(OwnedMessage),
+    NonTextWebsocketResult(Message),
     #[error("network error")]
-    NetworkError(#[from] WebSocketError),
+    NetworkError(#[from] Error),
+    #[error("handshake error")]
+    HandshakeError
 }
 
 /**
  * A convenience layer to manage your connection to and communication with Archipelago
  */
 pub struct ArchipelagoClient {
-    ws: Client<TcpStream>,
+    ws: WebSocket<TcpStream>,
     room_info: RoomInfo,
     data_package: Option<DataPackageObject>,
     pub message_queue: Vec<ServerMessage>,
@@ -45,19 +45,10 @@ impl ArchipelagoClient {
      * Create an instance of the client and connect to the server on the given URL
      */
     pub fn new(url: &str) -> Result<ArchipelagoClient, ArchipelagoError> {
-        // Attempt WSS, downgrade to WS if the TLS handshake fails
-        let ws_url = format!("ws://{}", url);
-        let wss_url = format!("wss://{}", url);
-        let mut ws = match Self::connect_to(&wss_url, &url).or_else(|_| Self::connect_to(&ws_url, &url)) {
+        let mut ws = match Self::connect_to(&url) {
             Ok(result) => result,
-            Err(_) => {
-                let tcp_stream = Self::create_tcp_stream_with_timeout(url)?;
-                match ClientBuilder::new(&ws_url).unwrap().connect_on(tcp_stream) {
-                    Ok(result) => result,
-                    Err(error) => {
-                        return Err(ArchipelagoError::NetworkError(error))
-                    }
-                }
+            Err(e) => {
+                return Err(e)
             }
         };
 
@@ -85,10 +76,10 @@ impl ArchipelagoClient {
         })
     }
 
-    fn connect_to(ws_url: &str, url: &str) -> Result<Client<TcpStream>, ArchipelagoError> {
+    fn connect_to(url: &str) -> Result<WebSocket<TcpStream>, ArchipelagoError> {
         let tcp_stream = Self::create_tcp_stream_with_timeout(url)?;
-        ClientBuilder::new(&ws_url).unwrap().connect_on(tcp_stream).map_err(|e| {
-            ArchipelagoError::NetworkError(e)
+        accept(tcp_stream).map_err(|_| {
+            ArchipelagoError::HandshakeError
         })
     }
 
@@ -102,15 +93,15 @@ impl ArchipelagoClient {
             },
             Err(e) => {
                 warn!("Could not connect to url: {}", e);
-                Err(ArchipelagoError::NetworkError(WebSocketError::from(e)))
+                Err(ArchipelagoError::NetworkError(Error::from(e)))
             }
         }
     }
 
-    pub fn send(&mut self, message: ClientMessage) -> Result<(), ArchipelagoError> {
-        let request = serde_json::to_string(&[message])?;
-        let message = OwnedMessage::Text(request);
-        let _ = self.ws.send_message(&message);
+    pub fn send(&mut self, client_message: ClientMessage) -> Result<(), ArchipelagoError> {
+        let request = serde_json::to_string(&[client_message])?;
+        let server_message = Message::text(request);
+        let _ = self.ws.send(server_message);
         Ok(())
     }
 
@@ -121,22 +112,22 @@ impl ArchipelagoClient {
     /**
      * Read a message from the server
      */
-    fn recv(ws: &mut Client<TcpStream>) -> Result<Option<ServerMessage>, ArchipelagoError> {
-        match ws.recv_message() {
+    fn recv(ws: &mut WebSocket<TcpStream>) -> Result<Option<ServerMessage>, ArchipelagoError> {
+        match ws.read() {
             Ok(message) => {
                 match message {
-                    OwnedMessage::Ping(ping) => {
-                        let pong = OwnedMessage::Pong(ping);
-                        let _ = ws.send_message(&pong);
+                    Message::Ping(ping) => {
+                        let pong = Message::Pong(ping);
+                        let _ = ws.send(pong);
                         Ok(None)
                     },
-                    OwnedMessage::Text(response) => {
+                    Message::Text(response) => {
                         match serde_json::from_str::<Vec<ServerMessage>>(&response) {
                             Ok(text) => Ok(text.into_iter().next()),
                             Err(e) => Err(e.into())
                         }
                     },
-                    OwnedMessage::Close(_) => Err(ArchipelagoError::ConnectionClosed),
+                    Message::Close(_) => Err(ArchipelagoError::ConnectionClosed),
                     msg => Err(ArchipelagoError::NonTextWebsocketResult(msg)),
                 }
             },
