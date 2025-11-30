@@ -4,7 +4,7 @@
 use std::fs;
 use std::ptr::null_mut;
 use std::sync::Mutex;
-use archipelago::client::{ArchipelagoClient, ArchipelagoError};
+use archipelago_rs::client::{ArchipelagoClient, ArchipelagoError};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use toml;
@@ -25,7 +25,6 @@ use utils::show_message_box;
 use crate::application::Application;
 
 pub mod utils;
-pub mod archipelago;
 pub mod screenplay;
 pub mod application;
 pub mod lm_structs;
@@ -44,7 +43,7 @@ lazy_static!{
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ArchipelagoPlayer {
-    pub id: i32,
+    pub id: i64,
     pub name: String
 }
 
@@ -52,7 +51,7 @@ pub struct ArchipelagoPlayer {
 pub struct ArchipelagoItem {
     pub flag: u16,
     pub location_id: i64,
-    pub player_id: i32,
+    pub player_id: i64,
     pub obtain_value: u8
 }
 
@@ -61,14 +60,14 @@ pub struct AppConfig {
     pub server_url: String,
     pub password: String,
     pub log_file_name: String,
-    pub local_player_id: i32,
+    pub local_player_id: i64,
     pub log_level: String,
     pub players: Vec<ArchipelagoPlayer>,
     pub item_mapping: Vec<ArchipelagoItem>,
 }
 
 impl AppConfig {
-    fn players_lookup(&self) -> HashMap<i32, String> {
+    fn players_lookup(&self) -> HashMap<i64, String> {
         self.players.clone().into_iter().map(|player| (player.id, player.name)).collect::<HashMap<_,_>>()
     }
 

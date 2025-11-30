@@ -1,11 +1,12 @@
 pub mod entrypoints;
 pub mod live;
 
-use std::sync::Mutex;
-use crate::AppConfig;
-use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
-use crate::lm_structs::taskdata::TaskData;
+use archipelago_rs::client::{ArchipelagoClient, ArchipelagoError};
 use phf::phf_map;
+use std::sync::Mutex;
+
+use crate::AppConfig;
+use crate::lm_structs::taskdata::TaskData;
 
 pub struct AppAddresses {
     pub game_loop_address: usize,

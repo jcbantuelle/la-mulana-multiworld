@@ -1,13 +1,12 @@
-use std::sync::Mutex;
-
-use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
-use crate::{AppConfig, LiveApplication, Application, get_application_version};
-use crate::application::{ADDRESS_LOOKUP, AppAddresses, ApplicationMemoryOps};
-use crate::lm_structs::taskdata::TaskData;
-use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
-
+use archipelago_rs::client::{ArchipelagoClient, ArchipelagoError};
 use log::{debug, error, trace};
 use retour::{Function, static_detour, StaticDetour};
+use std::sync::Mutex;
+
+use crate::{AppConfig, LiveApplication, Application, get_application_version};
+use crate::application::{ADDRESS_LOOKUP, AppAddresses, ApplicationMemoryOps};
+use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
+use crate::lm_structs::taskdata::TaskData;
 use crate::utils::show_message_box;
 
 static_detour! {

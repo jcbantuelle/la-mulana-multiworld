@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+archipelago_rs = { git = "https://github.com/ryanisaacg/archipelago_rs.git", rev = "4918e0528c4db77f86675657fb0ee8073008ac39" }
 lazy_static = "1.4.0"
 log = "0.4.16"
 log4rs = { "version" ="1.0.0", "features" = ["file_appender"] }

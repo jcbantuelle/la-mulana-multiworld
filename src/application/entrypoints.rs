@@ -1,31 +1,29 @@
-use std::collections::VecDeque;
-use std::sync::Mutex;
-use std::collections::HashMap;
-use std::thread;
+use archipelago_rs::client::{ArchipelagoClient, ArchipelagoError};
+use archipelago_rs::protocol::ServerMessage;
 use lazy_static::lazy_static;
 use log::{debug, trace, warn};
+use std::collections::{HashMap, VecDeque};
+use std::sync::Mutex;
+use std::thread;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 
-use crate::archipelago::client::{ArchipelagoClient, ArchipelagoError};
-use crate::archipelago::protocol::ServerMessage;
-use crate::get_application;
 use crate::application::{AppAddresses, Application, ApplicationMemoryOps};
+use crate::get_application;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
-use crate::lm_structs::taskdata::TaskData;
-use crate::lm_structs::taskdata::EventWithBool;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
+use crate::lm_structs::taskdata::{EventWithBool, TaskData};
 use crate::screenplay;
 
 #[derive(Debug)]
 pub struct GivenItem {
-    pub player_id: i32,
+    pub player_id: i64,
     pub item_id: u32
 }
 
 #[derive(Clone)]
 pub struct PlayerItem {
-    pub player_id: i32,
+    pub player_id: i64,
     pub for_player: bool
 }
 
@@ -38,7 +36,7 @@ pub struct PlayerItemPopup {
 lazy_static! {
     static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-    static ref MESSAGE_QUEUE: Mutex<VecDeque<ServerMessage>> = Mutex::new(VecDeque::new());
+    static ref MESSAGE_QUEUE: Mutex<VecDeque<ServerMessage<S>>> = Mutex::new(VecDeque::new());
     static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
 }
 
@@ -56,7 +54,7 @@ pub fn game_loop() {
         display_item_if_available(application, app_addresses);
         get_updates_from_server();
 
-        let mut message: Option<ServerMessage> = None;
+        let mut message: Option<ServerMessage<S>> = None;
         if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
             message = message_queue.pop_front();
         }
