@@ -20,8 +20,8 @@ serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 serde_repr = "0.1"
 thiserror = "1.0"
+tokio = { "version" = "1.48.0", "features" = ["rt-multi-thread"] }
 toml = "0.5.9"
-tungstenite = "0.28.0"
 winapi = { "version" = "0.3.9", "features" = ["ntdef", "minwindef", "winnt", "libloaderapi", "winuser", "processthreadsapi", "timeapi"] }
 
 [profile.release]

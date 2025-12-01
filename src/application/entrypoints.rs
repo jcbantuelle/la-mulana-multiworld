@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 use log::{debug, trace, warn};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
+use tokio::runtime::Runtime;
 use winapi::shared::minwindef::*;
 use winapi::um::timeapi::timeGetTime;
 
@@ -289,10 +290,7 @@ async fn get_updates_from_server() {
                 }
             }
         },
-        Err(_) => {
-            // Okay to pass when cannot lock
-            debug!("Couldn't get randomizer lock");
-        }
+        Err(_) => () // Okay to pass when cannot lock
     };
 
     if connection_failure {
@@ -303,9 +301,11 @@ async fn get_updates_from_server() {
 pub async fn reconnect_to_server() {
     let application = get_application();
     let app_config = application.get_app_config();
-    debug!("Server Connection Initiating to {}", app_config.server_url);
     let mut rando = application.get_randomizer().lock().unwrap();
-    *rando = match ArchipelagoClient::new(&app_config.server_url).await {
+    debug!("Server Connection Initiating to {}", app_config.server_url);
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let client = runtime.block_on(ArchipelagoClient::new(&app_config.server_url));
+    *rando = match client {
         Ok(mut randomizer) => {
             debug!("Connection Success to {}.", app_config.server_url);
             let player_id = app_config.local_player_id;
