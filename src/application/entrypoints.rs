@@ -53,7 +53,11 @@ pub fn game_loop() {
 
     if *game_init != 0 && global_flags[0x863] > 0 {
         display_item_if_available(application, app_addresses);
-        get_updates_from_server();
+        std::thread::spawn(move || {
+            futures::executor::block_on(async {
+                get_updates_from_server().await;
+            });
+        });
 
         let mut message: Option<Vec<NetworkItem>> = None;
         if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
@@ -208,93 +212,117 @@ fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addr
     }
 }
 
-fn get_updates_from_server() {
-    std::thread::spawn(move || {
-        futures::executor::block_on(async {
-            let application = get_application();
-            let app_addresses = application.app_addresses();
+async fn get_updates_from_server() {
+    let application = get_application();
+    let app_addresses = application.app_addresses();
+    let mut connection_failure = false;
 
-            match application.get_randomizer().try_lock() {
-                Ok(mut randomizer) => {
-                    match randomizer.as_mut() {
-                        Ok(client) => {
-                            let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
-                            let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
-                                global_flags[**k as usize] == 2
-                            ).map(|(_,v)|
-                                v.location_id
-                            ).collect();
+    match application.get_randomizer().try_lock() {
+        Ok(mut randomizer) => {
+            match randomizer.as_mut() {
+                Ok(client) => {
+                    debug!("Attained Lock for Randomizer");
+                    let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
+                    let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
+                        global_flags[**k as usize] == 2
+                    ).map(|(_,v)|
+                        v.location_id
+                    ).collect();
 
-                            match client.location_checks(found_items).await {
-                                Ok(_) => {
-                                    match client.recv().await {
-                                        Ok(message_wrapper) => {
-                                            match message_wrapper {
-                                                Some(server_message) => {
-                                                    match server_message {
-                                                        ReceivedItems(received_items) => {
-                                                            let items = received_items.items;
-                                                            debug!("Received message for location checks: {:?}", items);
-                                                            let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
-                                                            message_queue.push_back(items);      
-                                                        },
-                                                        _ => ()
-                                                    };
-                                                },
-                                                None => ()
+                    match client.location_checks(found_items).await {
+                        Ok(_) => {
+                            debug!("Sent Location Checks, waiting for Server Response");
+                            futures::executor::block_on(async {
+                                match client.recv().await {
+                                    Ok(message_wrapper) => {
+                                        debug!("Got Location Checks Response");
+                                        match message_wrapper {
+                                            Some(server_message) => {
+                                                match server_message {
+                                                    ReceivedItems(received_items) => {
+                                                        let items = received_items.items;
+                                                        debug!("ReceivedItems message for location checks: {:?}", items);
+                                                        let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                                                        message_queue.push_back(items);      
+                                                    },
+                                                    _ => {
+                                                        debug!("Location Checks Response wasn't ReceivedItems, probably not good");
+                                                    }
+                                                };
+                                            },
+                                            None => {
+                                                debug!("Location Checks Response was None, probably not good");
                                             }
-                                        },
-                                        Err(e) => {
-                                            match e {
-                                                ArchipelagoError::ConnectionClosed => {
-                                                    warn!("Detected server closed connection on location check. Attempting reconnect");
-                                                    *randomizer = reconnect_to_server(application).await;
-                                                }
-                                                archipelago_error => {
-                                                    warn!("Failed to read location checks: {}", archipelago_error);
-                                                }
+                                        }
+                                    },
+                                    Err(e) => {
+                                        match e {
+                                            ArchipelagoError::ConnectionClosed => {
+                                                warn!("Detected server closed connection on location check. Attempting reconnect");
+                                                connection_failure = true;
+                                            }
+                                            archipelago_error => {
+                                                warn!("Failed to read location checks: {}", archipelago_error);
                                             }
                                         }
                                     }
-                                },
-                                Err(_) => {
-                                    warn!("Error getting location checks. Calling reconnect.");
-                                    *randomizer = reconnect_to_server(application).await;
                                 }
-                            }
+                            })
                         },
-                        Err(error) => {
-                            match error {
-                                ArchipelagoError::ConnectionClosed => {
-                                    warn!("Connection closed. Calling reconnect.");
-                                    *randomizer = reconnect_to_server(application).await;
-                                },
-                                e => {
-                                    warn!("Unhandled network error: {}", e);
-                                }
-                            }
+                        Err(_) => {
+                            warn!("Error getting location checks. Calling reconnect.");
+                            connection_failure = true;
+                        }
+                    }
+                },
+                Err(error) => {
+                    match error {
+                        ArchipelagoError::ConnectionClosed => {
+                            warn!("No Connection to Server, Attempting Connection.");
+                            connection_failure = true;
+                            
+                        },
+                        e => {
+                            warn!("Unhandled network error: {}", e);
                         }
                     }
                 }
-                Err(_) => () // Okay to pass when cannot lock
-            };
-        })
-    }).join().unwrap();
+            }
+        },
+        Err(_) => {
+            // Okay to pass when cannot lock
+            debug!("Couldn't get randomizer lock");
+        }
+    };
+
+    if connection_failure {
+        reconnect_to_server().await;
+    }
 }
 
-pub async fn reconnect_to_server(application: &Box<dyn Application + Sync>) -> Result<ArchipelagoClient, ArchipelagoError> {
+pub async fn reconnect_to_server() {
+    let application = get_application();
     let app_config = application.get_app_config();
-    ArchipelagoClient::new(&app_config.server_url).await.map(|mut randomizer| {
-        debug!("Reconnecting to server {}.", app_config.server_url);
-        let player_id = app_config.local_player_id;
-        let players = app_config.players_lookup();
-        let player_name = players.get(&player_id).unwrap();
-        let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
-        let _ = randomizer.connect("La-Mulana", &player_name, password, ItemsHandlingFlags::OTHER_WORLDS, vec![]);
-        let _ = randomizer.sync();
-        debug!("Resynced items.");
-        randomizer
-    })
+    debug!("Server Connection Initiating to {}", app_config.server_url);
+    let mut rando = application.get_randomizer().lock().unwrap();
+    *rando = match ArchipelagoClient::new(&app_config.server_url).await {
+        Ok(mut randomizer) => {
+            debug!("Connection Success to {}.", app_config.server_url);
+            let player_id = app_config.local_player_id;
+            let players = app_config.players_lookup();
+            let player_name = players.get(&player_id).unwrap();
+            let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
+            let _ = randomizer.connect("La-Mulana", &player_name, password, ItemsHandlingFlags::OTHER_WORLDS, vec![]);
+            let _ = randomizer.sync();
+            debug!("Resynced items.");
+            Ok(randomizer)
+        },
+        Err(e) => {
+            debug!("Connection Failure to {} with error {:?}", app_config.server_url, e);
+            Err(ArchipelagoError::ConnectionClosed)
+        }
+    };
+    debug!("Server Connection Attempt concluded");
 }
 
 #[cfg(test)]
