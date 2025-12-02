@@ -38,6 +38,7 @@ pub struct PlayerItemPopup {
 lazy_static! {
     static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+    static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(false);
     static ref MESSAGE_QUEUE: Mutex<VecDeque<Vec<NetworkItem>>> = Mutex::new(VecDeque::new());
     static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
 }
@@ -222,7 +223,6 @@ async fn get_updates_from_server() {
         Ok(mut randomizer) => {
             match randomizer.as_mut() {
                 Ok(client) => {
-                    debug!("Attained Lock for Randomizer");
                     let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
                     let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
                         global_flags[**k as usize] == 2
@@ -299,30 +299,54 @@ async fn get_updates_from_server() {
 }
 
 pub async fn reconnect_to_server() {
+    debug!("reconnect_to_server Starting");
     let application = get_application();
     let app_config = application.get_app_config();
-    let mut rando = application.get_randomizer().lock().unwrap();
-    debug!("Server Connection Initiating to {}", app_config.server_url);
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    let client = runtime.block_on(ArchipelagoClient::new(&app_config.server_url));
-    *rando = match client {
-        Ok(mut randomizer) => {
-            debug!("Connection Success to {}.", app_config.server_url);
+    let mut randomizer = application.get_randomizer().lock().unwrap();
+    debug!("Attempting Handshake to {}", app_config.server_url);
+    let client_runtime = tokio::runtime::Runtime::new().unwrap();
+    *randomizer = client_runtime.block_on(ArchipelagoClient::new(&app_config.server_url));
+    match randomizer.as_mut() {
+        Ok(ap_client) => {
+            debug!("Handshake Success to {}.", app_config.server_url);
             let player_id = app_config.local_player_id;
             let players = app_config.players_lookup();
             let player_name = players.get(&player_id).unwrap();
             let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
-            let _ = randomizer.connect("La-Mulana", &player_name, password, ItemsHandlingFlags::OTHER_WORLDS, vec![]);
-            let _ = randomizer.sync();
-            debug!("Resynced items.");
-            Ok(randomizer)
+            debug!("Attempting Connect Payload");
+            let connection_runtime = tokio::runtime::Runtime::new().unwrap();
+            match connection_runtime.block_on(ap_client.connect("La-Mulana", &player_name, password, ItemsHandlingFlags::OTHER_WORLDS, vec![])) {
+                Ok(connected) => {
+                    debug!("Connect Success {:?}", connected);
+                },
+                Err(e) => {
+                    debug!("Connect Failure with error {:?}", e);
+                }
+            }
         },
         Err(e) => {
-            debug!("Connection Failure to {} with error {:?}", app_config.server_url, e);
-            Err(ArchipelagoError::ConnectionClosed)
+            debug!("AP Client Not Connected with Error {}", e);
         }
     };
-    debug!("Server Connection Attempt concluded");
+    match randomizer.as_mut() {
+        Ok(ap_client) => {
+            let sync_runtime = tokio::runtime::Runtime::new().unwrap();
+            debug!("Attempting Sync Payload");
+            match sync_runtime.block_on(ap_client.sync()) {
+                Ok(received_items) => {
+                    debug!("Sync Successful {:?}", received_items);
+                },
+                Err(e) => {
+                    debug!("Sync Failure with error {:?}", e);
+                }
+            }
+        },
+        Err(e) => {
+            debug!("AP Client Not Connected with Error {}", e);
+        }
+    }
+    
+    debug!("reconnect_to_server Concluded");
 }
 
 #[cfg(test)]
