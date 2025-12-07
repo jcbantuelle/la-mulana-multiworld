@@ -1,8 +1,9 @@
-use archipelago_rs::client::{ArchipelagoClient, ArchipelagoError};
 use log::{debug, error, trace};
 use retour::{Function, static_detour, StaticDetour};
 use std::sync::Mutex;
 
+use crate::archipelago::api::APError;
+use crate::archipelago::client::APClient;
 use crate::{AppConfig, LiveApplication, Application, get_application_version};
 use crate::application::{ADDRESS_LOOKUP, AppAddresses, ApplicationMemoryOps};
 use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
@@ -48,7 +49,7 @@ impl Application for LiveApplication {
         self.address
     }
 
-    fn get_randomizer(&self) -> &Mutex<Result<ArchipelagoClient, ArchipelagoError>> {
+    fn get_randomizer(&self) -> &Mutex<Result<APClient, APError>> {
         &self.randomizer
     }
 

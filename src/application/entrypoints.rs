@@ -1,16 +1,12 @@
-use archipelago_rs::client::{ArchipelagoClient, ArchipelagoError};
-use archipelago_rs::protocol::{NetworkItem, ItemsHandlingFlags};
-use archipelago_rs::protocol::ServerMessage::ReceivedItems;
 use futures;
 use lazy_static::lazy_static;
-use log::{debug, trace, warn};
+use log::{debug, warn};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
-use tokio::runtime::Runtime;
-use winapi::shared::minwindef::*;
-use winapi::um::timeapi::timeGetTime;
 
 use crate::application::{AppAddresses, Application, ApplicationMemoryOps};
+use crate::archipelago::api::APError;
+use crate::archipelago::client::APClient;
 use crate::get_application;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
@@ -39,7 +35,7 @@ lazy_static! {
     static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
     static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(false);
-    static ref MESSAGE_QUEUE: Mutex<VecDeque<Vec<NetworkItem>>> = Mutex::new(VecDeque::new());
+    // static ref MESSAGE_QUEUE: Mutex<VecDeque<Vec<NetworkItem>>> = Mutex::new(VecDeque::new());
     static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
 }
 
@@ -61,51 +57,51 @@ pub fn game_loop() {
             });
         });
 
-        let mut message: Option<Vec<NetworkItem>> = None;
-        if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
-            message = message_queue.pop_front();
-        }
-        match message {
-            Some(network_items) => {
-                debug!("Received {} items from server", network_items.len());
+        // let mut message: Option<Vec<NetworkItem>> = None;
+        // if let Ok(ref mut message_queue) = MESSAGE_QUEUE.try_lock() {
+        //     message = message_queue.pop_front();
+        // }
+        // match message {
+        //     Some(network_items) => {
+        //         debug!("Received {} items from server", network_items.len());
                     
-                for ap_item in network_items {
-                    let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item)).unwrap();
-                    let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
-                    let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
-                    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
+        //         for ap_item in network_items {
+        //             let item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item.item)).unwrap();
+        //             let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
+        //             let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
+        //             let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
 
-                    debug!("Checking if item {} needs to be given", item.item_id);
-                    let give_item = if item.item_id == 70 || item.item_id == 19 || item.item_id == 69 {
-                        global_flags[item.flag] == 0
-                    } else {
-                        item.item_id > 104 || inventory[item.item_id] == 0
-                    };
+        //             debug!("Checking if item {} needs to be given", item.item_id);
+        //             let give_item = if item.item_id == 70 || item.item_id == 19 || item.item_id == 69 {
+        //                 global_flags[item.flag] == 0
+        //             } else {
+        //                 item.item_id > 104 || inventory[item.item_id] == 0
+        //             };
 
-                    let debug_given_sub_message = if give_item { "needs" } else { "does not need" };
-                    debug!("Item {} {} to be given", item.item_id, debug_given_sub_message);
+        //             let debug_given_sub_message = if give_item { "needs" } else { "does not need" };
+        //             debug!("Item {} {} to be given", item.item_id, debug_given_sub_message);
 
-                    if give_item {
-                        let player_id = ap_item.player;
-                        debug!("Giving item {} to player {}", item.item_id, player_id);
-                        if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
-                            debug!("Inserting item {} into player items hash for player {}", item.item_id, player_id);
-                            player_items.insert(item.item_id as i32, PlayerItem {
-                                player_id,
-                                for_player: false
-                            });
-                        }
-                        else {
-                            debug!("Could not unlock player items hash");
-                        }
+        //             if give_item {
+        //                 let player_id = ap_item.player;
+        //                 debug!("Giving item {} to player {}", item.item_id, player_id);
+        //                 if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
+        //                     debug!("Inserting item {} into player items hash for player {}", item.item_id, player_id);
+        //                     player_items.insert(item.item_id as i32, PlayerItem {
+        //                         player_id,
+        //                         for_player: false
+        //                     });
+        //                 }
+        //                 else {
+        //                     debug!("Could not unlock player items hash");
+        //                 }
 
-                        application.give_item(item.item_id as u32);
-                        global_flags[item.flag] = 2
-                    }
-                }
-            },
-            None => ()
-        }
+        //                 application.give_item(item.item_id as u32);
+        //                 global_flags[item.flag] = 2
+        //             }
+        //         }
+        //     },
+        //     None => ()
+        // }
     }
     application.original_game_loop()
 }
@@ -189,16 +185,6 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     result
 }
 
-#[cfg(not(test))]
-pub fn get_time() -> DWORD {
-    unsafe { timeGetTime() }
-}
-
-#[cfg(test)]
-pub fn get_time() -> DWORD {
-    0
-}
-
 fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addresses: &AppAddresses) {
     if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
         if let Some(popup) = popup_option.as_ref() {
@@ -217,7 +203,7 @@ fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addr
 async fn get_updates_from_server() {
     let application = get_application();
     let app_addresses = application.app_addresses();
-    let mut connection_failure = false;
+    let mut no_connection = false;
 
     match application.get_randomizer().try_lock() {
         Ok(mut randomizer) => {
@@ -230,58 +216,57 @@ async fn get_updates_from_server() {
                         v.location_id
                     ).collect();
 
-                    match client.location_checks(found_items).await {
-                        Ok(_) => {
-                            debug!("Sent Location Checks, waiting for Server Response");
-                            futures::executor::block_on(async {
-                                match client.recv().await {
-                                    Ok(message_wrapper) => {
-                                        debug!("Got Location Checks Response");
-                                        match message_wrapper {
-                                            Some(server_message) => {
-                                                match server_message {
-                                                    ReceivedItems(received_items) => {
-                                                        let items = received_items.items;
-                                                        debug!("ReceivedItems message for location checks: {:?}", items);
-                                                        let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
-                                                        message_queue.push_back(items);      
-                                                    },
-                                                    _ => {
-                                                        debug!("Location Checks Response wasn't ReceivedItems, probably not good");
-                                                    }
-                                                };
-                                            },
-                                            None => {
-                                                debug!("Location Checks Response was None, probably not good");
-                                            }
-                                        }
-                                    },
-                                    Err(e) => {
-                                        match e {
-                                            ArchipelagoError::ConnectionClosed => {
-                                                warn!("Detected server closed connection on location check. Attempting reconnect");
-                                                connection_failure = true;
-                                            }
-                                            archipelago_error => {
-                                                warn!("Failed to read location checks: {}", archipelago_error);
-                                            }
-                                        }
-                                    }
-                                }
-                            })
-                        },
-                        Err(_) => {
-                            warn!("Error getting location checks. Calling reconnect.");
-                            connection_failure = true;
-                        }
-                    }
+                    // match client.location_checks(found_items).await {
+                    //     Ok(_) => {
+                    //         debug!("Sent Location Checks, waiting for Server Response");
+                    //         futures::executor::block_on(async {
+                    //             match client.recv().await {
+                    //                 Ok(message_wrapper) => {
+                    //                     debug!("Got Location Checks Response");
+                    //                     match message_wrapper {
+                    //                         Some(server_message) => {
+                    //                             match server_message {
+                    //                                 ReceivedItems(received_items) => {
+                    //                                     let items = received_items.items;
+                    //                                     debug!("ReceivedItems message for location checks: {:?}", items);
+                    //                                     let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                    //                                     message_queue.push_back(items);      
+                    //                                 },
+                    //                                 _ => {
+                    //                                     debug!("Location Checks Response wasn't ReceivedItems, probably not good");
+                    //                                 }
+                    //                             };
+                    //                         },
+                    //                         None => {
+                    //                             debug!("Location Checks Response was None, probably not good");
+                    //                         }
+                    //                     }
+                    //                 },
+                    //                 Err(e) => {
+                    //                     match e {
+                    //                         ArchipelagoError::ConnectionClosed => {
+                    //                             warn!("Detected server closed connection on location check. Attempting reconnect");
+                    //                             connection_failure = true;
+                    //                         }
+                    //                         archipelago_error => {
+                    //                             warn!("Failed to read location checks: {}", archipelago_error);
+                    //                         }
+                    //                     }
+                    //                 }
+                    //             }
+                    //         })
+                    //     },
+                    //     Err(_) => {
+                    //         warn!("Error getting location checks. Calling reconnect.");
+                    //         connection_failure = true;
+                    //     }
+                    // }
                 },
                 Err(error) => {
+                    no_connection = true;
                     match error {
-                        ArchipelagoError::ConnectionClosed => {
-                            warn!("No Connection to Server, Attempting Connection.");
-                            connection_failure = true;
-                            
+                        APError::NoConnection => {
+                            warn!("Not Connected Yet, Attempting Connection.");
                         },
                         e => {
                             warn!("Unhandled network error: {}", e);
@@ -293,31 +278,31 @@ async fn get_updates_from_server() {
         Err(_) => () // Okay to pass when cannot lock
     };
 
-    if connection_failure {
-        reconnect_to_server().await;
+    if no_connection {
+        connect_to_server().await;
     }
 }
 
-pub async fn reconnect_to_server() {
-    debug!("reconnect_to_server Starting");
+pub async fn connect_to_server() {
     let application = get_application();
     let app_config = application.get_app_config();
     let mut randomizer = application.get_randomizer().lock().unwrap();
-    debug!("Attempting Handshake to {}", app_config.server_url);
-    let client_runtime = tokio::runtime::Runtime::new().unwrap();
-    *randomizer = client_runtime.block_on(ArchipelagoClient::new(&app_config.server_url));
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    *randomizer = runtime.block_on(APClient::new(&app_config.server_url));
     match randomizer.as_mut() {
         Ok(ap_client) => {
-            debug!("Handshake Success to {}.", app_config.server_url);
             let player_id = app_config.local_player_id;
             let players = app_config.players_lookup();
             let player_name = players.get(&player_id).unwrap();
-            let password = if app_config.password.is_empty() { None } else { Some(app_config.password.as_str()) };
-            debug!("Attempting Connect Payload");
-            let connection_runtime = tokio::runtime::Runtime::new().unwrap();
-            match connection_runtime.block_on(ap_client.connect("La-Mulana", &player_name, password, ItemsHandlingFlags::OTHER_WORLDS, vec![])) {
-                Ok(connected) => {
-                    debug!("Connect Success {:?}", connected);
+            let password = &app_config.password;
+            match runtime.block_on(ap_client.connect(password, "La-Mulana", &player_name, player_id, 1, vec![], false)) {
+                Ok(_) => {
+                    match runtime.block_on(ap_client.sync()) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            debug!("Sync Failure with error {:?}", e);
+                        }
+                    }
                 },
                 Err(e) => {
                     debug!("Connect Failure with error {:?}", e);
@@ -328,103 +313,4 @@ pub async fn reconnect_to_server() {
             debug!("AP Client Not Connected with Error {}", e);
         }
     };
-    match randomizer.as_mut() {
-        Ok(ap_client) => {
-            let sync_runtime = tokio::runtime::Runtime::new().unwrap();
-            debug!("Attempting Sync Payload");
-            match sync_runtime.block_on(ap_client.sync()) {
-                Ok(received_items) => {
-                    debug!("Sync Successful {:?}", received_items);
-                },
-                Err(e) => {
-                    debug!("Sync Failure with error {:?}", e);
-                }
-            }
-        },
-        Err(e) => {
-            debug!("AP Client Not Connected with Error {}", e);
-        }
-    }
-    
-    debug!("reconnect_to_server Concluded");
-}
-
-#[cfg(test)]
-mod tests {
-    use archipelago_rs::client::ArchipelagoError;
-    use archipelago_rs::protocol::{NetworkItem, ServerMessage};
-    use archipelago_rs::protocol::ReceivedItems;
-    use crate::{APPLICATION, Application, ReceivePayload, screenplay};
-    use crate::application::entrypoints::{game_loop, PLAYER_ITEM_POPUP, PlayerItemPopup};
-    use crate::application::{GAME_INIT_ADDRESS, GLOBAL_FLAGS_ADDRESS};
-    use crate::lm_structs::script_header::ScriptSubHeader;
-    use crate::tests::{add_to_read_address_stack, calculate_address, add_to_read_payload_stack, READ_PAYLOAD_STACK, ITEMS_RECEIVED};
-
-    #[test]
-    fn test_game_loop_with_error_from_receive_payload() {
-        let game_init = 1;
-        let global_flags: [u8;2055] = [0 as u8; 2055];
-        add_to_read_address_stack(calculate_address(&global_flags, GLOBAL_FLAGS_ADDRESS));
-        add_to_read_address_stack(calculate_address(&game_init, GAME_INIT_ADDRESS));
-        add_to_read_payload_stack(
-            Err(
-                ArchipelagoError::ConnectionClosed
-            )
-        );
-
-        game_loop();
-
-        let read_payload_stack = &*READ_PAYLOAD_STACK;
-        assert_eq!(read_payload_stack.lock().unwrap().len(), 0);
-    }
-
-    #[test]
-    fn test_game_loop_getting_item_from_server() {
-        let game_init = 1;
-        let global_flags: [u8;2055] = [0u8; 2055];
-        let subscript_header = ScriptSubHeader {
-            pointer: 0,
-            data_num: 0,
-            font_num: 0,
-        };
-        let popup_id = 1; // It doesn't match the id of the popup above
-        let popup_id_address = calculate_address(&popup_id, 0) as usize;
-        let popup = PlayerItemPopup {
-            popup_id_address,
-            popup_id: 0,
-            encoded: screenplay::encode(format!("  {} {}", "Test", "Test")),
-            line_address: 0,
-            old_line: subscript_header
-        };
-        let mut popup_option = PLAYER_ITEM_POPUP.lock().unwrap();
-        *popup_option = Some(popup);
-
-        add_to_read_address_stack(calculate_address(&global_flags, GLOBAL_FLAGS_ADDRESS));
-        add_to_read_address_stack(calculate_address(&game_init, GAME_INIT_ADDRESS));
-
-        add_to_read_payload_stack(
-            Ok(
-                Some(
-                    ServerMessage::ReceivedItems(
-                        ReceivedItems {
-                            index: 1,
-                            items: vec![
-                                NetworkItem {
-                                    item: 1,
-                                    location: 0,
-                                    player: 0,
-                                    flags: 0,
-                                }
-                            ],
-                        }
-                    )
-                )
-            )
-        );
-
-        game_loop();
-
-        let items_received_mutex = &*ITEMS_RECEIVED;
-        assert_eq!(items_received_mutex.lock().unwrap().len(), 1);
-    }
 }

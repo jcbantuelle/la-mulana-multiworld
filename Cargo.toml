@@ -8,13 +8,13 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-archipelago_rs = { git = "https://github.com/ryanisaacg/archipelago_rs.git", rev = "4918e0528c4db77f86675657fb0ee8073008ac39" }
 futures = { "version" = "0.3.31", "features" = ["executor"] }
 lazy_static = "1.4.0"
 log = "0.4.16"
 log4rs = { "version" = "1.0.0", "features" = ["file_appender"] }
 pelite = "0.10.0"
 phf = { version = "0.13.1", features = ["macros"], default-features = false }
+ratchet_rs = { version = "1.2.1", features = ["deflate"] }
 retour = { version = "0.4.0-alpha.4", features = ["static-detour"] }
 serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"

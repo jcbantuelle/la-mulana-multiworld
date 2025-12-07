@@ -1,10 +1,11 @@
 pub mod entrypoints;
 pub mod live;
 
-use archipelago_rs::client::{ArchipelagoClient, ArchipelagoError};
 use phf::phf_map;
 use std::sync::Mutex;
 
+use crate::archipelago::api::APError;
+use crate::archipelago::client::APClient;
 use crate::AppConfig;
 use crate::lm_structs::taskdata::TaskData;
 
@@ -84,7 +85,7 @@ const ADDRESS_LOOKUP: phf::Map<&'static str, AppAddresses> = phf_map! {
 pub trait Application {
     fn attach(&self);
     fn get_address(&self) -> usize;
-    fn get_randomizer(&self) -> &Mutex<Result<ArchipelagoClient, ArchipelagoError>>;
+    fn get_randomizer(&self) -> &Mutex<Result<APClient, APError>>;
     fn get_app_config(&self) -> &AppConfig;
     fn give_item(&self, item: u32);
     fn create_dialog_popup(&self, item_id: u32);
