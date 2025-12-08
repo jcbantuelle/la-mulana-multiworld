@@ -5,7 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
 
 use crate::application::{AppAddresses, Application, ApplicationMemoryOps};
-use crate::archipelago::api::{APError, ItemHandling};
+use crate::archipelago::api::{APError, ItemHandling, RoomInfo};
 use crate::archipelago::client::APClient;
 use crate::get_application;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
@@ -208,7 +208,7 @@ async fn get_updates_from_server() {
     match application.get_randomizer().try_lock() {
         Ok(mut randomizer) => {
             match randomizer.as_mut() {
-                Ok(client) => {
+                Ok(ap_client) => {
                     let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
                     let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
                         global_flags[**k as usize] == 2
@@ -216,7 +216,27 @@ async fn get_updates_from_server() {
                         v.location_id
                     ).collect();
 
-                    // match client.location_checks(found_items).await {
+                    let runtime = tokio::runtime::Runtime::new().unwrap();
+                    match runtime.block_on(ap_client.location_checks(found_items)) {
+                        Ok(_) => {
+                            match runtime.block_on(ap_client.read()) {
+                                Ok(response) => {
+                                    match response {                                        
+                                    }
+                                },
+                                Err(e) => {
+                                    debug!("Read from Server Failure with error {:?}", e);
+                                    no_connection = true;
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            debug!("Location Checks Failure with error {:?}", e);
+                            no_connection = true;
+                        }
+                    }
+
+                    
                     //     Ok(_) => {
                     //         debug!("Sent Location Checks, waiting for Server Response");
                     //         futures::executor::block_on(async {

@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize, Deserialize)]
 pub enum APError {
     #[error("not connected")]
     NoConnection,
@@ -12,8 +12,16 @@ pub enum APError {
     WebsocketConnectionFailure,
     #[error("unable to serialize payload")]
     PayloadSerializationFailure,
-    #[error("failed to send paylod")]
-    PayloadSendFailure
+    #[error("failed to write payload")]
+    PayloadWriteFailure,
+    #[error("failed to read payload")]
+    PayloadReadFailure,
+    #[error("non-text response from server")]
+    NonTextFrame,
+    #[error("failed to parse response from server")]
+    ResponseParseFailure,
+    #[error("unable to convert response to string")]
+    ResponseFormatFailure
 }
 
 // Client -> Server Payloads
