@@ -5,7 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
 
 use crate::application::{AppAddresses, Application, ApplicationMemoryOps};
-use crate::archipelago::api::APError;
+use crate::archipelago::api::{APError, ItemHandling};
 use crate::archipelago::client::APClient;
 use crate::get_application;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
@@ -295,7 +295,7 @@ pub async fn connect_to_server() {
             let players = app_config.players_lookup();
             let player_name = players.get(&player_id).unwrap();
             let password = &app_config.password;
-            match runtime.block_on(ap_client.connect(password, "La-Mulana", &player_name, player_id, 1, vec![], false)) {
+            match runtime.block_on(ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false)) {
                 Ok(_) => {
                     match runtime.block_on(ap_client.sync()) {
                         Ok(_) => {},
