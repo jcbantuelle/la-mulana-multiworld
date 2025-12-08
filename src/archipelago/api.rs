@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use serde_repr::{Serialize_repr, Deserialize_repr};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -26,7 +27,7 @@ pub enum APError {
 
 // Client -> Server Payloads
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "Connect")]
 pub struct Connect {
     pub password: String,
@@ -39,32 +40,32 @@ pub struct Connect {
     pub slot_data: bool
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "ConnectUpdate")]
 pub struct ConnectUpdate {
     pub items_handling: ItemHandling,
     pub tags: Vec<String>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "Sync")]
 pub struct Sync {
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "LocationChecks")]
 pub struct LocationChecks {
     pub locations: Vec<i64>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "LocationScouts")]
 pub struct LocationScouts {
     pub locations: Vec<i64>,
     pub create_as_hint: i64
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "CreateHints")]
 pub struct CreateHints {
     pub locations: Vec<i64>,
@@ -72,7 +73,7 @@ pub struct CreateHints {
     pub status: HintStatus
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "UpdateHint")]
 pub struct UpdateHint {
     pub player: i64,
@@ -80,25 +81,25 @@ pub struct UpdateHint {
     pub status: HintStatus
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "StatusUpdate")]
 pub struct StatusUpdate {
     pub status: ClientStatus
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "Say")]
 pub struct Say {
     pub text: String
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "GetDataPackage")]
 pub struct GetDataPackage {
     pub games: Vec<String>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "Bounce")]
 pub struct Bounce {
     pub games: Vec<String>,
@@ -107,22 +108,22 @@ pub struct Bounce {
     pub data: HashMap<String, String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "Get")]
 pub struct Get {
     pub keys: Vec<String>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "Set")]
-pub struct Set<T> {
+pub struct Set {
     pub key: String,
-    pub default: T,
+    pub default: String,
     pub want_reply: bool,
-    pub operations: Vec<DataStorageOperation<T>>
+    pub operations: Vec<DataStorageOperation>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "SetNotify")]
 pub struct SetNotify {
     pub keys: Vec<String>
@@ -130,8 +131,24 @@ pub struct SetNotify {
 
 // Server -> Client Payloads
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "RoomInfo")]
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "cmd")]
+pub enum ServerPayload {
+    RoomInfo(RoomInfo),
+    ConnectionRefused(ConnectionRefused),
+    Connected(Connected),
+    ReceivedItems(ReceivedItems),
+    LocationInfo(LocationInfo),
+    RoomUpdate(RoomUpdate),
+    PrintJSON(PrintJSON),
+    DataPackage(DataPackage),
+    Bounced(Bounced),
+    InvalidPacket(InvalidPacket),
+    Retrieved(Retrieved),
+    SetReply(SetReply)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct RoomInfo {
     pub version: NetworkVersion,
     pub generator_version: NetworkVersion,
@@ -146,48 +163,42 @@ pub struct RoomInfo {
     pub time: f64
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "ConnectionRefused")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ConnectionRefused {
     pub errors: Vec<String>
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "Connected")]
-pub struct Connected<T> {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Connected {
     pub team: i64,
     pub slot: i64,
     pub players: Vec<NetworkPlayer>,
     pub missing_locations: Vec<i64>,
     pub checked_locations: Vec<i64>,
-    pub slot_data: HashMap<String, T>,
+    pub slot_data: HashMap<String, String>,
     pub slot_info: HashMap<i64, NetworkSlot>,
     pub hint_points: i64
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "ReceivedItems")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ReceivedItems {
     pub index: i64,
     pub items: Vec<NetworkItem>
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "LocationInfo")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct LocationInfo {
     pub location: Vec<NetworkItem>
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "RoomUpdate")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct RoomUpdate {
     pub players: Vec<NetworkPlayer>,
     pub checked_locations: Vec<i64>,
     pub missing_locations: Vec<i64>
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "PrintJSON")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct PrintJSON {
     pub data: Vec<JSONMessagePart>,
     pub r#type: String,
@@ -201,14 +212,12 @@ pub struct PrintJSON {
     pub countdown: i64
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "DataPackage")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DataPackage {
     pub data: DataPackageObject
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "Bounced")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Bounced {
     pub games: Vec<String>,
     pub slots: Vec<i64>,
@@ -216,32 +225,29 @@ pub struct Bounced {
     pub data: HashMap<String, String>
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "InvalidPacket")]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct InvalidPacket {
     pub r#type: String,
     pub original_cmd: String,
     pub text: String
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "Retrieved")]
-pub struct Retrieved<T> {
-    pub keys: HashMap<String, T>
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Retrieved {
+    pub keys: HashMap<String, String>
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "cmd", rename = "SetReply")]
-pub struct SetReply<T> {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SetReply {
     pub key: String,
-    pub value: T,
-    pub original_value: T,
+    pub value: String,
+    pub original_value: String,
     pub slot: i64
 }
 
 // AP-Defined Structs/Enums
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NetworkVersion {
     pub class: String,
     pub build: i64,
@@ -249,7 +255,7 @@ pub struct NetworkVersion {
     pub minor: i64
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NetworkPlayer {
     pub team: i64,
     pub slot: i64,
@@ -257,7 +263,7 @@ pub struct NetworkPlayer {
     pub name: String
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NetworkSlot {
     pub name: String,
     pub game: String,
@@ -265,7 +271,7 @@ pub struct NetworkSlot {
     pub group_members: Vec<i64>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NetworkItem {
     pub item: i64,
     pub location: i64,
@@ -273,7 +279,7 @@ pub struct NetworkItem {
     pub flags: i64
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct JSONMessagePart {
     pub r#type: String,
     pub text: String,
@@ -283,19 +289,20 @@ pub struct JSONMessagePart {
     pub hint_status: HintStatus
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DataPackageObject {
     pub games: HashMap<String, GameData>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GameData {
     pub item_name_to_id: HashMap<String, i64>,
     pub location_name_to_id: HashMap<String, i64>,
     pub checksum: String
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr, Debug)]
+#[repr(u8)]
 pub enum ItemHandling {
     NeverReceiveItems = 0,
     OtherWorldsOnly = 1,
@@ -304,7 +311,8 @@ pub enum ItemHandling {
     OtherWorldsSelfAndStartingInventory = 6
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr, Debug)]
+#[repr(u16)]
 pub enum HintStatus {
     HintUnspecified = 0,
     HintNoPriority = 10,
@@ -313,7 +321,8 @@ pub enum HintStatus {
     HintFound = 40
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr, Debug)]
+#[repr(u16)]
 pub enum ClientStatus {
     ClientUnknown = 0,
     ClientConnected = 5,
@@ -322,13 +331,13 @@ pub enum ClientStatus {
     ClientGoal = 30
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct DataStorageOperation<T> {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DataStorageOperation {
     pub operation: Operation,
-    pub value: T
+    pub value: String
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum Operation {
     Replace,
@@ -351,7 +360,8 @@ pub enum Operation {
     Update
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr, Debug)]
+#[repr(u8)]
 pub enum Permission {
     Disabled = 0, // completely disables access
     Enabled = 1, // allows manual use
@@ -360,7 +370,8 @@ pub enum Permission {
     AutoEnabled = 7 // forces use after goal completion, allows manual use any time
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr, Debug)]
+#[repr(u8)]
 pub enum SlotType {
     Spectator = 0,
     Player = 1,

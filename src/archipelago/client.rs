@@ -1,7 +1,6 @@
 use bytes::BytesMut;
 use log::debug;
-use ratchet_rs::{subscribe_with, WebSocket, WebSocketConfig, deflate::{DeflateExtProvider, Deflate}, SubprotocolRegistry, Frame, Message};
-use serde::Serialize;
+use ratchet_rs::{subscribe_with, WebSocket, WebSocketConfig, deflate::{DeflateExtProvider, Deflate}, SubprotocolRegistry, Message};
 use std::collections::HashMap;
 use super::api::*;
 use tokio::net::TcpStream;
@@ -32,7 +31,7 @@ impl APClient {
         }
     }
 
-    pub async fn read(&mut self) -> Result<serde_json::Value, APError> {
+    pub async fn read(&mut self) -> Result<ServerPayload, APError> {
         let mut buf = BytesMut::new();
         match self.websocket.read(&mut buf).await {
             Ok(message) => {
@@ -40,7 +39,7 @@ impl APClient {
                     Message::Text => {
                         match str::from_utf8(&buf) {
                             Ok(payload) => {
-                                match serde_json::from_str(payload) {
+                                match serde_json::from_str::<ServerPayload>(payload) {
                                     Ok(response) => {
                                         Ok(response)
                                     },
@@ -68,11 +67,13 @@ impl APClient {
     async fn write(&mut self, payload: Result<String, serde_json::Error>) -> Result<(), APError> {
         match payload {
             Ok(serialized_payload) => {
+                debug!("Sending Payload: {}", serialized_payload);
                 match self.websocket.write(serialized_payload, ratchet_rs::PayloadType::Text).await {
                     Ok(result) => {
                         Ok(result)
                     },
-                    Err(_) => {
+                    Err(e) => {
+                        debug!("Something went wrong trying to send the payload: {}", e);
                         Err(APError::PayloadWriteFailure)
                     }
                 }
@@ -214,7 +215,7 @@ impl APClient {
         self.write(get_payload).await
     }
 
-    pub async fn set<T: Serialize>(&mut self, key: String, default: T, want_reply: bool, operations: Vec<DataStorageOperation<T>>) -> Result<(), APError> {
+    pub async fn set(&mut self, key: String, default: String, want_reply: bool, operations: Vec<DataStorageOperation>) -> Result<(), APError> {
         let set = Set {
             key,
             default,

@@ -2,10 +2,11 @@ use futures;
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use std::collections::{HashMap, VecDeque};
+use std::marker::Sync;
 use std::sync::Mutex;
 
 use crate::application::{AppAddresses, Application, ApplicationMemoryOps};
-use crate::archipelago::api::{APError, ItemHandling, RoomInfo};
+use crate::archipelago::api::*;
 use crate::archipelago::client::APClient;
 use crate::get_application;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
@@ -221,7 +222,47 @@ async fn get_updates_from_server() {
                         Ok(_) => {
                             match runtime.block_on(ap_client.read()) {
                                 Ok(response) => {
-                                    match response {                                        
+                                    match response {
+                                        ServerPayload::RoomInfo(room_info) => {
+                                            debug!("Read RoomInfo Payload From Server: {:?}", room_info);        
+                                        },
+                                        ServerPayload::ConnectionRefused(connection_refused) => {
+                                            debug!("Read ConnectionRefused Payload From Server: {:?}", connection_refused);
+                                        }
+                                        ServerPayload::Connected(connected) => {
+                                            debug!("Read Connected Payload From Server: {:?}", connected);
+                                        },
+                                        ServerPayload::ReceivedItems(received_items) => {
+                                            debug!("Read RecievedItems Payload From Server: {:?}", received_items);
+                                            // let items = received_items.items;
+                                            // debug!("ReceivedItems message for location checks: {:?}", items);
+                                            // let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                                            // message_queue.push_back(items);
+                                        },
+                                        ServerPayload::LocationInfo(location_info) => {
+                                            debug!("Read LocationInfo Payload From Server: {:?}", location_info);
+                                        },
+                                        ServerPayload::RoomUpdate(room_update) => {
+                                            debug!("Read RoomUpdate Payload From Server: {:?}", room_update);
+                                        },
+                                        ServerPayload::PrintJSON(print_json) => {
+                                            debug!("Read PrintJSON Payload From Server: {:?}", print_json);
+                                        },
+                                        ServerPayload::DataPackage(data_package) => {
+                                            debug!("Read DataPackage Payload From Server: {:?}", data_package);
+                                        },
+                                        ServerPayload::Bounced(bounced) => {
+                                            debug!("Read Bounced Payload From Server: {:?}", bounced);
+                                        },
+                                        ServerPayload::InvalidPacket(invalid_packet) => {
+                                            debug!("Read InvalidPacket Payload From Server: {:?}", invalid_packet);
+                                        },
+                                        ServerPayload::Retrieved(retrieved) => {
+                                            debug!("Read Retrieved Payload From Server: {:?}", retrieved);
+                                        },
+                                        ServerPayload::SetReply(set_reply) => {
+                                            debug!("Read SetReply Payload From Server: {:?}", set_reply);
+                                        }                               
                                     }
                                 },
                                 Err(e) => {
@@ -237,20 +278,12 @@ async fn get_updates_from_server() {
                     }
 
                     
-                    //     Ok(_) => {
-                    //         debug!("Sent Location Checks, waiting for Server Response");
-                    //         futures::executor::block_on(async {
-                    //             match client.recv().await {
-                    //                 Ok(message_wrapper) => {
-                    //                     debug!("Got Location Checks Response");
+                   
                     //                     match message_wrapper {
                     //                         Some(server_message) => {
                     //                             match server_message {
                     //                                 ReceivedItems(received_items) => {
-                    //                                     let items = received_items.items;
-                    //                                     debug!("ReceivedItems message for location checks: {:?}", items);
-                    //                                     let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
-                    //                                     message_queue.push_back(items);      
+                    //                                      
                     //                                 },
                     //                                 _ => {
                     //                                     debug!("Location Checks Response wasn't ReceivedItems, probably not good");
