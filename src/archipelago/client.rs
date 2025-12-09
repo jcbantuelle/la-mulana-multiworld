@@ -39,11 +39,12 @@ impl APClient {
                     Message::Text => {
                         match str::from_utf8(&buf) {
                             Ok(payload) => {
-                                match serde_json::from_str::<ServerPayload>(payload) {
+                                match serde_json::from_str::<Vec<ServerPayload>>(payload) {
                                     Ok(response) => {
-                                        Ok(response)
+                                        Ok(response.first().unwrap().clone())
                                     },
                                     Err(e) => {
+                                        debug!("Parse Error on Payload {} with error {}", payload, e);
                                         Err(APError::ResponseParseFailure)
                                     }
                                 }
@@ -67,13 +68,11 @@ impl APClient {
     async fn write(&mut self, payload: Result<String, serde_json::Error>) -> Result<(), APError> {
         match payload {
             Ok(serialized_payload) => {
-                debug!("Sending Payload: {}", serialized_payload);
                 match self.websocket.write(serialized_payload, ratchet_rs::PayloadType::Text).await {
                     Ok(result) => {
                         Ok(result)
                     },
                     Err(e) => {
-                        debug!("Something went wrong trying to send the payload: {}", e);
                         Err(APError::PayloadWriteFailure)
                     }
                 }

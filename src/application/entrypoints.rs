@@ -1,6 +1,7 @@
 use futures;
 use lazy_static::lazy_static;
 use log::{debug, warn};
+use tokio::runtime;
 use std::collections::{HashMap, VecDeque};
 use std::marker::Sync;
 use std::sync::Mutex;
@@ -38,6 +39,10 @@ lazy_static! {
     static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(false);
     // static ref MESSAGE_QUEUE: Mutex<VecDeque<Vec<NetworkItem>>> = Mutex::new(VecDeque::new());
     static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
+    static ref RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_io()
+        .build()
+        .unwrap();
 }
 
 pub type FnGameLoop = extern "C" fn();
@@ -53,9 +58,7 @@ pub fn game_loop() {
     if *game_init != 0 && global_flags[0x863] > 0 {
         display_item_if_available(application, app_addresses);
         std::thread::spawn(move || {
-            futures::executor::block_on(async {
-                get_updates_from_server().await;
-            });
+            get_updates_from_server();            
         });
 
         // let mut message: Option<Vec<NetworkItem>> = None;
@@ -201,7 +204,7 @@ fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addr
     }
 }
 
-async fn get_updates_from_server() {
+fn get_updates_from_server() {
     let application = get_application();
     let app_addresses = application.app_addresses();
     let mut no_connection = false;
@@ -217,63 +220,39 @@ async fn get_updates_from_server() {
                         v.location_id
                     ).collect();
 
-                    let runtime = tokio::runtime::Runtime::new().unwrap();
-                    match runtime.block_on(ap_client.location_checks(found_items)) {
+                    match RUNTIME.block_on(ap_client.location_checks(found_items)) {
                         Ok(_) => {
-                            match runtime.block_on(ap_client.read()) {
+                            match RUNTIME.block_on(ap_client.read()) {
                                 Ok(response) => {
                                     match response {
-                                        ServerPayload::RoomInfo(room_info) => {
-                                            debug!("Read RoomInfo Payload From Server: {:?}", room_info);        
-                                        },
-                                        ServerPayload::ConnectionRefused(connection_refused) => {
-                                            debug!("Read ConnectionRefused Payload From Server: {:?}", connection_refused);
-                                        }
-                                        ServerPayload::Connected(connected) => {
-                                            debug!("Read Connected Payload From Server: {:?}", connected);
-                                        },
+                                        ServerPayload::RoomInfo(room_info) => {},
+                                        ServerPayload::ConnectionRefused(connection_refused) => {}
+                                        ServerPayload::Connected(connected) => {},
                                         ServerPayload::ReceivedItems(received_items) => {
-                                            debug!("Read RecievedItems Payload From Server: {:?}", received_items);
                                             // let items = received_items.items;
                                             // debug!("ReceivedItems message for location checks: {:?}", items);
                                             // let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
                                             // message_queue.push_back(items);
                                         },
-                                        ServerPayload::LocationInfo(location_info) => {
-                                            debug!("Read LocationInfo Payload From Server: {:?}", location_info);
-                                        },
-                                        ServerPayload::RoomUpdate(room_update) => {
-                                            debug!("Read RoomUpdate Payload From Server: {:?}", room_update);
-                                        },
-                                        ServerPayload::PrintJSON(print_json) => {
-                                            debug!("Read PrintJSON Payload From Server: {:?}", print_json);
-                                        },
-                                        ServerPayload::DataPackage(data_package) => {
-                                            debug!("Read DataPackage Payload From Server: {:?}", data_package);
-                                        },
-                                        ServerPayload::Bounced(bounced) => {
-                                            debug!("Read Bounced Payload From Server: {:?}", bounced);
-                                        },
-                                        ServerPayload::InvalidPacket(invalid_packet) => {
-                                            debug!("Read InvalidPacket Payload From Server: {:?}", invalid_packet);
-                                        },
-                                        ServerPayload::Retrieved(retrieved) => {
-                                            debug!("Read Retrieved Payload From Server: {:?}", retrieved);
-                                        },
-                                        ServerPayload::SetReply(set_reply) => {
-                                            debug!("Read SetReply Payload From Server: {:?}", set_reply);
-                                        }                               
+                                        ServerPayload::LocationInfo(location_info) => {},
+                                        ServerPayload::RoomUpdate(room_update) => {},
+                                        ServerPayload::PrintJSON(print_json) => {},
+                                        ServerPayload::DataPackage(data_package) => {},
+                                        ServerPayload::Bounced(bounced) => {},
+                                        ServerPayload::InvalidPacket(invalid_packet) => {},
+                                        ServerPayload::Retrieved(retrieved) => {},
+                                        ServerPayload::SetReply(set_reply) => {}                               
                                     }
                                 },
                                 Err(e) => {
                                     debug!("Read from Server Failure with error {:?}", e);
-                                    no_connection = true;
+                                    // no_connection = true;
                                 }
                             }
                         },
                         Err(e) => {
                             debug!("Location Checks Failure with error {:?}", e);
-                            no_connection = true;
+                            // no_connection = true;
                         }
                     }
 
@@ -332,25 +311,24 @@ async fn get_updates_from_server() {
     };
 
     if no_connection {
-        connect_to_server().await;
+        connect_to_server();
     }
 }
 
-pub async fn connect_to_server() {
+pub fn connect_to_server() {
     let application = get_application();
     let app_config = application.get_app_config();
     let mut randomizer = application.get_randomizer().lock().unwrap();
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    *randomizer = runtime.block_on(APClient::new(&app_config.server_url));
+    *randomizer = RUNTIME.block_on(APClient::new(&app_config.server_url));
     match randomizer.as_mut() {
         Ok(ap_client) => {
             let player_id = app_config.local_player_id;
             let players = app_config.players_lookup();
             let player_name = players.get(&player_id).unwrap();
             let password = &app_config.password;
-            match runtime.block_on(ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false)) {
+            match RUNTIME.block_on(ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false)) {
                 Ok(_) => {
-                    match runtime.block_on(ap_client.sync()) {
+                    match RUNTIME.block_on(ap_client.sync()) {
                         Ok(_) => {},
                         Err(e) => {
                             debug!("Sync Failure with error {:?}", e);
