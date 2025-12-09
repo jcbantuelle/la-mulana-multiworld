@@ -193,9 +193,25 @@ pub struct LocationInfo {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct RoomUpdate {
-    pub players: Vec<NetworkPlayer>,
-    pub checked_locations: Vec<i64>,
-    pub missing_locations: Vec<i64>
+    pub version: Option<NetworkVersion>,
+    pub generator_version: Option<NetworkVersion>,
+    pub tags: Option<Vec<String>>,
+    pub password: Option<bool>,
+    pub permissions: Option<HashMap<String, Permission>>,
+    pub hint_cost: Option<i64>,
+    pub location_check_points: Option<i64>,
+    pub games: Option<Vec<String>>,
+    pub datapackage_checksums: Option<HashMap<String, String>>,
+    pub seed_name: Option<String>,
+    pub time: Option<f64>,
+    pub team: Option<i64>,
+    pub slot: Option<i64>,
+    pub players: Option<Vec<NetworkPlayer>>,
+    pub missing_locations: Option<Vec<i64>>,
+    pub checked_locations: Option<Vec<i64>>,
+    pub slot_data: Option<HashMap<String, String>>,
+    pub slot_info: Option<HashMap<String, NetworkSlot>>,
+    pub hint_points: Option<i64>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
