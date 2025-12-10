@@ -1,3 +1,4 @@
+use futures::future::Either;
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use std::collections::{HashMap, VecDeque};
@@ -34,7 +35,7 @@ pub struct PlayerItemPopup {
 lazy_static! {
     static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-    static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(false);
+    static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
     static ref MESSAGE_QUEUE: Mutex<VecDeque<Vec<NetworkItem>>> = Mutex::new(VecDeque::new());
     static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
     static ref RUNTIME: tokio::runtime::Runtime = tokio::runtime::Runtime::new().unwrap();
@@ -101,6 +102,8 @@ pub fn game_loop() {
             },
             None => ()
         }
+    } else {
+        *SYNC_REQUIRED.lock().unwrap() = true;
     }
     application.original_game_loop()
 }
@@ -215,32 +218,55 @@ fn get_updates_from_server() {
                         v.location_id
                     ).collect();
 
-                    match RUNTIME.block_on(ap_client.location_checks(found_items)) {
+                    let ap_message = match SYNC_REQUIRED.try_lock() {
+                        Ok(mut sync_lock) => {
+                            if *sync_lock {
+                                *sync_lock = false;
+                                Either::Left(ap_client.sync())
+                            } else {
+                                Either::Right(ap_client.location_checks(found_items))
+                            }
+                        },
+                        Err(_) => {
+                            Either::Right(ap_client.location_checks(found_items))
+                        }
+                    };
+
+                    match RUNTIME.block_on(ap_message) {
                         Ok(_) => {
                             match RUNTIME.block_on(ap_client.read()) {
                                 Ok(response) => {
                                     match response {
-                                        ServerPayload::RoomInfo(room_info) => {},
-                                        ServerPayload::ConnectionRefused(connection_refused) => {}
-                                        ServerPayload::Connected(connected) => {},
+                                        ServerPayload::RoomInfo(_room_info) => {},
+                                        ServerPayload::ConnectionRefused(_connection_refused) => {}
+                                        ServerPayload::Connected(_connected) => {},
                                         ServerPayload::ReceivedItems(received_items) => {
+                                            debug!("RecievedItems Payload From Server: {:?}", received_items);
                                             let items = received_items.items;
                                             let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
                                             message_queue.push_back(items);
                                         },
-                                        ServerPayload::LocationInfo(location_info) => {},
-                                        ServerPayload::RoomUpdate(room_update) => {},
-                                        ServerPayload::PrintJSON(print_json) => {},
-                                        ServerPayload::DataPackage(data_package) => {},
-                                        ServerPayload::Bounced(bounced) => {},
-                                        ServerPayload::InvalidPacket(invalid_packet) => {},
-                                        ServerPayload::Retrieved(retrieved) => {},
-                                        ServerPayload::SetReply(set_reply) => {}                               
+                                        ServerPayload::LocationInfo(_location_info) => {},
+                                        ServerPayload::RoomUpdate(_room_update) => {},
+                                        ServerPayload::PrintJSON(_print_json) => {},
+                                        ServerPayload::DataPackage(_data_package) => {},
+                                        ServerPayload::Bounced(_bounced) => {},
+                                        ServerPayload::InvalidPacket(_invalid_packet) => {},
+                                        ServerPayload::Retrieved(_retrieved) => {},
+                                        ServerPayload::SetReply(_set_reply) => {}
                                     }
                                 },
                                 Err(e) => {
-                                    debug!("Read from Server Failure with error {:?}, attempting reconnect", e);
-                                    no_connection = true;
+                                    match e {
+                                        APError::PingPong => {}, // Suppress Ping/Pong Responses
+                                        APError::NoConnection => {
+                                            debug!("Connection to Server Lost, Attempting Reconnect");
+                                            no_connection = true;
+                                        }
+                                        _ => {
+                                            debug!("Unexpected Binary Data from Server");
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -281,14 +307,7 @@ pub fn connect_to_server() {
             let player_name = players.get(&player_id).unwrap();
             let password = &app_config.password;
             match RUNTIME.block_on(ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false)) {
-                Ok(_) => {
-                    match RUNTIME.block_on(ap_client.sync()) {
-                        Ok(_) => {},
-                        Err(e) => {
-                            debug!("Sync Failure with error {:?}", e);
-                        }
-                    }
-                },
+                Ok(_) => {},
                 Err(e) => {
                     debug!("Connect Failure with error {:?}", e);
                 }

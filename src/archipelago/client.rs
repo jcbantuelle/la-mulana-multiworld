@@ -54,8 +54,14 @@ impl APClient {
                             }
                         }
                     },
+                    Message::Binary => {
+                        Err(APError::BinaryData)
+                    },
+                    Message::Close(_) => {
+                        Err(APError::NoConnection)
+                    },
                     _ => {
-                        Err(APError::NonTextFrame)
+                        Err(APError::PingPong)
                     }
                 }
             },

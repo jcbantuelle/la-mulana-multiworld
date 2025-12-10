@@ -17,8 +17,10 @@ pub enum APError {
     PayloadWriteFailure,
     #[error("failed to read payload")]
     PayloadReadFailure,
-    #[error("non-text response from server")]
-    NonTextFrame,
+    #[error("binary data from server")]
+    BinaryData,
+    #[error("ping/pong from server")]
+    PingPong,
     #[error("failed to parse response from server")]
     ResponseParseFailure,
     #[error("unable to convert response to string")]
