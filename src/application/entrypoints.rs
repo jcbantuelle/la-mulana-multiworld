@@ -211,7 +211,7 @@ fn get_updates_from_server() {
         Ok(mut randomizer) => {
             match randomizer.as_mut() {
                 Ok(ap_client) => {
-                    let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
+                    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
                     let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
                         global_flags[**k as usize] == 2
                     ).map(|(_,v)|
@@ -241,7 +241,16 @@ fn get_updates_from_server() {
                                         ServerPayload::ConnectionRefused(_connection_refused) => {}
                                         ServerPayload::Connected(_connected) => {},
                                         ServerPayload::ReceivedItems(received_items) => {
-                                            debug!("RecievedItems Payload From Server: {:?}", received_items);
+                                            if received_items.index > 0 {
+                                                let mut received_item_index = ((global_flags[0x867] as u16) << 8) | global_flags[0x868] as u16;
+                                                if received_item_index != received_items.index {
+                                                    *SYNC_REQUIRED.lock().unwrap() = true;
+                                                }
+                                                received_item_index += 1;
+                                                global_flags[0x867] = (received_item_index >> 8) as u8;
+                                                global_flags[0x868] = received_item_index as u8;
+                                            }
+                                            
                                             let items = received_items.items;
                                             let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
                                             message_queue.push_back(items);
@@ -262,7 +271,7 @@ fn get_updates_from_server() {
                                         APError::NoConnection => {
                                             debug!("Connection to Server Lost, Attempting Reconnect");
                                             no_connection = true;
-                                        }
+                                        },
                                         _ => {
                                             debug!("Unexpected Binary Data from Server");
                                         }

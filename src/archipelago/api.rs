@@ -184,7 +184,7 @@ pub struct Connected {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ReceivedItems {
-    pub index: i64,
+    pub index: u16,
     pub items: Vec<NetworkItem>
 }
 
