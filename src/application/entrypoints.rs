@@ -54,7 +54,7 @@ pub fn game_loop() {
     if *game_init != 0 && global_flags[0x863] > 0 {
         display_item_if_available(application, app_addresses);
         std::thread::spawn(move || {
-            get_updates_from_server();            
+            RUNTIME.block_on(get_updates_from_server());
         });
 
         let mut message: Option<Vec<NetworkItem>> = None;
@@ -202,12 +202,10 @@ fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addr
     }
 }
 
-fn get_updates_from_server() {
+async fn get_updates_from_server() {
     let application = get_application();
     let app_addresses = application.app_addresses();
-    let mut no_connection = false;
-
-    match application.get_randomizer().try_lock() {
+    let needs_reconnecting = match application.get_randomizer().try_lock() {
         Ok(mut randomizer) => {
             match randomizer.as_mut() {
                 Ok(ap_client) => {
@@ -218,104 +216,81 @@ fn get_updates_from_server() {
                         v.location_id
                     ).collect();
 
-                    let ap_message = match SYNC_REQUIRED.try_lock() {
-                        Ok(mut sync_lock) => {
-                            if *sync_lock {
-                                *sync_lock = false;
-                                Either::Left(ap_client.sync())
-                            } else {
-                                Either::Right(ap_client.location_checks(found_items))
-                            }
-                        },
-                        Err(_) => {
-                            Either::Right(ap_client.location_checks(found_items))
-                        }
+                    let ap_message = if SYNC_REQUIRED.try_lock().is_ok_and(|mut sync_lock| {
+                        let x = *sync_lock;
+                        *sync_lock = false;
+                        x
+                    }) {
+                        Either::Left(ap_client.sync())
+                    }
+                    else {
+                        Either::Right(ap_client.location_checks(found_items))
                     };
 
-                    match RUNTIME.block_on(ap_message) {
-                        Ok(_) => {
-                            match RUNTIME.block_on(ap_client.read()) {
-                                Ok(response) => {
-                                    match response {
-                                        ServerPayload::RoomInfo(_room_info) => {},
-                                        ServerPayload::ConnectionRefused(_connection_refused) => {}
-                                        ServerPayload::Connected(_connected) => {},
-                                        ServerPayload::ReceivedItems(received_items) => {
-                                            if received_items.index > 0 {
-                                                let mut received_item_index = ((global_flags[0x867] as u16) << 8) | global_flags[0x868] as u16;
-                                                if received_item_index != received_items.index {
-                                                    *SYNC_REQUIRED.lock().unwrap() = true;
-                                                }
-                                                received_item_index += 1;
-                                                global_flags[0x867] = (received_item_index >> 8) as u8;
-                                                global_flags[0x868] = received_item_index as u8;
-                                            }
-                                            
-                                            let items = received_items.items;
-                                            let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
-                                            message_queue.push_back(items);
-                                        },
-                                        ServerPayload::LocationInfo(_location_info) => {},
-                                        ServerPayload::RoomUpdate(_room_update) => {},
-                                        ServerPayload::PrintJSON(_print_json) => {},
-                                        ServerPayload::DataPackage(_data_package) => {},
-                                        ServerPayload::Bounced(_bounced) => {},
-                                        ServerPayload::InvalidPacket(_invalid_packet) => {},
-                                        ServerPayload::Retrieved(_retrieved) => {},
-                                        ServerPayload::SetReply(_set_reply) => {}
-                                    }
-                                },
-                                Err(e) => {
-                                    match e {
-                                        APError::PingPong => {}, // Suppress Ping/Pong Responses
-                                        APError::NoConnection => {
-                                            debug!("Connection to Server Lost, Attempting Reconnect");
-                                            no_connection = true;
-                                        },
-                                        _ => {
-                                            debug!("Unexpected Binary Data from Server");
+                    let _ = ap_message.await;
+                    match ap_client.read().await {
+                        Ok(response) => {
+                            match response {
+                                ServerPayload::ReceivedItems(received_items) => {
+                                    if received_items.index > 0 {
+                                        let mut received_item_index = ((global_flags[0x867] as u16) << 8) | global_flags[0x868] as u16;
+                                        if received_item_index != received_items.index {
+                                            *SYNC_REQUIRED.lock().unwrap() = true;
                                         }
+                                        received_item_index += 1;
+                                        global_flags[0x867] = (received_item_index >> 8) as u8;
+                                        global_flags[0x868] = received_item_index as u8;
                                     }
-                                }
+
+                                    let items = received_items.items;
+                                    let mut message_queue = MESSAGE_QUEUE.lock().unwrap();
+                                    message_queue.push_back(items);
+                                },
+                                _ => {}
                             }
+                            false
                         },
                         Err(e) => {
-                            debug!("Location Checks Failure with error {:?}, attempting reconnect", e);
-                            no_connection = true;
-                        }
-                    }
-                },
-                Err(error) => {
-                    no_connection = true;
-                    match error {
-                        APError::NoConnection => {},
-                        e => {
-                            warn!("Unhandled network error: {}, attempting reconnection", e);
+                            match e {
+                                APError::PingPong => false, // Suppress Ping/Pong Responses
+                                APError::NoConnection => {
+                                    debug!("Connection to Server Lost, Attempting Reconnect");
+                                    true
+                                },
+                                _ => {
+                                    debug!("Unexpected Binary Data from Server");
+                                    false
+                                }
+                            }
                         }
                     }
                 }
+                Err(e) => {
+                    debug!("Location Checks Failure with error {:?}, attempting reconnect", e);
+                    false
+                }
             }
         },
-        Err(_) => () // Okay to pass when cannot lock
+        Err(_) => false
     };
 
-    if no_connection {
-        connect_to_server();
+    if needs_reconnecting {
+        connect_to_server().await;
     }
 }
 
-pub fn connect_to_server() {
+pub async fn connect_to_server() {
     let application = get_application();
     let app_config = application.get_app_config();
     let mut randomizer = application.get_randomizer().lock().unwrap();
-    *randomizer = RUNTIME.block_on(APClient::new(&app_config.server_url));
+    *randomizer = APClient::new(&app_config.server_url).await;
     match randomizer.as_mut() {
         Ok(ap_client) => {
             let player_id = app_config.local_player_id;
             let players = app_config.players_lookup();
             let player_name = players.get(&player_id).unwrap();
             let password = &app_config.password;
-            match RUNTIME.block_on(ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false)) {
+            match ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false).await {
                 Ok(_) => {},
                 Err(e) => {
                     debug!("Connect Failure with error {:?}", e);
