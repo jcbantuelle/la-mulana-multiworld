@@ -30,7 +30,10 @@ pub struct AppAddresses {
     pub item_symbol_init_address: usize,
     pub item_symbol_back_address: usize,
     pub global_flags_address: usize,
-    pub inventory_words: usize
+    pub inventory_words: usize,
+    pub current_field: usize,
+    pub current_screen: usize,
+    pub current_scene: usize
 }
 
 const ADDRESS_LOOKUP: phf::Map<&'static str, AppAddresses> = phf_map! {
@@ -56,6 +59,9 @@ const ADDRESS_LOOKUP: phf::Map<&'static str, AppAddresses> = phf_map! {
         item_symbol_back_address: 0x004b8e70,
         global_flags_address: 0x006d5a70,
         inventory_words: 0x006d5650,
+        current_field: 0x00db4bb7,
+        current_screen: 0x00db4bb6,
+        current_scene: 0x00db4bb3
     },
     "1.6.6.2" => AppAddresses {
         game_loop_address: 0x006714a0,
@@ -79,6 +85,9 @@ const ADDRESS_LOOKUP: phf::Map<&'static str, AppAddresses> = phf_map! {
         item_symbol_back_address: 0x004bac40,
         global_flags_address: 0x006e1e48,
         inventory_words: 0x006e1820,
+        current_field: 0x00dc0ee6,
+        current_screen: 0x00dc0ebf,
+        current_scene: 0x00dc0ebe
     }
 };
 

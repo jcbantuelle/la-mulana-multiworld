@@ -90,9 +90,10 @@ pub fn game_loop() {
                     if give_item {
                         let mut rooms = ap_item.rooms.clone();
 
-                        let lemeza_address: &mut usize = application.read_address(app_addresses.lemeza_address);
-                        let lemeza: &mut TaskData = application.read_address(*lemeza_address);
-                        let room_index = format!("{},{},{}", lemeza.field_no, lemeza.room_no, lemeza.view_no);
+                        let field: &mut u8 = application.read_address(app_addresses.current_field);
+                        let screen: &mut u8 = application.read_address(app_addresses.current_screen);
+                        let scene: &mut u8 = application.read_address(app_addresses.current_scene);
+                        let room_index = format!("{},{},{}", field, scene, screen);
 
                         if rooms.contains(&room_index) {
                             items_to_give.push_back(ap_item);
