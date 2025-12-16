@@ -56,8 +56,17 @@ pub fn game_loop() {
     let app_addresses = application.app_addresses();
     let game_init: &mut u32 = application.read_address(app_addresses.game_init_address);
     let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
+    let system_flags: &[u32;16] = application.read_address(app_addresses.system_flags);
 
-    if *game_init != 0 && global_flags[0x863] > 0 {
+    if (system_flags[4] & 0x8020001) == 0x8020001 {
+        std::thread::spawn(move || {
+            RUNTIME.block_on(send_game_complete_notice());
+        });
+    } else if (system_flags[0] & 0x1000000) == 0x1000000 {
+        std::thread::spawn(move || {
+            *SYNC_REQUIRED.lock().unwrap() = true;
+        });
+    } else if *game_init != 0 && global_flags[0x863] > 0 {
         display_item_if_available(application, app_addresses);
         std::thread::spawn(move || {
             RUNTIME.block_on(get_updates_from_server());
@@ -77,7 +86,6 @@ pub fn game_loop() {
                     let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
                     let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
 
-                    debug!("Checking if item {} needs to be given", lm_item.item_id);
                     let give_item = if lm_item.item_id == 70 || lm_item.item_id == 19 || lm_item.item_id == 69 {
                         global_flags[lm_item.flag] == 0
                     } else {
@@ -103,7 +111,6 @@ pub fn game_loop() {
                             rooms.push(room_index);
                             items_to_give.push_back(NetworkItemForPlayer { network_item: ap_item.network_item, rooms });
                             if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
-                                debug!("Inserting item {} into player items hash for player {}", lm_item.item_id, player_id);
                                 player_items.insert(lm_item.item_id as i32, PlayerItem {
                                     player_id,
                                     for_player: false
@@ -122,7 +129,9 @@ pub fn game_loop() {
             }
         }
     } else {
-        *SYNC_REQUIRED.lock().unwrap() = true;
+        std::thread::spawn(move || {
+            *SYNC_REQUIRED.lock().unwrap() = true;
+        });
     }
     application.original_game_loop()
 }
@@ -331,6 +340,24 @@ pub async fn connect_to_server() {
                 Ok(_) => {},
                 Err(e) => {
                     debug!("Connect Failure with error {:?}", e);
+                }
+            }
+        },
+        Err(e) => {
+            debug!("AP Client Not Connected with Error {}", e);
+        }
+    };
+}
+
+pub async fn send_game_complete_notice() {
+    let application = get_application();
+    let mut randomizer = application.get_randomizer().lock().unwrap();
+    match randomizer.as_mut() {
+        Ok(ap_client) => {
+            match ap_client.status_update(ClientStatus::ClientGoal).await {
+                Ok(_) => {},
+                Err(e) => {
+                    debug!("Game Completion Notice Failure with error {:?}", e);
                 }
             }
         },
