@@ -31,10 +31,10 @@ impl Application for LiveApplication {
                 let game_loop_addr: FnGameLoop = std::mem::transmute(self.get_address().wrapping_add(app_addresses.game_loop));
                 let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
 
-                let popup_dialog_draw_intercept_addr: FnPopupDialogDrawIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.popup_dialog_draw_address));
+                let popup_dialog_draw_intercept_addr: FnPopupDialogDrawIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.popup_dialog_draw));
                 let _ = self.enable_detour(PopupDialogDrawInterceptDetour.initialize(popup_dialog_draw_intercept_addr, popup_dialog_draw_intercept), "PopupDialogDrawInterceptDetour");
 
-                let item_symbol_init_intercept_addr: FnItemSymbolInitIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.item_symbol_init_address));
+                let item_symbol_init_intercept_addr: FnItemSymbolInitIntercept = std::mem::transmute(self.get_address().wrapping_add(app_addresses.item_symbol_init));
                 let _ = self.enable_detour(ItemSymbolInitInterceptDetour.initialize(item_symbol_init_intercept_addr, item_symbol_init_intercept), "ItemSymbolInitInterceptDetour");
                 trace!("Enabled all detours.");
             }
@@ -65,8 +65,8 @@ impl Application for LiveApplication {
         self.option_stuck(120);
         self.option_stuck(39);
         let app_addresses = self.app_addresses();
-        let item_get_area_init: *const usize = self.read_address(app_addresses.item_get_area_init_address);
-        let set_view_event_ns: &*const () = self.read_address(app_addresses.set_view_event_ns_address);
+        let item_get_area_init: *const usize = self.read_address(app_addresses.item_get_area_init);
+        let set_view_event_ns: &*const () = self.read_address(app_addresses.set_view_event_ns);
         let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
         (set_view_event_ns_func)(16, item_get_area_init);
         trace!("set_view_event_ns_func called");
@@ -77,8 +77,8 @@ impl Application for LiveApplication {
         self.option_stuck(item_id);
         let app_addresses = self.app_addresses();
 
-        let popup_dialog_init: *const usize = self.read_address(app_addresses.popup_dialog_init_address);
-        let set_task: &*const () = self.read_address(app_addresses.set_view_event_ns_address);
+        let popup_dialog_init: *const usize = self.read_address(app_addresses.popup_dialog_init);
+        let set_task: &*const () = self.read_address(app_addresses.set_view_event_ns);
         let set_task_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_task) };
         (set_task_func)(16, popup_dialog_init);
         trace!("Called popup_dialog_init for item ID {}", item_id);
@@ -101,42 +101,42 @@ impl Application for LiveApplication {
 
     fn pause_game_process(&self) {
         let app_addresses = self.app_addresses();
-        let val: &mut u32 = self.read_address(app_addresses.game_process_address);
+        let val: &mut u32 = self.read_address(app_addresses.game_process);
         *val |= 2;
     }
 
     fn disable_movement(&self) {
         let app_addresses = self.app_addresses();
-        let val: &mut u32 = self.read_address(app_addresses.movement_status_address);
-        *val |= 1;
+        let system_flags: &mut [u32;16] = self.read_address(app_addresses.system_flags);
+        system_flags[0] |= 1;
     }
 
     fn disable_warp_menu(&self) {
         let app_addresses = self.app_addresses();
-        let val: &mut u32 = self.read_address(app_addresses.warp_menu_status_address);
-        *val |= 0x100000;
+        let system_flags: &mut [u32;16] = self.read_address(app_addresses.system_flags);
+        system_flags[3] |= 0x100000;
     }
 
     fn set_lemeza_item_pose(&self) {
         let app_addresses = self.app_addresses();
-        let lemeza_address: &mut usize = self.read_address(app_addresses.lemeza_address);
+        let lemeza_address: &mut usize = self.read_address(app_addresses.lemeza_pointer);
         let lemeza: &mut TaskData = self.read_address(*lemeza_address);
         (*lemeza).sbuff[6] = 0xf;
     }
 
     fn play_sound_effect(&self, effect_id: u32) {
         let app_addresses = self.app_addresses();
-        let se_address: &mut u32 = self.read_address(app_addresses.se_address);
-        let set_se: &*const () = self.read_address(app_addresses.set_se_address);
+        let se_address: &mut u32 = self.read_address(app_addresses.se);
+        let set_se: &*const () = self.read_address(app_addresses.set_se);
         let set_se_func: extern "C" fn(u32, u32, u32, u32, u32, u32) = unsafe { std::mem::transmute(set_se) };
         (set_se_func)(*se_address + effect_id,0x27,0xf,0x3f499326,0,0x3f000000);
     }
 
     fn option_stuck(&self, option_num: u32) {
         let app_addresses = self.app_addresses();
-        let s_data_num: &mut u8 = self.read_address(app_addresses.option_sdata_num_address);
+        let s_data_num: &mut u8 = self.read_address(app_addresses.option_sdata_num);
         if *s_data_num < 32 {
-            let s_data: &mut [u32;32] = self.read_address(app_addresses.option_sdata_address);
+            let s_data: &mut [u32;32] = self.read_address(app_addresses.option_sdata);
             s_data[*s_data_num as usize] = option_num;
             *s_data_num = *s_data_num + 1
         }
@@ -144,8 +144,8 @@ impl Application for LiveApplication {
 
     fn option_pos(&self, x: f32, y: f32) {
         let app_addresses = self.app_addresses();
-        *self.read_address(app_addresses.option_pos_cx_address) = x;
-        *self.read_address(app_addresses.option_pos_cy_address) = y;
+        *self.read_address(app_addresses.option_pos_cx) = x;
+        *self.read_address(app_addresses.option_pos_cy) = y;
     }
 
     fn original_item_symbol_init(&self, item: &'static mut TaskData) {

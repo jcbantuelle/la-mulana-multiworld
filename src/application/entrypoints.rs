@@ -54,8 +54,8 @@ pub type FnItemSymbolInitIntercept = extern "C" fn(&mut TaskData);
 pub fn game_loop() {
     let application = get_application();
     let app_addresses = application.app_addresses();
-    let game_init: &mut u32 = application.read_address(app_addresses.game_init_address);
-    let global_flags: &[u8;4096] = application.read_address(app_addresses.global_flags_address);
+    let game_init: &mut u32 = application.read_address(app_addresses.game_init);
+    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags);
     let system_flags: &[u32;16] = application.read_address(app_addresses.system_flags);
 
     if (system_flags[4] & 0x8020001) == 0x8020001 {
@@ -84,7 +84,6 @@ pub fn game_loop() {
 
                     let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
                     let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
-                    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
 
                     let give_item = if lm_item.item_id == 70 || lm_item.item_id == 19 || lm_item.item_id == 69 {
                         global_flags[lm_item.flag] == 0
@@ -142,7 +141,7 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
     let mut player_items = PLAYER_ITEMS.lock().unwrap();
 
     if let Some(player_item) = player_items.get(&popup_dialog.sbuff[0]) {
-        let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer_address);
+        let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer);
         let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
         let line = unsafe { &mut *line_header.add(2) };
 
@@ -197,7 +196,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         item.sbuff[2] = 0;
     }
 
-    let item_symbol_back: &*const () = application.read_address(app_addresses.item_symbol_back_address);
+    let item_symbol_back: &*const () = application.read_address(app_addresses.item_symbol_back);
     let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
     let result = (item_symbol_back_func)(item);
 
@@ -219,7 +218,7 @@ fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addr
     if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
         if let Some(popup) = popup_option.as_ref() {
             if popup.popup_id != *application.read_raw_address::<u32>(popup.popup_id_address) {
-                let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer_address);
+                let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer);
                 let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
                 let line = unsafe { &mut *line_header.add(2) };
                 line.pointer = DEFAULT_POPUP_SCRIPT.as_ptr() as usize;
@@ -237,7 +236,7 @@ async fn get_updates_from_server() {
         Ok(mut randomizer) => {
             match randomizer.as_mut() {
                 Ok(ap_client) => {
-                    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags_address);
+                    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags);
                     let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
                         global_flags[**k as usize] == 2
                     ).map(|(_,v)|
