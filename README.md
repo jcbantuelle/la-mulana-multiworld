@@ -44,6 +44,6 @@ Thank you to [Planeswater](https://github.com/Planeswater), who ported all of th
 
 Thank you to [smurfton](https://github.com/smurfton) for your work reverse engineering the game's binary file formats and documenting them. This reference was invaluable for enabling this project.
 
-Thank you to Squiggly, Forte, DainBread, Megarush, Lurch, Roy, SallyRoses, Jen_theHuman, BlasphemousRoar, Burning Seething Jealousy, Kaz, Wizzrobe, Emmanating, MrCarter, cleartonic, Exuno, and Goost for braving the Alpha build to provide testing and feedback.
+Thank you to Squiggly, Forte, DainBread, Megarush, Lurch, Roy, SallyRoses, Jen_theHuman, BlasphemousRoar, Burning Seething Jealousy, Kaz, Wizzrobe, Emmanating, MrCarter, cleartonic, Exuno, Goost, bs9594, ace, Athebyne, EpicFunkyMode, and Cmil for braving the Alpha build to provide testing and feedback.
 
 Finally, I'm forever indebted to [worsety](https://github.com/worsety) and SeerSkye, without who this project would literally not exist. Thank you both for your constant and detailed answers to my questions, your encyclopedic knowledge of the game source, and your guidance and support throughout this process. The La-Mulana community is lucky to have you both.

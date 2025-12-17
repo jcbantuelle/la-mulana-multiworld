@@ -8,19 +8,22 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-winapi = { "version" = "0.3.9", "features" = ["ntdef", "minwindef", "winnt", "libloaderapi", "winuser", "processthreadsapi", "timeapi"] }
+bytes = "1.11.0"
+futures = { "version" = "0.3.31", "features" = ["executor"] }
+lazy_static = "1.4.0"
+log = "0.4.16"
+log4rs = { "version" = "1.0.0", "features" = ["file_appender"] }
+pelite = "0.10.0"
+phf = { version = "0.13.1", features = ["macros"], default-features = false }
+ratchet_rs = { version = "1.2.1", features = ["deflate"] }
+retour = { version = "0.4.0-alpha.4", features = ["static-detour"] }
 serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 serde_repr = "0.1"
-lazy_static = "1.4.0"
-log4rs = { "version" ="1.0.0", "features" = ["file_appender"] }
-log = "0.4.16"
-toml = "0.5.9"
-websocket = "0.27.1"
 thiserror = "1.0"
-retour = { version = "0.4.0-alpha.4", features = ["static-detour"] }
-pelite = "0.10.0"
-phf = { version = "0.13.1", features = ["macros"], default-features = false }
+tokio = { "version" = "1.48.0", "features" = ["rt-multi-thread"] }
+toml = "0.5.9"
+winapi = { "version" = "0.3.9", "features" = ["libloaderapi", "minwindef", "ntdef", "processthreadsapi", "timeapi", "winnt", "winuser"] }
 
 [profile.release]
 opt-level = "z"

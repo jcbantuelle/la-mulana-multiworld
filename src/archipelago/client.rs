@@ -1,212 +1,243 @@
-// Copyright Ryan Goldstein
+use bytes::BytesMut;
+use log::debug;
+use ratchet_rs::{subscribe_with, WebSocket, WebSocketConfig, deflate::{DeflateExtProvider, Deflate}, SubprotocolRegistry, Message};
+use std::collections::HashMap;
+use super::api::*;
+use tokio::net::TcpStream;
 
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-use thiserror::Error;
-use log::warn;
-use websocket::{WebSocketError, OwnedMessage};
-use websocket::client::ClientBuilder;
-use websocket::sync::Client;
-use crate::archipelago::protocol::*;
-use std::net::TcpStream;
-use std::time::Duration;
-
-#[derive(Error, Debug)]
-pub enum ArchipelagoError {
-    #[error("illegal response")]
-    IllegalResponse {
-        received: ServerMessage,
-        expected: &'static str,
-    },
-    #[error("connection closed by server")]
-    ConnectionClosed,
-    #[error("data failed to serialize")]
-    FailedSerialize(#[from] serde_json::Error),
-    #[error("unexpected non-text result from websocket")]
-    NonTextWebsocketResult(OwnedMessage),
-    #[error("network error")]
-    NetworkError(#[from] WebSocketError),
+pub struct APClient {
+    websocket: WebSocket<tokio::net::TcpStream, Deflate>
 }
 
-/**
- * A convenience layer to manage your connection to and communication with Archipelago
- */
-pub struct ArchipelagoClient {
-    ws: Client<TcpStream>,
-    room_info: RoomInfo,
-    data_package: Option<DataPackageObject>,
-    pub message_queue: Vec<ServerMessage>,
-}
-
-impl ArchipelagoClient {
-     /**
-     * Create an instance of the client and connect to the server on the given URL
-     */
-    pub fn new(url: &str) -> Result<ArchipelagoClient, ArchipelagoError> {
-        // Attempt WSS, downgrade to WS if the TLS handshake fails
-        let ws_url = format!("ws://{}", url);
-        let wss_url = format!("wss://{}", url);
-        let mut ws = match Self::connect_to(&wss_url, &url).or_else(|_| Self::connect_to(&ws_url, &url)) {
-            Ok(result) => result,
-            Err(_) => {
-                let tcp_stream = Self::create_tcp_stream_with_timeout(url)?;
-                match ClientBuilder::new(&ws_url).unwrap().connect_on(tcp_stream) {
-                    Ok(result) => result,
-                    Err(error) => {
-                        return Err(ArchipelagoError::NetworkError(error))
+impl APClient {
+    pub async fn new(url: &str) -> Result<APClient, APError> {
+        let tcp_connection = TcpStream::connect(url).await;
+        match tcp_connection {
+            Ok(stream) => {
+                let websocket_url = format!("wss://{url}");
+                match subscribe_with(WebSocketConfig::default(), stream, websocket_url, DeflateExtProvider::default(), SubprotocolRegistry::default()).await {
+                    Ok(websocket_stream) => {
+                        Ok(APClient{ websocket: websocket_stream.into_websocket() })
+                    },
+                    Err(e) => {
+                        debug!("Websocket Connection Failed with error {}", e);
+                        Err(APError::WebsocketConnectionFailure)
                     }
                 }
-            }
-        };
-
-        let room_info = match Self::recv(&mut ws) {
-            Ok(message) => {
-                match message {
-                    Some(ServerMessage::RoomInfo(room)) => room,
-                    Some(received) => {
-                        return Err(ArchipelagoError::IllegalResponse {
-                            received,
-                            expected: "Expected RoomInfo",
-                        })
-                    },
-                    None => return Err(ArchipelagoError::ConnectionClosed)
-                }
-            },
-            Err(_) => return Err(ArchipelagoError::ConnectionClosed)
-        };
-
-        Ok(ArchipelagoClient {
-            ws,
-            room_info,
-            data_package: None,
-            message_queue: vec![]
-        })
-    }
-
-    fn connect_to(ws_url: &str, url: &str) -> Result<Client<TcpStream>, ArchipelagoError> {
-        let tcp_stream = Self::create_tcp_stream_with_timeout(url)?;
-        ClientBuilder::new(&ws_url).unwrap().connect_on(tcp_stream).map_err(|e| {
-            ArchipelagoError::NetworkError(e)
-        })
-    }
-
-    fn create_tcp_stream_with_timeout(url: &str) -> Result<TcpStream, ArchipelagoError> {
-        let default_timeout = Duration::from_secs(10);
-        match TcpStream::connect(url) {
-            Ok(tcp_stream) => {
-                tcp_stream.set_read_timeout(Some(default_timeout)).expect("set_read_timeout failed");
-                tcp_stream.set_write_timeout(Some(default_timeout)).expect("set_write_timeout failed");
-                Ok(tcp_stream)
             },
             Err(e) => {
-                warn!("Could not connect to url: {}", e);
-                Err(ArchipelagoError::NetworkError(WebSocketError::from(e)))
+                Err(APError::ServerConnectionFailure)
             }
         }
     }
 
-    pub fn send(&mut self, message: ClientMessage) -> Result<(), ArchipelagoError> {
-        let request = serde_json::to_string(&[message])?;
-        let message = OwnedMessage::Text(request);
-        let _ = self.ws.send_message(&message);
-        Ok(())
-    }
-
-    pub fn read(&mut self) -> Result<Option<ServerMessage>, ArchipelagoError> {
-        Self::recv(&mut self.ws)
-    }
-
-    /**
-     * Read a message from the server
-     */
-    fn recv(ws: &mut Client<TcpStream>) -> Result<Option<ServerMessage>, ArchipelagoError> {
-        match ws.recv_message() {
+    pub async fn read(&mut self) -> Result<ServerPayload, APError> {
+        let mut buf = BytesMut::new();
+        match self.websocket.read(&mut buf).await {
             Ok(message) => {
                 match message {
-                    OwnedMessage::Ping(ping) => {
-                        let pong = OwnedMessage::Pong(ping);
-                        let _ = ws.send_message(&pong);
-                        Ok(None)
-                    },
-                    OwnedMessage::Text(response) => {
-                        match serde_json::from_str::<Vec<ServerMessage>>(&response) {
-                            Ok(text) => Ok(text.into_iter().next()),
-                            Err(e) => Err(e.into())
+                    Message::Text => {
+                        match str::from_utf8(&buf) {
+                            Ok(payload) => {
+                                match serde_json::from_str::<Vec<ServerPayload>>(payload) {
+                                    Ok(response) => {
+                                        Ok(response.first().unwrap().clone())
+                                    },
+                                    Err(e) => {
+                                        debug!("Parse Error on Payload {} with error {}", payload, e);
+                                        Err(APError::ResponseParseFailure)
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                Err(APError::ResponseFormatFailure)
+                            }
                         }
                     },
-                    OwnedMessage::Close(_) => Err(ArchipelagoError::ConnectionClosed),
-                    msg => Err(ArchipelagoError::NonTextWebsocketResult(msg)),
+                    Message::Binary => {
+                        Err(APError::BinaryData)
+                    },
+                    Message::Close(_) => {
+                        Err(APError::NoConnection)
+                    },
+                    _ => {
+                        Err(APError::PingPong)
+                    }
                 }
             },
-            Err(e) => Err(e.into())
+            Err(_) => {
+                Err(APError::PayloadReadFailure)
+            }
         }
     }
 
-    /**
-     * Send a connect request to the Archipelago server
-     *
-     * Will attempt to read a Connected packet in response, and will return an error if
-     * another packet is found
-     */
-    pub fn connect(
-        &mut self,
-        game: &str,
-        name: &str,
-        uuid: &str,
-        password: Option<&str>,
-        items_handling: Option<i64>,
-        tags: Vec<String>,
-        slot_data: bool,
-    ) -> Result<Connected, ArchipelagoError> {
-        match self.send(ClientMessage::Connect(Connect {
-            game: game.to_string(),
-            name: name.to_string(),
-            uuid: uuid.to_string(),
-            password: password.map(|p| p.to_string()),
-            version: network_version(),
-            items_handling,
-            tags,
-            slot_data,
-        })) {
-            Ok(_) => (),
-            Err(_) => return Err(ArchipelagoError::ConnectionClosed)
+    async fn write(&mut self, payload: Result<String, serde_json::Error>) -> Result<(), APError> {
+        match payload {
+            Ok(serialized_payload) => {
+                match self.websocket.write(serialized_payload, ratchet_rs::PayloadType::Text).await {
+                    Ok(result) => {
+                        Ok(result)
+                    },
+                    Err(e) => {
+                        Err(APError::PayloadWriteFailure)
+                    }
+                }
+            },
+            Err(_) => {
+                Err(APError::PayloadSerializationFailure)
+            }
+        }
+    }
+
+    // Client -> Server Communication
+
+    pub async fn connect(&mut self, password: &str, game: &str, name: &str, uuid: i64, items_handling: ItemHandling, tags: Vec<String>, slot_data: bool) -> Result<(), APError> {
+        let version = NetworkVersion {
+            class: "Version".to_string(),
+            build: 0,
+            major: 6,
+            minor: 4
         };
 
-        match self.read() {
-            Ok(message) => {
-                match message {
-                    Some(ServerMessage::Connected(connected)) => Ok(connected),
-                    Some(received) => {
-                        Err(ArchipelagoError::IllegalResponse {
-                            received,
-                            expected: "Expected Connected",
-                        })
-                    },
-                    None => return Err(ArchipelagoError::ConnectionClosed)
-                }
-            },
-            Err(_) => return Err(ArchipelagoError::ConnectionClosed)
-        }
+        let connect = Connect {
+            password: password.to_string(),
+            game: game.to_string(),
+            name: name.to_string(),
+            uuid,
+            version,
+            items_handling,
+            tags,
+            slot_data
+        };
+
+        let connect_payload = serde_json::to_string(&[connect]);
+        self.write(connect_payload).await
     }
 
-    pub fn location_checks(&mut self, locations: Vec<i64>) -> Result<(), ArchipelagoError> {
-        match self.send(ClientMessage::LocationChecks(LocationChecks { locations })) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(ArchipelagoError::ConnectionClosed)
-        }
+    pub async fn connect_update(&mut self, items_handling: ItemHandling, tags: Vec<String>) -> Result<(), APError> {
+        let connect_update = ConnectUpdate {
+            items_handling,
+            tags
+        };
+
+        let connect_update_payload = serde_json::to_string(&[connect_update]);
+        self.write(connect_update_payload).await
     }
 
-    /**
-     * Sent to server to request a ReceivedItems packet to synchronize items.
-     *
-     * Will buffer any non-ReceivedItems packets returned
-     */
-    pub fn sync(&mut self) -> Result<(), ArchipelagoError> {
-        match self.send(ClientMessage::Sync) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(ArchipelagoError::ConnectionClosed)
-        }
+    pub async fn sync(&mut self) -> Result<(), APError> {
+        let sync = Sync{};
+
+        let sync_payload = serde_json::to_string(&[sync]);
+        self.write(sync_payload).await
+    }
+
+    pub async fn location_checks(&mut self, locations: Vec<i64>) -> Result<(), APError> {
+        let location_checks = LocationChecks {
+            locations
+        };
+
+        let location_checks_payload = serde_json::to_string(&[location_checks]);
+        self.write(location_checks_payload).await
+    }
+
+    pub async fn location_scouts(&mut self, locations: Vec<i64>, create_as_hint: i64) -> Result<(), APError> {
+        let location_scouts = LocationScouts {
+            locations,
+            create_as_hint
+        };
+
+        let location_scouts_payload = serde_json::to_string(&[location_scouts]);
+        self.write(location_scouts_payload).await
+    }
+
+    pub async fn create_hints(&mut self, locations: Vec<i64>, player: i64, status: HintStatus) -> Result<(), APError> {
+        let create_hints = CreateHints {
+            locations,
+            player,
+            status
+        };
+
+        let create_hints_payload = serde_json::to_string(&[create_hints]);
+        self.write(create_hints_payload).await
+    }
+
+    pub async fn update_hint(&mut self, player: i64, location: i64, status: HintStatus) -> Result<(), APError> {
+        let update_hint = UpdateHint {
+            player,
+            location,
+            status
+        };
+
+        let update_hint_payload = serde_json::to_string(&[update_hint]);
+        self.write(update_hint_payload).await
+    }
+
+    pub async fn status_update(&mut self, status: ClientStatus) -> Result<(), APError> {
+        let status_update = StatusUpdate {
+            status
+        };
+
+        let status_update_payload = serde_json::to_string(&[status_update]);
+        self.write(status_update_payload).await
+    }
+
+    pub async fn say(&mut self, text: String) -> Result<(), APError> {
+        let say = Say {
+            text
+        };
+
+        let say_payload = serde_json::to_string(&[say]);
+        self.write(say_payload).await
+    }
+
+    pub async fn get_data_package(&mut self, games: Vec<String>) -> Result<(), APError> {
+        let get_data_package = GetDataPackage {
+            games
+        };
+
+        let get_data_package_payload = serde_json::to_string(&[get_data_package]);
+        self.write(get_data_package_payload).await
+    }
+
+    pub async fn bounce(&mut self, games: Vec<String>, slots: Vec<i64>, tags: Vec<String>, data: HashMap<String, String>) -> Result<(), APError> {
+        let bounce = Bounce {
+            games,
+            slots,
+            tags,
+            data
+        };
+
+        let bounce_payload = serde_json::to_string(&[bounce]);
+        self.write(bounce_payload).await
+    }
+
+    pub async fn get(&mut self, keys: Vec<String>) -> Result<(), APError> {
+        let get = Get {
+            keys
+        };
+
+        let get_payload = serde_json::to_string(&[get]);
+        self.write(get_payload).await
+    }
+
+    pub async fn set(&mut self, key: String, default: String, want_reply: bool, operations: Vec<DataStorageOperation>) -> Result<(), APError> {
+        let set = Set {
+            key,
+            default,
+            want_reply,
+            operations
+        };
+
+        let set_payload = serde_json::to_string(&[set]);
+        self.write(set_payload).await
+    }
+
+    pub async fn set_notify(&mut self, keys: Vec<String>) -> Result<(), APError> {
+        let set_notify = SetNotify {
+            keys
+        };
+
+        let set_notify_payload = serde_json::to_string(&[set_notify]);
+        self.write(set_notify_payload).await
     }
 }
