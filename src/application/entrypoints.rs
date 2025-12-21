@@ -42,6 +42,7 @@ lazy_static! {
     static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
     static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
     static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
+    static ref GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
     static ref ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
     static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
     static ref RUNTIME: tokio::runtime::Runtime = tokio::runtime::Runtime::new().unwrap();
@@ -58,9 +59,14 @@ pub fn game_loop() {
     let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags);
     let system_flags: &[u32;16] = application.read_address(app_addresses.system_flags);
 
-    if (system_flags[4] & 0x8020001) == 0x8020001 {
+    if (system_flags[3] & 0x20000) == 0x20000 {
         std::thread::spawn(move || {
-            RUNTIME.block_on(send_game_complete_notice());
+            let _ = GAME_COMPLETE.try_lock().map(|mut game_complete| {
+                if *game_complete == false {
+                    *game_complete = true;
+                    RUNTIME.block_on(send_game_complete_notice());
+                }
+            });
         });
     } else if (system_flags[0] & 0x1000000) == 0x1000000 {
         std::thread::spawn(move || {
