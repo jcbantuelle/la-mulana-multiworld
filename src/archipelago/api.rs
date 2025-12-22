@@ -7,6 +7,8 @@ use thiserror::Error;
 pub enum APError {
     #[error("not connected")]
     NoConnection,
+    #[error("tls connector failed to build")]
+    TlsConnectorFailure,
     #[error("unable to connect to server")]
     ServerConnectionFailure,
     #[error("unable to establish websocket connection")]

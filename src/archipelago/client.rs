@@ -1,31 +1,54 @@
 use bytes::BytesMut;
 use log::debug;
-use ratchet_rs::{subscribe_with, WebSocket, WebSocketConfig, deflate::{DeflateExtProvider, Deflate}, SubprotocolRegistry, Message};
+use ratchet_rs::{deflate::{Deflate, DeflateExtProvider}, Message, SubprotocolRegistry, subscribe_with, UpgradedClient, WebSocket, WebSocketConfig, WebSocketStream};
 use std::collections::HashMap;
 use super::api::*;
 use tokio::net::TcpStream;
+use tokio_native_tls::native_tls::TlsConnector;
 
 pub struct APClient {
-    websocket: WebSocket<tokio::net::TcpStream, Deflate>
+    websocket: WebSocket<Box<dyn WebSocketStream>, Deflate>
 }
 
 impl APClient {
     pub async fn new(url: &str) -> Result<APClient, APError> {
-        let tcp_connection = TcpStream::connect(url).await;
-        match tcp_connection {
-            Ok(stream) => {
-                let websocket_url = format!("wss://{url}");
-                match subscribe_with(WebSocketConfig::default(), stream, websocket_url, DeflateExtProvider::default(), SubprotocolRegistry::default()).await {
-                    Ok(websocket_stream) => {
-                        Ok(APClient{ websocket: websocket_stream.into_websocket() })
-                    },
-                    Err(e) => {
-                        debug!("Websocket Connection Failed with error {}", e);
-                        Err(APError::WebsocketConnectionFailure)
-                    }
-                }
+        let tcp_stream_for_tls = Self::tcp_connect(url).await?;
+        let tls_connector = match TlsConnector::builder().build() {
+            Ok(connector) => tokio_native_tls::TlsConnector::from(connector),
+            Err(_) => return Err(APError::TlsConnectorFailure)
+        };
+        let tls_connection = tls_connector.connect(url, tcp_stream_for_tls).await;
+
+        let websocket_stream: Result<UpgradedClient<Box<dyn WebSocketStream>,Deflate>, _> = match tls_connection {
+            Ok(tls_stream) => {
+                let secure_websocket_url = format!("wss://{url}");
+                let tls_websocket: Box<dyn WebSocketStream> = Box::new(tls_stream);
+                subscribe_with(WebSocketConfig::default(), tls_websocket, secure_websocket_url, DeflateExtProvider::default(), SubprotocolRegistry::default()).await
             },
             Err(e) => {
+                debug!("TLS Connection failed with Error {}, falling back to TCP Connection", e);
+                let tcp_stream = Self::tcp_connect(url).await?;
+                let insecure_websocket_url = format!("ws://{url}");
+                let tcp_websocket: Box<dyn WebSocketStream> = Box::new(tcp_stream);
+                subscribe_with(WebSocketConfig::default(), tcp_websocket, insecure_websocket_url, DeflateExtProvider::default(), SubprotocolRegistry::default()).await
+            }
+        };
+
+        match websocket_stream {
+            Ok(websocket_stream) => {
+                Ok(APClient{ websocket: websocket_stream.into_websocket() })
+            },
+            Err(e) => {
+                Err(APError::WebsocketConnectionFailure)
+            }
+        }
+    }
+
+    async fn tcp_connect(url: &str) -> Result<TcpStream, APError> {
+        match TcpStream::connect(url).await {
+            Ok(tcp_stream) => Ok(tcp_stream),
+            Err(e) => {
+                debug!("Failed to connect to {} with error {}", url, e);
                 Err(APError::ServerConnectionFailure)
             }
         }
