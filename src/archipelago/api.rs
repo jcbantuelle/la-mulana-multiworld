@@ -32,6 +32,24 @@ pub enum APError {
 // Client -> Server Payloads
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum ClientPayload {
+    Connect(Connect),
+    ConnectUpdate(ConnectUpdate),
+    Sync(Sync),
+    LocationChecks(LocationChecks),
+    LocationScouts(LocationScouts),
+    CreateHints(CreateHints),
+    UpdateHint(UpdateHint),
+    StatusUpdate(StatusUpdate),
+    Say(Say),
+    GetDataPackage(GetDataPackage),
+    Bounce(Bounce),
+    Get(Get),
+    Set(Set),
+    SetNotify(SetNotify)
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "cmd", rename = "Connect")]
 pub struct Connect {
     pub password: String,

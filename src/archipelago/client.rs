@@ -13,10 +13,8 @@ pub struct APClient {
 impl APClient {
     pub async fn new(url: &str) -> Result<APClient, APError> {
         let tcp_stream_for_tls = Self::tcp_connect(url).await?;
-        let tls_connector = match TlsConnector::builder().build() {
-            Ok(connector) => tokio_native_tls::TlsConnector::from(connector),
-            Err(_) => return Err(APError::TlsConnectorFailure)
-        };
+        let tls_builder = TlsConnector::builder().build().map_err(|_| { APError::TlsConnectorFailure })?;
+        let tls_connector = tokio_native_tls::TlsConnector::from(tls_builder);
 
         let domain = match url.find(":") {
             None => url,
@@ -68,63 +66,41 @@ impl APClient {
 
     pub async fn read(&mut self) -> Result<ServerPayload, APError> {
         let mut buf = BytesMut::new();
-        match self.websocket.read(&mut buf).await {
-            Ok(message) => {
-                match message {
-                    Message::Text => {
-                        match str::from_utf8(&buf) {
-                            Ok(payload) => {
-                                match serde_json::from_str::<Vec<ServerPayload>>(payload) {
-                                    Ok(response) => {
-                                        Ok(response.first().unwrap().clone())
-                                    },
-                                    Err(e) => {
-                                        debug!("Parse Error on Payload {}: {}", payload, e);
-                                        Err(APError::ResponseParseFailure)
-                                    }
-                                }
-                            },
-                            Err(e) => {
-                                debug!("Unable to Convert Payload to String: {}", e);
-                                Err(APError::ResponseFormatFailure)
-                            }
-                        }
-                    },
-                    Message::Binary => {
-                        Err(APError::BinaryData)
-                    },
-                    Message::Close(_) => {
-                        Err(APError::NoConnection)
-                    },
-                    _ => {
-                        Err(APError::PingPong)
-                    }
-                }
+        let message = self.websocket.read(&mut buf).await.map_err(|_| { APError::PayloadReadFailure })?;
+        match message {
+            Message::Text => {
+                let payload = str::from_utf8(&buf).map_err(|e| {
+                    debug!("Unable to Convert Payload to String: {}", e);
+                    APError::ResponseFormatFailure
+                })?;
+
+                let response = serde_json::from_str::<Vec<ServerPayload>>(payload).map_err(|e| {
+                    debug!("Parse Error on Payload {}: {}", payload, e);
+                    APError::ResponseParseFailure
+                })?;
+
+                Ok(response.first().unwrap().clone())
             },
-            Err(_) => {
-                Err(APError::PayloadReadFailure)
+            Message::Binary => {
+                Err(APError::BinaryData)
+            },
+            Message::Close(_) => {
+                Err(APError::NoConnection)
+            },
+            _ => {
+                Err(APError::PingPong)
             }
         }
     }
 
-    async fn write(&mut self, payload: Result<String, serde_json::Error>) -> Result<(), APError> {
-        match payload {
-            Ok(serialized_payload) => {
-                debug!("Sending Message To Server: {}", serialized_payload);
-                match self.websocket.write(serialized_payload, ratchet_rs::PayloadType::Text).await {
-                    Ok(result) => {
-                        Ok(result)
-                    },
-                    Err(e) => {
-                        debug!("Failed to Write Payload to Server: {}", e);
-                        Err(APError::PayloadWriteFailure)
-                    }
-                }
-            },
-            Err(_) => {
-                Err(APError::PayloadSerializationFailure)
-            }
-        }
+    async fn write(&mut self, payload: ClientPayload) -> Result<(), APError> {
+        let serialized_payload = serde_json::to_string(&[payload]).map_err(|_| { APError::PayloadSerializationFailure })?;
+        debug!("Sending Message To Server: {}", serialized_payload);
+        let response= self.websocket.write(serialized_payload, ratchet_rs::PayloadType::Text).await;
+        response.map_err(|e| {
+            debug!("Failed to Write Payload to Server: {}", e);
+            APError::PayloadWriteFailure
+        })
     }
 
     // Client -> Server Communication
@@ -148,8 +124,7 @@ impl APClient {
             slot_data
         };
 
-        let connect_payload = serde_json::to_string(&[connect]);
-        self.write(connect_payload).await
+        self.write(ClientPayload::Connect(connect)).await
     }
 
     pub async fn connect_update(&mut self, items_handling: ItemHandling, tags: Vec<String>) -> Result<(), APError> {
@@ -158,15 +133,13 @@ impl APClient {
             tags
         };
 
-        let connect_update_payload = serde_json::to_string(&[connect_update]);
-        self.write(connect_update_payload).await
+        self.write(ClientPayload::ConnectUpdate(connect_update)).await
     }
 
     pub async fn sync(&mut self) -> Result<(), APError> {
         let sync = Sync{};
 
-        let sync_payload = serde_json::to_string(&[sync]);
-        self.write(sync_payload).await
+        self.write(ClientPayload::Sync(sync)).await
     }
 
     pub async fn location_checks(&mut self, locations: Vec<i64>) -> Result<(), APError> {
@@ -174,8 +147,7 @@ impl APClient {
             locations
         };
 
-        let location_checks_payload = serde_json::to_string(&[location_checks]);
-        self.write(location_checks_payload).await
+        self.write(ClientPayload::LocationChecks(location_checks)).await
     }
 
     pub async fn location_scouts(&mut self, locations: Vec<i64>, create_as_hint: i64) -> Result<(), APError> {
@@ -184,8 +156,7 @@ impl APClient {
             create_as_hint
         };
 
-        let location_scouts_payload = serde_json::to_string(&[location_scouts]);
-        self.write(location_scouts_payload).await
+        self.write(ClientPayload::LocationScouts(location_scouts)).await
     }
 
     pub async fn create_hints(&mut self, locations: Vec<i64>, player: i64, status: HintStatus) -> Result<(), APError> {
@@ -195,8 +166,7 @@ impl APClient {
             status
         };
 
-        let create_hints_payload = serde_json::to_string(&[create_hints]);
-        self.write(create_hints_payload).await
+        self.write(ClientPayload::CreateHints(create_hints)).await
     }
 
     pub async fn update_hint(&mut self, player: i64, location: i64, status: HintStatus) -> Result<(), APError> {
@@ -206,8 +176,7 @@ impl APClient {
             status
         };
 
-        let update_hint_payload = serde_json::to_string(&[update_hint]);
-        self.write(update_hint_payload).await
+        self.write(ClientPayload::UpdateHint(update_hint)).await
     }
 
     pub async fn status_update(&mut self, status: ClientStatus) -> Result<(), APError> {
@@ -215,8 +184,7 @@ impl APClient {
             status
         };
 
-        let status_update_payload = serde_json::to_string(&[status_update]);
-        self.write(status_update_payload).await
+        self.write(ClientPayload::StatusUpdate(status_update)).await
     }
 
     pub async fn say(&mut self, text: String) -> Result<(), APError> {
@@ -224,8 +192,7 @@ impl APClient {
             text
         };
 
-        let say_payload = serde_json::to_string(&[say]);
-        self.write(say_payload).await
+        self.write(ClientPayload::Say(say)).await
     }
 
     pub async fn get_data_package(&mut self, games: Vec<String>) -> Result<(), APError> {
@@ -233,8 +200,7 @@ impl APClient {
             games
         };
 
-        let get_data_package_payload = serde_json::to_string(&[get_data_package]);
-        self.write(get_data_package_payload).await
+        self.write(ClientPayload::GetDataPackage(get_data_package)).await
     }
 
     pub async fn bounce(&mut self, games: Vec<String>, slots: Vec<i64>, tags: Vec<String>, data: HashMap<String, String>) -> Result<(), APError> {
@@ -245,8 +211,7 @@ impl APClient {
             data
         };
 
-        let bounce_payload = serde_json::to_string(&[bounce]);
-        self.write(bounce_payload).await
+        self.write(ClientPayload::Bounce(bounce)).await
     }
 
     pub async fn get(&mut self, keys: Vec<String>) -> Result<(), APError> {
@@ -254,8 +219,7 @@ impl APClient {
             keys
         };
 
-        let get_payload = serde_json::to_string(&[get]);
-        self.write(get_payload).await
+        self.write(ClientPayload::Get(get)).await
     }
 
     pub async fn set(&mut self, key: String, default: String, want_reply: bool, operations: Vec<DataStorageOperation>) -> Result<(), APError> {
@@ -266,8 +230,7 @@ impl APClient {
             operations
         };
 
-        let set_payload = serde_json::to_string(&[set]);
-        self.write(set_payload).await
+        self.write(ClientPayload::Set(set)).await
     }
 
     pub async fn set_notify(&mut self, keys: Vec<String>) -> Result<(), APError> {
@@ -275,7 +238,6 @@ impl APClient {
             keys
         };
 
-        let set_notify_payload = serde_json::to_string(&[set_notify]);
-        self.write(set_notify_payload).await
+        self.write(ClientPayload::SetNotify(set_notify)).await
     }
 }
