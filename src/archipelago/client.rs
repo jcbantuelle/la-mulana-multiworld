@@ -1,7 +1,6 @@
 use bytes::BytesMut;
 use log::debug;
 use ratchet_rs::{deflate::{Deflate, DeflateExtProvider}, Message, SubprotocolRegistry, subscribe_with, WebSocket, WebSocketConfig, WebSocketStream};
-use toml::de;
 use std::collections::HashMap;
 use super::api::*;
 use tokio::net::TcpStream;
