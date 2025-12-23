@@ -1,6 +1,7 @@
 use bytes::BytesMut;
 use log::debug;
-use ratchet_rs::{deflate::{Deflate, DeflateExtProvider}, Message, SubprotocolRegistry, subscribe_with, UpgradedClient, WebSocket, WebSocketConfig, WebSocketStream};
+use ratchet_rs::{deflate::{Deflate, DeflateExtProvider}, Message, SubprotocolRegistry, subscribe_with, WebSocket, WebSocketConfig, WebSocketStream};
+use toml::de;
 use std::collections::HashMap;
 use super::api::*;
 use tokio::net::TcpStream;
@@ -26,7 +27,7 @@ impl APClient {
         };
         let tls_connection = tls_connector.connect(domain, tcp_stream_for_tls).await;
 
-        let websocket_stream: Result<UpgradedClient<Box<dyn WebSocketStream>,Deflate>, _> = match tls_connection {
+        let websocket_stream = match tls_connection {
             Ok(tls_stream) => {
                 let secure_websocket_url = format!("wss://{url}");
                 let tls_websocket: Box<dyn WebSocketStream> = Box::new(tls_stream);
@@ -106,11 +107,13 @@ impl APClient {
     async fn write(&mut self, payload: Result<String, serde_json::Error>) -> Result<(), APError> {
         match payload {
             Ok(serialized_payload) => {
+                debug!("Sending Message To Server: {}", serialized_payload);
                 match self.websocket.write(serialized_payload, ratchet_rs::PayloadType::Text).await {
                     Ok(result) => {
                         Ok(result)
                     },
                     Err(e) => {
+                        debug!("Failed to Write Payload to Server: {}", e);
                         Err(APError::PayloadWriteFailure)
                     }
                 }
