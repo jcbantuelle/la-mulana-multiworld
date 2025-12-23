@@ -1,6 +1,6 @@
 use bytes::BytesMut;
 use log::debug;
-use ratchet_rs::{deflate::{Deflate, DeflateExtProvider}, Message, SubprotocolRegistry, subscribe_with, WebSocket, WebSocketConfig, WebSocketStream};
+use ratchet_rs::{deflate::{Deflate, DeflateExtProvider}, Message, SubprotocolRegistry, subscribe_with, UpgradedClient, WebSocket, WebSocketConfig, WebSocketStream};
 use std::collections::HashMap;
 use super::api::*;
 use tokio::net::TcpStream;
@@ -26,18 +26,16 @@ impl APClient {
         };
         let tls_connection = tls_connector.connect(domain, tcp_stream_for_tls).await;
 
-        let websocket_stream = match tls_connection {
+        let websocket_stream: Result<ratchet_rs::UpgradedClient<Box<dyn WebSocketStream>, Deflate>, ratchet_rs::Error> = match tls_connection {
             Ok(tls_stream) => {
-                let secure_websocket_url = format!("wss://{url}");
-                let tls_websocket: Box<dyn WebSocketStream> = Box::new(tls_stream);
-                subscribe_with(WebSocketConfig::default(), tls_websocket, secure_websocket_url, DeflateExtProvider::default(), SubprotocolRegistry::default()).await
+                let stream: Box<dyn WebSocketStream> = Box::new(tls_stream);
+                Self::websocket_connect(true, stream, url).await
             },
             Err(e) => {
                 debug!("TLS Connection failed with Error {}, falling back to TCP Connection", e);
                 let tcp_stream = Self::tcp_connect(url).await?;
-                let insecure_websocket_url = format!("ws://{url}");
-                let tcp_websocket: Box<dyn WebSocketStream> = Box::new(tcp_stream);
-                subscribe_with(WebSocketConfig::default(), tcp_websocket, insecure_websocket_url, DeflateExtProvider::default(), SubprotocolRegistry::default()).await
+                let stream: Box<dyn WebSocketStream> = Box::new(tcp_stream);
+                Self::websocket_connect(false, stream, url).await
             }
         };
 
@@ -60,6 +58,12 @@ impl APClient {
                 Err(APError::ServerConnectionFailure)
             }
         }
+    }
+
+    async fn websocket_connect(secure: bool, stream: Box<dyn WebSocketStream>, websocket_url: &str) -> Result<UpgradedClient<Box<dyn WebSocketStream>, Deflate>, ratchet_rs::Error> {
+        let protocol = if secure { "wss" } else { "ws" };
+        let url_with_protocol = format!("{}://{}", protocol, websocket_url);
+        subscribe_with(WebSocketConfig::default(), stream, url_with_protocol, DeflateExtProvider::default(), SubprotocolRegistry::default()).await
     }
 
     pub async fn read(&mut self) -> Result<ServerPayload, APError> {
