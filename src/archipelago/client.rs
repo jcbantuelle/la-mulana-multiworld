@@ -17,7 +17,14 @@ impl APClient {
             Ok(connector) => tokio_native_tls::TlsConnector::from(connector),
             Err(_) => return Err(APError::TlsConnectorFailure)
         };
-        let tls_connection = tls_connector.connect(url, tcp_stream_for_tls).await;
+
+        let domain = match url.find(":") {
+            None => url,
+            Some(port_index) => {
+                &url[..port_index]
+            }
+        };
+        let tls_connection = tls_connector.connect(domain, tcp_stream_for_tls).await;
 
         let websocket_stream: Result<UpgradedClient<Box<dyn WebSocketStream>,Deflate>, _> = match tls_connection {
             Ok(tls_stream) => {
