@@ -46,6 +46,7 @@ impl APClient {
                 Ok(APClient{ websocket: websocket_stream.into_websocket() })
             },
             Err(e) => {
+                debug!("Websocket Connection Failed: {}", e);
                 Err(APError::WebsocketConnectionFailure)
             }
         }
@@ -55,7 +56,7 @@ impl APClient {
         match TcpStream::connect(url).await {
             Ok(tcp_stream) => Ok(tcp_stream),
             Err(e) => {
-                debug!("Failed to connect to {} with error {}", url, e);
+                debug!("Failed to connect to {}: {}", url, e);
                 Err(APError::ServerConnectionFailure)
             }
         }
@@ -74,12 +75,13 @@ impl APClient {
                                         Ok(response.first().unwrap().clone())
                                     },
                                     Err(e) => {
-                                        debug!("Parse Error on Payload {} with error {}", payload, e);
+                                        debug!("Parse Error on Payload {}: {}", payload, e);
                                         Err(APError::ResponseParseFailure)
                                     }
                                 }
                             },
                             Err(e) => {
+                                debug!("Unable to Convert Payload to String: {}", e);
                                 Err(APError::ResponseFormatFailure)
                             }
                         }
