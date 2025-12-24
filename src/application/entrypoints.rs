@@ -85,7 +85,6 @@ pub fn game_loop() {
             match item_to_give {
                 Some(ap_item) => {
                     let ap_item_id = ap_item.network_item.item;
-                    debug!("Receiving {} from server", ap_item_id);
                     let lm_item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item_id)).unwrap();
 
                     let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
@@ -96,9 +95,6 @@ pub fn game_loop() {
                     } else {
                         lm_item.item_id > 104 || inventory[lm_item.item_id] == 0
                     };
-
-                    let debug_given_sub_message = if give_item { "needs" } else { "does not need" };
-                    debug!("Item {} {} to be given", lm_item.item_id, debug_given_sub_message);
 
                     if give_item {
                         let mut rooms = ap_item.rooms.clone();
@@ -112,7 +108,6 @@ pub fn game_loop() {
                             items_to_give.push_back(ap_item);
                         } else {
                             let player_id = ap_item.network_item.player;
-                            debug!("Giving item {} to player {}", lm_item.item_id, player_id);
                             rooms.push(room_index);
                             items_to_give.push_back(NetworkItemForPlayer { network_item: ap_item.network_item, rooms });
                             if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
@@ -120,9 +115,6 @@ pub fn game_loop() {
                                     player_id,
                                     for_player: false
                                 });
-                            }
-                            else {
-                                debug!("Could not unlock player items hash");
                             }
 
                             application.give_item(lm_item.item_id as u32);
@@ -264,6 +256,7 @@ async fn get_updates_from_server() {
                         Ok(_) => {
                             match ap_client.read().await {
                                 Ok(response) => {
+                                    debug!("Received Message From Server: {:?}", response);
                                     match response {
                                         ServerPayload::ReceivedItems(received_items) => {
                                             if received_items.index > 0 {
