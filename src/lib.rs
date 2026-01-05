@@ -2,7 +2,6 @@
 #![feature(tuple_trait)]
 
 use archipelago::api::APError;
-use lazy_static::lazy_static;
 use log::{debug, warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
@@ -12,7 +11,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
 use std::ptr::null_mut;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 use toml;
 use utils::show_message_box;
 use winapi::shared::minwindef::*;
@@ -30,9 +29,7 @@ pub mod utils;
 
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
 
-lazy_static!{
-    pub static ref APPLICATION: Application = init_app();
-}
+pub static APPLICATION: LazyLock<Application> = LazyLock::new(|| { init_app() });
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ArchipelagoPlayer {

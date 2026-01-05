@@ -1,7 +1,6 @@
-use lazy_static::lazy_static;
 use log::{debug, warn};
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use crate::get_application;
 use crate::archipelago::api::*;
@@ -35,15 +34,13 @@ pub struct PlayerItemPopup {
     pub encoded: Vec<u16>
 }
 
-lazy_static! {
-    static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
-    static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-    static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
-    static ref GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
-    static ref ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
-    static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
-    static ref RUNTIME: tokio::runtime::Runtime = tokio::runtime::Runtime::new().unwrap();
-}
+static PLAYER_ITEMS: LazyLock<Mutex<HashMap<i32, PlayerItem>>> = LazyLock::new(|| { Mutex::new(HashMap::new()) });
+static PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+static SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
+static GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
+static ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
+static DEFAULT_POPUP_SCRIPT: LazyLock<Vec<u16>> = LazyLock::new(|| { vec![0x100,0x000a] });
+static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| { tokio::runtime::Runtime::new().unwrap() });
 
 pub type FnGameLoop = extern "C" fn();
 pub type FnPopupDialogDrawIntercept = extern "C" fn(&TaskData);

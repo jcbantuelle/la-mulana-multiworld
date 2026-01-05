@@ -1,69 +1,16 @@
 pub mod entrypoints;
 
 use log::{debug, error, trace};
-use phf::phf_map;
 use retour::{Function, static_detour, StaticDetour};
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
 
-use crate::{AppConfig, get_application_version};
+use crate::AppConfig;
 use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
 use crate::archipelago::api::APError;
 use crate::archipelago::client::APClient;
 use crate::lm_structs::taskdata::TaskData;
 use crate::utils::show_message_box;
-
-pub const ADDRESS_LOOKUP: phf::Map<&'static str, phf::Map<&'static str, usize>> = phf_map! {
-    "1.0.0.1" => phf_map! {
-        "set_se"                => 0x00417600,
-        "item_get_area_init"    => 0x004b8950,
-        "item_symbol_init"      => 0x004b8ae0,
-        "item_symbol_back"      => 0x004b8e70,
-        "set_view_event_ns"     => 0x00507160,
-        "popup_dialog_init"     => 0x00591520,
-        "popup_dialog_draw"     => 0x005917b0,
-        "game_loop"             => 0x00607b70,
-        "se"                    => 0x006d2708,
-        "script_header_pointer" => 0x006d296c,
-        "inventory_words"       => 0x006d5650,
-        "system_flags"          => 0x006d59c0,
-        "global_flags"          => 0x006d5a70,
-        "current_scene"         => 0x00db4bb3,
-        "current_screen"        => 0x00db4bb6,
-        "current_field"         => 0x00db4bb7,
-        "option_sdata_num"      => 0x00db6fb7,
-        "option_sdata"          => 0x00db7048,
-        "option_pos_cx"         => 0x00db714c,
-        "option_pos_cy"         => 0x00db7168,
-        "game_process"          => 0x00db7178,
-        "lemeza_pointer"        => 0x00db7538,
-        "game_init"             => 0x00db753c
-    },
-    "1.6.6.2" => phf_map! {
-        "set_se"                => 0x004186c0,
-        "item_get_area_init"    => 0x004ba720,
-        "item_symbol_init"      => 0x004ba8b0,
-        "item_symbol_back"      => 0x004bac40,
-        "set_view_event_ns"     => 0x00509530,
-        "popup_dialog_init"     => 0x00593670,
-        "popup_dialog_draw"     => 0x00593900,
-        "game_loop"             => 0x00609fb0,
-        "se"                    => 0x006de844,
-        "script_header_pointer" => 0x006deb2c,
-        "inventory_words"       => 0x006e1820,
-        "system_flags"          => 0x006e1b90,
-        "global_flags"          => 0x006e1e48,
-        "current_scene"         => 0x00dc0ebe,
-        "current_screen"        => 0x00dc0ebf,
-        "current_field"         => 0x00dc0ee6,
-        "option_sdata_num"      => 0x00dc32c2,
-        "option_sdata"          => 0x00dc3350,
-        "option_pos_cx"         => 0x00dc3454,
-        "option_pos_cy"         => 0x00dc3470,
-        "game_process"          => 0x00dc3480,
-        "lemeza_pointer"        => 0x00dc3844,
-        "game_init"             => 0x00dc3848
-    }
-};
 
 static_detour! {
     static GameLoopDetour: extern "C" fn();
@@ -86,9 +33,9 @@ pub struct Application {
 
 impl Application {
     pub fn attach(&self) {
-        let version = get_application_version();
+        let version = self.application_version();
 
-        if let Some(_) = ADDRESS_LOOKUP.get(&version) {
+        if let Some(_) = Application::ADDRESS_LOOKUP.get(version) {
             unsafe {
                 let game_loop_addr: FnGameLoop = std::mem::transmute(self.extract_offset("game_loop"));
                 let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
@@ -251,8 +198,66 @@ impl Application {
 
     fn extract_offset(&self, offset_name: &str) -> usize {
         let version = self.application_version();
-        let app_addresses = ADDRESS_LOOKUP.get(version).unwrap();
-        let offset = app_addresses.get(&offset_name).unwrap();
+        let addresses = Application::ADDRESS_LOOKUP;
+        let address = addresses.get(version).unwrap();
+        let offset = address.get(&offset_name).unwrap();
         self.get_address().wrapping_add(*offset)
     }
+
+    pub const ADDRESS_LOOKUP: LazyLock<HashMap<&str, HashMap<&str, usize>>> = LazyLock::new(|| {
+        let version_1_0_0_1 = HashMap::from([
+            ("set_se",                0x00417600),
+            ("item_get_area_init",    0x004b8950),
+            ("item_symbol_init",      0x004b8ae0),
+            ("item_symbol_back",      0x004b8e70),
+            ("set_view_event_ns",     0x00507160),
+            ("popup_dialog_init",     0x00591520),
+            ("popup_dialog_draw",     0x005917b0),
+            ("game_loop",             0x00607b70),
+            ("se",                    0x006d2708),
+            ("script_header_pointer", 0x006d296c),
+            ("inventory_words",       0x006d5650),
+            ("system_flags",          0x006d59c0),
+            ("global_flags",          0x006d5a70),
+            ("current_scene",         0x00db4bb3),
+            ("current_screen",        0x00db4bb6),
+            ("current_field",         0x00db4bb7),
+            ("option_sdata_num",      0x00db6fb7),
+            ("option_sdata",          0x00db7048),
+            ("option_pos_cx",         0x00db714c),
+            ("option_pos_cy",         0x00db7168),
+            ("game_process",          0x00db7178),
+            ("lemeza_pointer",        0x00db7538),
+            ("game_init",             0x00db753c)
+        ]);
+        let version_1_6_6_2 = HashMap::from([
+            ("set_se",                0x004186c0),
+            ("item_get_area_init",    0x004ba720),
+            ("item_symbol_init",      0x004ba8b0),
+            ("item_symbol_back",      0x004bac40),
+            ("set_view_event_ns",     0x00509530),
+            ("popup_dialog_init",     0x00593670),
+            ("popup_dialog_draw",     0x00593900),
+            ("game_loop",             0x00609fb0),
+            ("se",                    0x006de844),
+            ("script_header_pointer", 0x006deb2c),
+            ("inventory_words",       0x006e1820),
+            ("system_flags",          0x006e1b90),
+            ("global_flags",          0x006e1e48),
+            ("current_scene",         0x00dc0ebe),
+            ("current_screen",        0x00dc0ebf),
+            ("current_field",         0x00dc0ee6),
+            ("option_sdata_num",      0x00dc32c2),
+            ("option_sdata",          0x00dc3350),
+            ("option_pos_cx",         0x00dc3454),
+            ("option_pos_cy",         0x00dc3470),
+            ("game_process",          0x00dc3480),
+            ("lemeza_pointer",        0x00dc3844),
+            ("game_init",             0x00dc3848)
+        ]);
+        HashMap::from([
+            ("1.0.0.1", version_1_0_0_1),
+            ("1.6.6.2", version_1_6_6_2)
+        ])
+    });
 }
