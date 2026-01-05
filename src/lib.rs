@@ -1,7 +1,6 @@
 #![feature(unboxed_closures)]
 #![feature(tuple_trait)]
 
-use archipelago::client::APClient;
 use archipelago::api::APError;
 use lazy_static::lazy_static;
 use log::{debug, warn, LevelFilter};
@@ -32,7 +31,7 @@ pub mod utils;
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
 
 lazy_static!{
-    pub static ref APPLICATION: Box<dyn Application + Sync> = init_app();
+    pub static ref APPLICATION: Application = init_app();
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -70,13 +69,6 @@ impl AppConfig {
     }
 }
 
-pub struct LiveApplication {
-    pub address: usize,
-    pub randomizer: Mutex<Result<APClient, APError>>,
-    pub app_config: AppConfig,
-    pub app_version: String
-}
-
 #[no_mangle]
 extern "system" fn DllMain(_h_inst_dll: HINSTANCE, fdw_reason: DWORD, _lpv_reserved: LPVOID) -> bool {
     if fdw_reason != DLL_PROCESS_ATTACH {
@@ -112,7 +104,7 @@ fn init_logger(app_config: &AppConfig) {
     log4rs::init_config(log_config).unwrap();
 }
 
-fn init_app() -> Box<dyn Application + Sync> {
+fn init_app() -> Application {
     let address = unsafe { GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000) } as usize;
 
     let app_config = read_config().map_err(|err| {
@@ -125,10 +117,10 @@ fn init_app() -> Box<dyn Application + Sync> {
     let app_version = get_application_version();
     debug!("Starting lamulana multiworld injection for version {}.", app_version);
 
-    Box::new(LiveApplication { address, randomizer, app_config, app_version})
+    Application { address, randomizer, app_config, app_version}
 }
 
-fn get_application() -> &'static Box<dyn Application + Sync> {
+fn get_application() -> &'static Application {
     &*APPLICATION
 }
 
