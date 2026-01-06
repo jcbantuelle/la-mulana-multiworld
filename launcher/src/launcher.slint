@@ -1,0 +1,21 @@
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component Launcher inherits Window {
+    callback connect-to-archipelago();
+    callback launch-game();
+    VerticalBox {
+        Button {
+            text: "Connect to AP";
+            clicked => {
+                root.connect-to-archipelago();
+            }
+        }
+
+        Button {
+            text: "Launch Game";
+            clicked => {
+                root.launch-game();
+            }
+        }
+    }
+}
