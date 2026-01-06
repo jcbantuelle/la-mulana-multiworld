@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 
 pub struct Item {
     pub item_id: usize,
@@ -7,8 +7,8 @@ pub struct Item {
     pub flag: usize
 }
 
-lazy_static! {
-    pub static ref ARCHIPELAGO_ITEM_LOOKUP: HashMap<i64, Item> = HashMap::from([
+pub static ARCHIPELAGO_ITEM_LOOKUP: LazyLock<HashMap<i64, Item>> = LazyLock::new(|| {
+    HashMap::from([
         (2359000, Item{item_id: 0, item_name: "Leather Whip", flag: 0x863}),
         (2359001, Item{item_id: 1, item_name: "Chain Whip", flag: 0x7d}),
         (2359002, Item{item_id: 2, item_name: "Flail Whip", flag: 0x7e}),
@@ -148,5 +148,5 @@ lazy_static! {
         (2359128, Item{item_id: 112, item_name: "Chakram Ammo", flag: 0x85e}),
         (2359129, Item{item_id: 113, item_name: "Caltrops Ammo", flag: 0x85e}),
         (2359130, Item{item_id: 114, item_name: "Pistol Ammo", flag: 0x85e})
-    ]);
-}
+    ])
+});

@@ -1,9 +1,7 @@
 #![feature(unboxed_closures)]
 #![feature(tuple_trait)]
 
-use archipelago::client::APClient;
 use archipelago::api::APError;
-use lazy_static::lazy_static;
 use log::{debug, warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
@@ -13,7 +11,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
 use std::ptr::null_mut;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 use toml;
 use utils::show_message_box;
 use winapi::shared::minwindef::*;
@@ -31,9 +29,7 @@ pub mod utils;
 
 const CONFIG_FILENAME: &str = "lamulana-config.toml";
 
-lazy_static!{
-    pub static ref APPLICATION: Box<dyn Application + Sync> = init_app();
-}
+pub static APPLICATION: LazyLock<Application> = LazyLock::new(|| { init_app() });
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ArchipelagoPlayer {
@@ -68,13 +64,6 @@ impl AppConfig {
     fn items(&self) -> HashMap<u16, ArchipelagoItem> {
         self.item_mapping.clone().into_iter().map(|mapping| (mapping.flag, mapping)).collect::<HashMap<_,_>>()
     }
-}
-
-pub struct LiveApplication {
-    pub address: usize,
-    pub randomizer: Mutex<Result<APClient, APError>>,
-    pub app_config: AppConfig,
-    pub app_version: String
 }
 
 #[no_mangle]
@@ -112,7 +101,7 @@ fn init_logger(app_config: &AppConfig) {
     log4rs::init_config(log_config).unwrap();
 }
 
-fn init_app() -> Box<dyn Application + Sync> {
+fn init_app() -> Application {
     let address = unsafe { GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000) } as usize;
 
     let app_config = read_config().map_err(|err| {
@@ -125,10 +114,10 @@ fn init_app() -> Box<dyn Application + Sync> {
     let app_version = get_application_version();
     debug!("Starting lamulana multiworld injection for version {}.", app_version);
 
-    Box::new(LiveApplication { address, randomizer, app_config, app_version})
+    Application { address, randomizer, app_config, app_version}
 }
 
-fn get_application() -> &'static Box<dyn Application + Sync> {
+fn get_application() -> &'static Application {
     &*APPLICATION
 }
 

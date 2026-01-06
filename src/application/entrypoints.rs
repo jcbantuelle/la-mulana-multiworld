@@ -1,14 +1,10 @@
-use futures::future::Either;
-use lazy_static::lazy_static;
 use log::{debug, warn};
 use std::collections::{HashMap, VecDeque};
-use std::marker::Sync;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
-use crate::application::{AppAddresses, Application, ApplicationMemoryOps};
+use crate::get_application;
 use crate::archipelago::api::*;
 use crate::archipelago::client::APClient;
-use crate::get_application;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
 use crate::lm_structs::taskdata::{EventWithBool, TaskData};
@@ -38,15 +34,13 @@ pub struct PlayerItemPopup {
     pub encoded: Vec<u16>
 }
 
-lazy_static! {
-    static ref PLAYER_ITEMS: Mutex<HashMap<i32, PlayerItem>> = Mutex::new(HashMap::from([]));
-    static ref PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-    static ref SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
-    static ref GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
-    static ref ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
-    static ref DEFAULT_POPUP_SCRIPT: Vec<u16> = vec![0x100,0x000a];
-    static ref RUNTIME: tokio::runtime::Runtime = tokio::runtime::Runtime::new().unwrap();
-}
+static PLAYER_ITEMS: LazyLock<Mutex<HashMap<i32, PlayerItem>>> = LazyLock::new(|| { Mutex::new(HashMap::new()) });
+static PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
+static SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
+static GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
+static ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
+static DEFAULT_POPUP_SCRIPT: LazyLock<Vec<u16>> = LazyLock::new(|| { vec![0x100,0x000a] });
+static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| { tokio::runtime::Runtime::new().unwrap() });
 
 pub type FnGameLoop = extern "C" fn();
 pub type FnPopupDialogDrawIntercept = extern "C" fn(&TaskData);
@@ -54,10 +48,9 @@ pub type FnItemSymbolInitIntercept = extern "C" fn(&mut TaskData);
 
 pub fn game_loop() {
     let application = get_application();
-    let app_addresses = application.app_addresses();
-    let game_init: &mut u32 = application.read_address(app_addresses.game_init);
-    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags);
-    let system_flags: &[u32;16] = application.read_address(app_addresses.system_flags);
+    let game_init: &mut u32 = application.read_address("game_init");
+    let global_flags: &mut [u8;4096] = application.read_address("global_flags");
+    let system_flags: &[u32;16] = application.read_address("system_flags");
 
     if (system_flags[3] & 0x20000) == 0x20000 {
         std::thread::spawn(move || {
@@ -73,7 +66,7 @@ pub fn game_loop() {
             *SYNC_REQUIRED.lock().unwrap() = true;
         });
     } else if *game_init != 0 && global_flags[0x863] > 0 {
-        display_item_if_available(application, app_addresses);
+        display_item_if_available();
         std::thread::spawn(move || {
             RUNTIME.block_on(get_updates_from_server());
         });
@@ -87,7 +80,7 @@ pub fn game_loop() {
                     let ap_item_id = ap_item.network_item.item;
                     let lm_item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item_id)).unwrap();
 
-                    let inventory_pointer: &mut usize = application.read_address(app_addresses.inventory_words);
+                    let inventory_pointer: &mut usize = application.read_address("inventory_words");
                     let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
 
                     let give_item = if lm_item.item_id == 70 || lm_item.item_id == 19 || lm_item.item_id == 69 {
@@ -99,9 +92,9 @@ pub fn game_loop() {
                     if give_item {
                         let mut rooms = ap_item.rooms.clone();
 
-                        let field: &mut u8 = application.read_address(app_addresses.current_field);
-                        let screen: &mut u8 = application.read_address(app_addresses.current_screen);
-                        let scene: &mut u8 = application.read_address(app_addresses.current_scene);
+                        let field: &mut u8 = application.read_address("current_field");
+                        let screen: &mut u8 = application.read_address("current_screen");
+                        let scene: &mut u8 = application.read_address("current_scene");
                         let room_index = format!("{},{},{}", field, scene, screen);
 
                         if rooms.contains(&room_index) {
@@ -135,11 +128,10 @@ pub fn game_loop() {
 
 pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
     let application = get_application();
-    let app_addresses = application.app_addresses();
     let mut player_items = PLAYER_ITEMS.lock().unwrap();
 
     if let Some(player_item) = player_items.get(&popup_dialog.sbuff[0]) {
-        let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer);
+        let script_header: &*const ScriptHeader = application.read_address("script_header_pointer");
         let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
         let line = unsafe { &mut *line_header.add(2) };
 
@@ -185,7 +177,6 @@ pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
 
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     let application = get_application();
-    let app_addresses = application.app_addresses();
     let acquired = item.hit_data > 0;
     let item_id = item.buff[1];
     let for_other_player = item_id == 83;
@@ -194,7 +185,7 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
         item.sbuff[2] = 0;
     }
 
-    let item_symbol_back: &*const () = application.read_address(app_addresses.item_symbol_back);
+    let item_symbol_back: &*const () = application.read_address("item_symbol_back");
     let item_symbol_back_func: extern "C" fn(&TaskData) -> u32 = unsafe { std::mem::transmute(item_symbol_back) };
     let result = (item_symbol_back_func)(item);
 
@@ -212,11 +203,12 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     result
 }
 
-fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addresses: &AppAddresses) {
+fn display_item_if_available() {
+    let application = get_application();
     if let Some(popup_option) = PLAYER_ITEM_POPUP.try_lock().ok().as_mut() {
         if let Some(popup) = popup_option.as_ref() {
             if popup.popup_id != *application.read_raw_address::<u32>(popup.popup_id_address) {
-                let script_header: &*const ScriptHeader = application.read_address(app_addresses.script_header_pointer);
+                let script_header: &*const ScriptHeader = application.read_address("script_header_pointer");
                 let line_header = unsafe { (*script_header.add(3)).data as *mut ScriptSubHeader};
                 let line = unsafe { &mut *line_header.add(2) };
                 line.pointer = DEFAULT_POPUP_SCRIPT.as_ptr() as usize;
@@ -229,104 +221,100 @@ fn display_item_if_available(application: &Box<dyn Application + Sync>, app_addr
 
 async fn get_updates_from_server() {
     let application = get_application();
-    let app_addresses = application.app_addresses();
-    let no_connection = match application.get_randomizer().try_lock() {
-        Ok(mut randomizer) => {
-            match randomizer.as_mut() {
-                Ok(ap_client) => {
-                    let global_flags: &mut [u8;4096] = application.read_address(app_addresses.global_flags);
-                    let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
-                        global_flags[**k as usize] == 2
-                    ).map(|(_,v)|
-                        v.location_id
-                    ).collect();
 
-                    let ap_message = if SYNC_REQUIRED.try_lock().is_ok_and(|mut sync_lock| {
-                        let sync_required = *sync_lock;
-                        *sync_lock = false;
-                        sync_required
-                    }) {
-                        Either::Left(ap_client.sync())
-                    }
-                    else {
-                        Either::Right(ap_client.location_checks(found_items))
-                    };
-
-                    match ap_message.await {
-                        Ok(_) => {
-                            match ap_client.read().await {
-                                Ok(response) => {
-                                    debug!("Received Message From Server: {:?}", response);
-                                    match response {
-                                        ServerPayload::ReceivedItems(received_items) => {
-                                            if received_items.index > 0 {
-                                                let mut received_item_index = ((global_flags[0x867] as u16) << 8) | global_flags[0x868] as u16;
-                                                if received_item_index != received_items.index {
-                                                    *SYNC_REQUIRED.lock().unwrap() = true;
-                                                }
-                                                received_item_index += 1;
-                                                global_flags[0x867] = (received_item_index >> 8) as u8;
-                                                global_flags[0x868] = received_item_index as u8;
-                                            }
-                                            
-                                            let items_from_ap = received_items.items;
-                                            let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-                                            for network_item in items_from_ap {
-                                                let item_for_player = NetworkItemForPlayer {
-                                                    network_item,
-                                                    rooms: Vec::new()
-                                                };
-                                                items_to_give.push_back(item_for_player);
-                                            }
-                                        },
-                                        _ => {}
-                                    }
-                                    false
-                                },
-                                Err(e) => {
-                                    match e {
-                                        APError::PingPong => false, // Suppress Ping/Pong Responses
-                                        APError::NoConnection => {
-                                            debug!("Connection to Server Lost, Attempting Reconnect");
-                                            true
-                                        },
-                                        _ => {
-                                            debug!("Unexpected Binary Data from Server");
-                                            false
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        Err(_) => {
-                            warn!("Attempt to Send to AP Server Failed, Attempting Reconnect");
-                            true
-                        }
-                    }
-                },
-                Err(ap_error) => {
-                    match ap_error {
-                        APError::NoConnection => {},
-                        e => {
-                            warn!("Unhandled Network Error {}, attempting reconnect", e);
-                        }
-                    }                    
-                    true
-                }
-            }
-        },
-        Err(_) => false
+    // Get Handle to Randomizer, and Connect to Server If Not Currently Connected
+    let Ok(mut randomizer_lock) = application.get_randomizer().try_lock() else { return };
+    let Ok(randomizer) = randomizer_lock.as_mut() else {
+        connect_to_server(randomizer_lock).await;
+        return
     };
 
-    if no_connection {
-        connect_to_server().await;
+    // Send Sync Request to Server if Needed, Attempt Reconnect if Network Error
+    if SYNC_REQUIRED.try_lock().is_ok_and(|mut sync_lock| {
+        let sync_required = *sync_lock;
+        *sync_lock = false;
+        sync_required
+    }) {
+        match randomizer.sync().await {
+            Ok(_) => {},
+            Err(ap_error) => {
+                match ap_error {
+                    APError::NoConnection => {},
+                    e => {
+                        warn!("Unhandled Network Error {}, attempting reconnect", e);
+                    }
+                }
+                connect_to_server(randomizer_lock).await;
+                return
+            }
+        }
+    }
+
+    let global_flags: &mut [u8;4096] = application.read_address("global_flags");
+    let found_items: Vec<i64> = application.get_app_config().items().iter().filter(|(k,_)|
+        global_flags[**k as usize] == 2
+    ).map(|(_,v)|
+        v.location_id
+    ).collect();
+
+    // Send List of Found Items to Server, Attempt Reconnect if Network Error
+    match randomizer.location_checks(found_items).await {
+        Ok(_) => {},
+        Err(_) => {
+            warn!("Attempt to Send to AP Server Failed, Attempting Reconnect");
+            connect_to_server(randomizer_lock).await;
+            return
+        }
+    }
+
+    // Read Next Message From Server
+    match randomizer.read().await {
+        Ok(response) => {
+            debug!("Received Message From Server: {:?}", response);
+            match response {
+                ServerPayload::ReceivedItems(received_items) => {
+                    if received_items.index > 0 {
+                        let mut received_item_index = ((global_flags[0x867] as u16) << 8) | global_flags[0x868] as u16;
+                        if received_item_index != received_items.index {
+                            *SYNC_REQUIRED.lock().unwrap() = true;
+                        }
+                        received_item_index += 1;
+                        global_flags[0x867] = (received_item_index >> 8) as u8;
+                        global_flags[0x868] = received_item_index as u8;
+                    }
+
+                    let items_from_ap = received_items.items;
+                    let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
+                    for network_item in items_from_ap {
+                        let item_for_player = NetworkItemForPlayer {
+                            network_item,
+                            rooms: Vec::new()
+                        };
+                        items_to_give.push_back(item_for_player);
+                    }
+                },
+                _ => {}
+            }
+        },
+        Err(e) => {
+            match e {
+                APError::PingPong => {}, // Suppress Ping/Pong Responses
+                APError::NoConnection => {
+                    debug!("Connection to Server Lost, Attempting Reconnect");
+                    connect_to_server(randomizer_lock).await;
+                    return
+                },
+                _ => {
+                    debug!("Unexpected Binary Data from Server");
+                }
+            }
+        }
     }
 }
 
-pub async fn connect_to_server() {
+pub async fn connect_to_server(mut randomizer: MutexGuard<'_, Result<APClient, APError>>) {
     let application = get_application();
     let app_config = application.get_app_config();
-    let mut randomizer = application.get_randomizer().lock().unwrap();
     *randomizer = APClient::new(&app_config.server_url).await;
     match randomizer.as_mut() {
         Ok(ap_client) => {

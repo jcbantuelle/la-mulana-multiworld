@@ -32,6 +32,7 @@ pub enum APError {
 // Client -> Server Payloads
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(untagged)]
 pub enum ClientPayload {
     Connect(Connect),
     ConnectUpdate(ConnectUpdate),
@@ -266,7 +267,7 @@ pub struct Bounced {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct InvalidPacket {
     pub r#type: String,
-    pub original_cmd: String,
+    pub original_cmd: Option<String>,
     pub text: String
 }
 
