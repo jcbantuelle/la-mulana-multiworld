@@ -4,6 +4,7 @@ pub mod archipelago;
 
 use dll_syringe::{process::OwnedProcess, Syringe};
 use log::debug;
+use slint::ComponentHandle;
 use std::{fs, process};
 use std::error::Error;
 use std::path::Path;
@@ -23,7 +24,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fs::write("steam_appid.txt", app_id).expect("Failed to generate steam_appid.txt, check permissions");
     }
 
-    let launcher = Launcher::new()?;
+    let setup = Setup::new()?;
+    let setup_handle = setup.as_weak();
+
+    let launcher = Launcher::new().unwrap();
+    let launcher_handle = launcher.as_weak();
+
+    setup.on_complete_setup(move || {
+        let launcher = launcher_handle.unwrap();
+        let setup = setup_handle.unwrap();
+
+        let _ = launcher.show();
+        let _ = setup.hide();
+    });
 
     launcher.on_launch_game(move || {
         let _ = slint::spawn_local(async move {
@@ -37,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         });
     });
 
-    launcher.run()?;
+    setup.run()?;
 
     Ok(())
 }

@@ -1,6 +1,26 @@
 import { Button, VerticalBox } from "std-widgets.slint";
 
+export component Setup inherits Window {
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("lmmw.png");
+    preferred-height: 300px;
+    preferred-width: 400px;
+    callback complete_setup();
+    VerticalBox {
+        Button {
+            text: "Complete Setup";
+            clicked => {
+                root.complete_setup();
+            }
+        }
+    }
+}
+
 export component Launcher inherits Window {
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("lmmw.png");
+    preferred-height: 300px;
+    preferred-width: 400px;
     callback connect-to-archipelago();
     callback launch-game();
     VerticalBox {
