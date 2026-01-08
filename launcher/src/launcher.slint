@@ -1,6 +1,7 @@
 import { Button, VerticalBox } from "std-widgets.slint";
 
 export component Setup inherits Window {
+    in-out property <string> checker_output;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("lmmw.png");
     preferred-height: 300px;
@@ -8,7 +9,7 @@ export component Setup inherits Window {
     callback complete_setup();
     VerticalBox {
         Button {
-            text: "Complete Setup";
+            text: "\{root.checker_output}";
             clicked => {
                 root.complete_setup();
             }
