@@ -1,17 +1,31 @@
-import { Button, VerticalBox } from "std-widgets.slint";
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 
-export component Setup inherits Window {
-    in-out property <string> checker_output;
+export component ErrorMessage inherits Window {
+    in-out property <string> error_message;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("lmmw.png");
-    preferred-height: 300px;
-    preferred-width: 400px;
-    callback complete_setup();
+    height: 280px;
+    width: 430px;
+    callback close();
     VerticalBox {
+        Text {
+            text: "There were issues detected with your setup that are preventing the Randomizer from working properly.\n\nPlease review and correct these problems to proceed. If you contintue to have problems, please open an issue at https://github.com/jcbantuelle/la-mulana-multiworld/issues or contact Arakida in the La-Mulana Discord (https://discord.gg/KGGxBkSTBN)";
+            wrap: word-wrap;
+        }
+        Text {
+            text: "Error:";
+            font-weight: 600;
+        }
+        Text {
+            text: "\{root.error_message}";
+            wrap: word-wrap;
+        }
         Button {
-            text: "\{root.checker_output}";
+            text: "Done";
+            height: 30px;
+            width: 60px;
             clicked => {
-                root.complete_setup();
+                root.close()
             }
         }
     }
@@ -24,18 +38,30 @@ export component Launcher inherits Window {
     preferred-width: 400px;
     callback connect-to-archipelago();
     callback launch-game();
-    VerticalBox {
+    callback close();
+    HorizontalBox {
         Button {
-            text: "Connect to AP";
+            height: 45px;
+            width: 80px;
+            text: "Connect\nto AP";
             clicked => {
                 root.connect-to-archipelago();
             }
         }
-
         Button {
-            text: "Launch Game";
+            height: 45px;
+            width: 80px;
+            text: "Launch\nGame";
             clicked => {
                 root.launch-game();
+            }
+        }
+        Button {
+            height: 45px;
+            width: 80px;
+            text: "Done";
+            clicked => {
+                root.close();
             }
         }
     }
