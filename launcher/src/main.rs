@@ -4,13 +4,14 @@ pub mod archipelago;
 
 use dll_syringe::{process::OwnedProcess, Syringe};
 use log::debug;
+use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 use slint::ComponentHandle;
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::fs::ReadDir;
 use std::{env, fs, process};
 use std::error::Error;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 use sysinfo::System;
 
 use crate::archipelago::api::*;
@@ -25,6 +26,35 @@ struct LaMulanaConfig {
     pub effects_digest: &'static str,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct Player {
+    pub id: i64,
+    pub name: String
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct Item {
+    pub flag: u16,
+    pub location_id: i64,
+    pub player_id: i64,
+    pub obtain_value: u8
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct Game {
+    pub seed: String,
+    pub you: Player,
+    pub password: String,
+    pub players: Vec<Player>,
+    pub items: Vec<Item>
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct APData {
+    pub games: Vec<Game>,
+    pub active_game: Option<Game>
+}
+
 #[derive(Clone, Debug)]
 struct LaMulanaFileVerification {
     pub file_path: String,
@@ -33,7 +63,7 @@ struct LaMulanaFileVerification {
 
 impl LaMulanaFileVerification {
     pub fn verify(&self) -> Result<(), String> {
-        match fs::read(self.file_path.as_str()) {
+        match fs::read(&self.file_path) {
             Ok(lm_file) => {
                 let lm_digest = hex::encode(Sha256::digest(lm_file)).to_uppercase();
                 if lm_digest == self.digest {
@@ -47,18 +77,25 @@ impl LaMulanaFileVerification {
     }
 }
 
+static AP_DATA: Mutex<APData> = Mutex::new(APData { games: Vec::new(), active_game: None });
 static LAMULANA_EXECUTABLE_NAME: &str = "LaMulanaWin";
 static LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION: LazyLock<String> = LazyLock::new(|| { format!("{}.exe", LAMULANA_EXECUTABLE_NAME) });
 static LAMULANA_MW_DLL_NAME: &str = "LaMulanaMW.dll";
-static SEEDS_PATH: &str = "seeds/";
 static STEAM_APP_ID_PATH: &str = "steam_appid";
-static VANILLA_SEED_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}vanilla/", SEEDS_PATH) });
-static BASE_RCD_PATH: &str = "data/mapdata/script.rcd";
-static BASE_DAT_PATH: &str = "data/language/en/script_code.dat";
-static BASE_EFFECTS_PATH: &str = "data/graphics/00/01effect.png";
+
+static ORIGINAL_RCD_PATH: &str = "data/mapdata/script.rcd";
+static ORIGINAL_DAT_PATH: &str = "data/language/en/script_code.dat";
+static ORIGINAL_EFFECTS_PATH: &str = "data/graphics/00/01effect.png";
+
+static AP_PATH: &str = "ap/";
+static AP_DATA_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}ap_data.json", AP_PATH) });
+static SOURCE_FILES_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}source/", AP_PATH) });
+static SOURCE_RCD_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}script.rcd", SOURCE_FILES_PATH.to_string()) });
+static SOURCE_DAT_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}script_code.rcd", SOURCE_FILES_PATH.to_string()) });
+static SOURCE_EFFECTS_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}01effect.png", SOURCE_FILES_PATH.to_string()) });
 
 static VALID_EXE_DIGESTS: LazyLock<HashMap<String, LaMulanaConfig>> = LazyLock::new(|| {
-    let home_dir = env::var_os("USERPROFILE").unwrap_or(OsString::new()).into_string().unwrap_or(String::new());
+    let home_dir = env::var("USERPROFILE").unwrap_or(String::new());
 
     HashMap::from([
         (
@@ -91,10 +128,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     match verify_install() {
         Ok(_) => {
-            // If no seeds/ap.json file
-            //     generate AP struct and serialize to seeds/ap.json
-            // Else
-            //     Deserialize seeds/ap.json to AP struct
+            let _ = load_ap_data()?;
 
             let launcher = Launcher::new().unwrap();
             let launcher_handle = launcher.as_weak();
@@ -146,10 +180,10 @@ fn verify_install() -> Result<(), String> {
 
 fn verify_exe() -> Result<LaMulanaConfig, String> {
     // Confirm that the LM executable actually exists (mostly protection against the launcher being run from the wrong location)
-    let _ = path_exists(LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION.as_str(), true)?;
+    let _ = path_exists(&LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION, true)?;
 
     // Confirm that the LM executable is an unmodded copy of a supported version
-    let lm_file = read_file(LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION.as_str())?;
+    let lm_file = read_file(&LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION)?;
     let lm_digest = hex::encode(Sha256::digest(lm_file)).to_uppercase();
 
     match VALID_EXE_DIGESTS.get(&lm_digest) {
@@ -183,18 +217,18 @@ fn verify_game_files(lm_config: LaMulanaConfig) -> Result<(), String> {
     // Confirm the Save directory is discoverable
     let _ = path_exists(lm_config.save_path.as_str(), true)?;
 
-    let seeds_dir_exists = path_exists(VANILLA_SEED_PATH.as_str(), false)?;
+    let seeds_dir_exists = path_exists(SOURCE_FILES_PATH.as_str(), false)?;
     let files_to_verify = if seeds_dir_exists {
         [
-            LaMulanaFileVerification { file_path: format!("{}script.rcd", VANILLA_SEED_PATH.to_string()), digest: lm_config.rcd_digest },
-            LaMulanaFileVerification { file_path: format!("{}script_code.dat", VANILLA_SEED_PATH.to_string()), digest: lm_config.dat_digest },
-            LaMulanaFileVerification { file_path: format!("{}effects01.png", VANILLA_SEED_PATH.to_string()), digest: lm_config.effects_digest}
+            LaMulanaFileVerification { file_path: SOURCE_RCD_PATH.to_string(), digest: lm_config.rcd_digest },
+            LaMulanaFileVerification { file_path: SOURCE_DAT_PATH.to_string(), digest: lm_config.dat_digest },
+            LaMulanaFileVerification { file_path: SOURCE_EFFECTS_PATH.to_string(), digest: lm_config.effects_digest }
         ]
     } else {
         [
-            LaMulanaFileVerification { file_path: BASE_RCD_PATH.to_string(), digest: lm_config.rcd_digest },
-            LaMulanaFileVerification { file_path: BASE_DAT_PATH.to_string(), digest: lm_config.dat_digest },
-            LaMulanaFileVerification { file_path: BASE_EFFECTS_PATH.to_string(), digest: lm_config.effects_digest}
+            LaMulanaFileVerification { file_path: ORIGINAL_RCD_PATH.to_string(), digest: lm_config.rcd_digest },
+            LaMulanaFileVerification { file_path: ORIGINAL_DAT_PATH.to_string(), digest: lm_config.dat_digest },
+            LaMulanaFileVerification { file_path: ORIGINAL_EFFECTS_PATH.to_string(), digest: lm_config.effects_digest }
         ]
     };
 
@@ -209,6 +243,35 @@ fn verify_game_files(lm_config: LaMulanaConfig) -> Result<(), String> {
 
     if !invalid_files.is_empty() {
         return Err(invalid_files.join("\n"))
+    }
+
+    if !seeds_dir_exists {
+        let _ = create_dir(&SOURCE_FILES_PATH)?;
+        let _ = copy_file(ORIGINAL_RCD_PATH, &SOURCE_RCD_PATH)?;
+        let _ = copy_file(ORIGINAL_DAT_PATH, &SOURCE_DAT_PATH)?;
+        let _ = copy_file(ORIGINAL_EFFECTS_PATH, &SOURCE_EFFECTS_PATH)?;
+
+        let save_destination = format!("{}save/", SOURCE_FILES_PATH.to_string());
+        let _ = create_dir(&save_destination)?;
+        let save_dir = read_dir(&lm_config.save_path)?;
+        let save_files = save_dir.filter_map(|save_file| {
+            match save_file {
+                Ok(f) => {
+                    if f.path().is_file() {
+                        let file_name = f.path().file_name().unwrap().to_str().unwrap().to_string();
+                        let file_path = f.path().as_os_str().to_str().unwrap().to_string();
+                        Some((file_name, file_path))
+                    } else {
+                        None
+                    }
+                },
+                Err(_) => None
+            }
+        });
+        for (save_file_name, save_file_path) in save_files {
+            let save_dest = format!("{}{}", save_destination, save_file_name);
+            let _ = copy_file(&save_file_path, &save_dest);
+        }
     }
 
      Ok(())
@@ -229,14 +292,57 @@ fn path_exists(file_path: &str, error_if_missing: bool) -> Result<bool, String> 
 
 fn read_file(file_path: &str) -> Result<Vec<u8>, String> {
     fs::read(file_path).or_else(|e| {
-        Err(format!("File system error {} attempting to read {} exists, please correct and try again.", e, file_path))
+        Err(format!("File system error {} attempting to read {}, please correct and try again.", e, file_path))
+    })
+}
+
+fn read_file_as_string(file_path: &str) -> Result<String, String> {
+    fs::read_to_string(file_path).or_else(|e| {
+        Err(format!("File system error {} attempting to read {}, please correct and try again.", e, file_path))
     })
 }
 
 fn write_file(file_path: &str, file_contents: &str) -> Result<(), String> {
     fs::write(file_path, file_contents).or_else(|e| {
-        Err(format!("File system error {} attempting to write {} exists, please correct and try again.", e, file_path))
+        Err(format!("File system error {} attempting to write {}, please correct and try again.", e, file_path))
     })
+}
+
+fn create_dir(file_path: &str) -> Result<(), String> {
+    fs::create_dir_all(file_path).or_else(|e| {
+        Err(format!("File system error {} attempting to create {}, please correct and try again.", e, file_path))
+    })
+}
+
+fn read_dir(file_path: &str) -> Result<ReadDir, String> {
+    fs::read_dir(file_path).or_else(|e| {
+        Err(format!("File system error {} attempting to read {}, please correct and try again.", e, file_path))
+    })
+}
+
+fn copy_file(file_src: &str, file_dest: &str) -> Result<u64, String> {
+    fs::copy(file_src, file_dest).or_else(|e| {
+        Err(format!("File system error {} attempting to copy {} to {}, please correct and try again.", e, file_src, file_dest))
+    })
+}
+
+fn load_ap_data() -> Result<(), String> {
+    let mut ap_data = AP_DATA.lock().map_err(|e| {
+        format!("Error {} while attempting to obtain AP Data lock.", e)
+    })?;
+    if path_exists(&AP_DATA_PATH, false)? {
+        let serialized_ap_data = read_file_as_string(&AP_DATA_PATH)?;
+        let deserialized_ap_data = serde_json::from_str::<APData>(&serialized_ap_data).map_err(|e| {
+            format!("Error {} while attempting to deserialize AP Data.", e)
+        })?;
+        *ap_data = deserialized_ap_data;
+    } else {
+        let serialized_ap_data = serde_json::to_string::<APData>(&ap_data).map_err(|e| {
+            format!("Error {} while attempting to serialize AP Data.", e)
+        })?;
+        write_file(&AP_DATA_PATH, &serialized_ap_data)?;
+    }
+    Ok(())
 }
 
 async fn launch_game() {
