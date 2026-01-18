@@ -198,7 +198,7 @@ pub struct Connected {
     pub players: Vec<NetworkPlayer>,
     pub missing_locations: Vec<i64>,
     pub checked_locations: Vec<i64>,
-    pub slot_data: Option<HashMap<String, String>>,
+    pub slot_data: Option<SlotData>,
     pub slot_info: HashMap<String, NetworkSlot>,
     pub hint_points: i64
 }
@@ -232,7 +232,7 @@ pub struct RoomUpdate {
     pub players: Option<Vec<NetworkPlayer>>,
     pub missing_locations: Option<Vec<i64>>,
     pub checked_locations: Option<Vec<i64>>,
-    pub slot_data: Option<HashMap<String, String>>,
+    pub slot_data: Option<SlotData>,
     pub slot_info: Option<HashMap<String, NetworkSlot>>,
     pub hint_points: Option<i64>
 }
@@ -415,4 +415,48 @@ pub enum SlotType {
     Spectator = 0,
     Player = 1,
     Group = 2
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SlotData {
+    pub options: HashMap<String, u64>,
+    pub cursed_chests: Vec<String>,
+    pub start_inventory: Vec<String>,
+    pub locations: Vec<Location>,
+    pub item_table: HashMap<String, ItemData>
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Location {
+    pub address: Option<u64>,
+    pub cards: Option<Vec<u64>>,
+    pub item: Option<Item>,
+    pub item_id: Option<u64>,
+    pub name: String,
+    pub object_type: Option<u64>,
+    pub room: Option<u64>,
+    pub screen: Option<u64>,
+    pub slot: Option<u64>,
+    pub zones: Option<Vec<u64>>
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Item {
+	pub name: String,
+	pub player: u64
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ItemData {
+	pub category: String,
+	pub code: u64,
+	pub progression: bool,
+	pub useful: bool,
+	pub trap: bool,
+	pub number: u64,
+	pub game_code: i64,
+	pub cost: Option<u64>,
+	pub quantity: u64,
+	pub obtain_flag: Option<u64>,
+	pub obtain_value: Option<u64>
 }
