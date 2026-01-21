@@ -1,37 +1,7 @@
 use log::debug;
-use serde::{Serialize, Deserialize};
 
 use crate::archipelago::api::*;
 use crate::archipelago::client::APClient;
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct APData {
-    pub games: Vec<Game>,
-    pub active_game: Option<Game>
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Player {
-    pub id: i64,
-    pub name: String
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Item {
-    pub flag: u16,
-    pub location_id: i64,
-    pub player_id: i64,
-    pub obtain_value: u8
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Game {
-    pub seed: String,
-    pub you: Player,
-    pub password: String,
-    pub players: Vec<Player>,
-    pub items: Vec<Item>
-}
 
 #[derive(Clone, Debug)]
 pub struct APConnection {

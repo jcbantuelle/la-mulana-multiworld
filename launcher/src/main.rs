@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod ap_connection;
+pub mod ap_data;
 pub mod archipelago;
 pub mod consts;
 pub mod file_utils;
@@ -8,22 +9,25 @@ pub mod verifier;
 
 use dll_syringe::{process::OwnedProcess, Syringe};
 use slint::ComponentHandle;
-use std::process;
 use std::error::Error;
+use std::sync::Mutex;
+use std::process;
 
-use crate::ap_connection::{APConnection, APData};
+use crate::ap_connection::APConnection;
+use crate::ap_data::APData;
 use crate::consts::*;
 use crate::verifier::Verifier;
 
 slint::include_modules!();
 
+pub static AP_DATA: Mutex<Option<APData>> = Mutex::new(None);
+pub static AP_CONNECTION: Mutex<Option<APConnection>> = Mutex::new(None);
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let verifier = Verifier::new();
-
-    match verifier.verify_install() {
-        Ok(_) => {
-            let _ = load_ap_data()?;
+    match Verifier::verify_install() {
+        Ok(lm_config) => {
+            let ap_data = APData::new()?;
 
             let launcher = Launcher::new().unwrap();
             let launcher_handle = launcher.as_weak();
@@ -67,34 +71,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn load_ap_data() -> Result<(), String> {
-    let mut ap_data = AP_DATA.lock().map_err(|e| {
-        format!("Error {} while attempting to obtain AP Data lock.", e)
-    })?;
-    if file_utils::path_exists(&AP_DATA_PATH, false)? {
-        let serialized_ap_data = file_utils::read_file_as_string(&AP_DATA_PATH)?;
-        let deserialized_ap_data = serde_json::from_str::<APData>(&serialized_ap_data).map_err(|e| {
-            format!("Error {} while attempting to deserialize AP Data.", e)
-        })?;
-        *ap_data = deserialized_ap_data;
-    } else {
-        let serialized_ap_data = serde_json::to_string::<APData>(&ap_data).map_err(|e| {
-            format!("Error {} while attempting to serialize AP Data.", e)
-        })?;
-        file_utils::write_file(&AP_DATA_PATH, &serialized_ap_data)?;
-    }
-    Ok(())
-}
-
 async fn launch_game() {
     match process::Command::new(LAMULANA_EXECUTABLE_NAME).spawn() {
         Ok(mut p) => {
+            let dll = "LaMulanaMW.dll";
+
             let process_id = p.id();
             let target_process = OwnedProcess::from_pid(process_id).unwrap();
             let syringe = Syringe::for_process(target_process);
 
-            println!("Injecting into {} of PID {} with {}.", LAMULANA_EXECUTABLE_NAME, process_id, LAMULANA_MW_DLL_NAME);
-            match syringe.inject(LAMULANA_MW_DLL_NAME) {
+            println!("Injecting into {} of PID {} with {}.", LAMULANA_EXECUTABLE_NAME, process_id, dll);
+            match syringe.inject(dll) {
                 Ok(_) => {
                     println!("Injected and now waiting on process exit.");
                     p.wait().unwrap();
