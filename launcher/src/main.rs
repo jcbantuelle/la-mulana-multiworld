@@ -27,7 +27,7 @@ pub static AP_CONNECTION: Mutex<Option<APConnection>> = Mutex::new(None);
 async fn main() -> Result<(), Box<dyn Error>> {
     match Verifier::verify_install() {
         Ok(lm_config) => {
-            let ap_data = APData::new()?;
+            let ap_data = APData::new(lm_config)?;
 
             let launcher = Launcher::new().unwrap();
             let launcher_handle = launcher.as_weak();

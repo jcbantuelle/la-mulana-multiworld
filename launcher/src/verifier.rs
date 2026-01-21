@@ -2,17 +2,9 @@ use sha2::{Sha256, Digest};
 use std::env;
 use sysinfo::System;
 
+use crate::ap_data::LaMulanaConfig;
 use crate::consts::*;
 use crate::file_utils;
-
-#[derive(Clone, Debug)]
-pub struct LaMulanaConfig {
-    pub version: &'static str,
-    pub save_path: String,
-    pub rcd_digest: &'static str,
-    pub dat_digest: &'static str,
-    pub effects_digest: &'static str,
-}
 
 pub struct Verifier;
 
@@ -122,7 +114,7 @@ impl Verifier {
         Ok(())
     }
 
-    fn verify_lm_file(file_path: String, digest: &'static str) -> Result<(), String> {
+    fn verify_lm_file(file_path: String, digest: String) -> Result<(), String> {
         match file_utils::read_file(file_path.as_str()) {
             Ok(lm_file) => {
                 let lm_digest = hex::encode(Sha256::digest(lm_file)).to_uppercase();
@@ -139,20 +131,20 @@ impl Verifier {
     fn fetch_config(digest: String) -> Result<LaMulanaConfig, String> {
         if digest == "390E26B6A0C1F14BCAC521D2F8E410C4DEAD0B3E2693B2192BD6CA7832CB5B17" {
             Ok(LaMulanaConfig {
-                version: "1.0.0.1",
+                version: "1.0.0.1".to_string(),
                 save_path: "save/".to_string(),
-                rcd_digest: "87437780618A3ABDE22BC7200B793FB900169E4F018D1F37D323AC6B5B2F120E",
-                dat_digest: "E9F34854D82EBA1E72DD80C573DB1202AA15524FAAC3FC82C8D9F9943BD9F31C",
-                effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466"
+                rcd_digest: "87437780618A3ABDE22BC7200B793FB900169E4F018D1F37D323AC6B5B2F120E".to_string(),
+                dat_digest: "E9F34854D82EBA1E72DD80C573DB1202AA15524FAAC3FC82C8D9F9943BD9F31C".to_string(),
+                effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
             })
         } else if digest == "94228016FFFF8A0BA6325140F0CFF6896E2BD0579BB2099D234508DEDE65923F" {
             let home_dir = env::var("USERPROFILE").unwrap_or(String::new());
             Ok(LaMulanaConfig {
-                version: "1.6.6.2",
+                version: "1.6.6.2".to_string(),
                 save_path: format!("{}/Documents/nigoro/la-mulana/save/", home_dir),
-                rcd_digest: "583DCE2B2BB41E7A1927C6052F7A6AEFEE3F021A792E1AC587E2103C8B5D4CAC",
-                dat_digest: "89A2AA21E2CB2DAD6DB5F2EEA474903927980384DE4BC868A9494B1DA3DFED2B",
-                effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466"
+                rcd_digest: "583DCE2B2BB41E7A1927C6052F7A6AEFEE3F021A792E1AC587E2103C8B5D4CAC".to_string(),
+                dat_digest: "89A2AA21E2CB2DAD6DB5F2EEA474903927980384DE4BC868A9494B1DA3DFED2B".to_string(),
+                effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
             })
         } else {
             Err(format!("Your version of {} appears to be an unsupported version or modded. Please ensure it's an unaltered copy and that it's either version 1.0.0.1 or 1.6.6.2", *LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION))

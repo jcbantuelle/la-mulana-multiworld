@@ -1,7 +1,17 @@
+use log::debug;
 use serde::{Serialize, Deserialize};
 
 use crate::consts::{AP_PATH};
 use crate::file_utils;
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct LaMulanaConfig {
+    pub version: String,
+    pub save_path: String,
+    pub rcd_digest: String,
+    pub dat_digest: String,
+    pub effects_digest: String,
+}
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Game {
@@ -28,25 +38,34 @@ pub struct Item {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct APData {
+    pub config: LaMulanaConfig,
     pub games: Vec<Game>,
     pub active_game: Option<Game>
 }
 
 impl APData {
-    pub fn new() -> Result<APData, String> {
+    pub fn new(lm_config: LaMulanaConfig) -> Result<APData, String> {
         let data_path = format!("{}ap_data.json", AP_PATH);
-        if file_utils::path_exists(&data_path, false)? {
+        let ap_data_found = file_utils::path_exists(&data_path, false)?;
+
+        if ap_data_found {
             let serialized_ap_data = file_utils::read_file_as_string(&data_path)?;
-            serde_json::from_str::<APData>(&serialized_ap_data).map_err(|e| {
-                format!("Error {} while attempting to deserialize AP Data.", e)
-            })
-        } else {
-            let ap_data = APData { games: Vec::new(), active_game: None };
-            let serialized_ap_data = serde_json::to_string::<APData>(&ap_data).map_err(|e| {
-                format!("Error {} while attempting to serialize AP Data.", e)
-            })?;
-            file_utils::write_file(&data_path, &serialized_ap_data)?;
-            Ok(ap_data)
+            match serde_json::from_str::<APData>(&serialized_ap_data) {
+                Ok(mut ap_data) => {
+                    ap_data.config = lm_config;
+                    return Ok(ap_data);
+                },
+                Err(e) => {
+                    debug!("Error {} while attempting to deserialize AP Data, regenerating", e);
+                }
+            }
         }
+
+        let ap_data = APData { config: lm_config, games: Vec::new(), active_game: None };
+        let serialized_ap_data = serde_json::to_string::<APData>(&ap_data).map_err(|e| {
+            format!("Error {} while attempting to serialize AP Data.", e)
+        })?;
+        file_utils::write_file(&data_path, &serialized_ap_data)?;
+        Ok(ap_data)
     }
 }
