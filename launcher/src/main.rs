@@ -16,7 +16,6 @@ use std::process;
 use crate::ap_connection::APConnection;
 use crate::ap_data::APData;
 use crate::consts::*;
-use crate::verifier::Verifier;
 
 slint::include_modules!();
 
@@ -25,7 +24,7 @@ pub static AP_CONNECTION: Mutex<Option<APConnection>> = Mutex::new(None);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    match Verifier::verify_install() {
+    match verifier::verify_install() {
         Ok(lm_config) => {
             let ap_data = APData::new(lm_config)?;
 
