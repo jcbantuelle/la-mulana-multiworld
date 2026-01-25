@@ -1,10 +1,10 @@
-import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, VerticalBox, HorizontalBox} from "std-widgets.slint";
 
 export component ErrorMessage inherits Window {
     in-out property <string> error_message;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("lmmw.png");
-    height: 280px;
+    height: 200px;
     width: 430px;
     callback close();
     VerticalBox {
@@ -31,37 +31,166 @@ export component ErrorMessage inherits Window {
     }
 }
 
+export component SeedSelector inherits Window {
+    // in-out property <[string]> seeds;
+    // in-out property <string> current-seed;
+    in-out property <string> server-url;
+    in-out property <string> password;
+    in-out property <string> player-id;
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("lmmw.png");
+    height: 320px;
+    width: 460px;
+    callback close();
+    VerticalLayout {
+        HorizontalBox {
+            Text {
+                text: "Choose Seed:";
+                vertical-alignment: center;
+                font-weight: 600;
+            }
+            ComboBox {
+                // model: seeds;
+                // current-value: current-seed;
+                model: ["a","b","c"];
+                current-value: "b";
+            }
+            Button {
+                text: "Load";
+                height: 30px;
+                width: 60px;
+            }
+            Button {
+                text: "Cancel";
+                height: 30px;
+                width: 60px;
+                clicked => {
+                    root.close()
+                }
+            }
+        }
+        VerticalBox {
+            padding-top: 20px;
+            padding-bottom: 20px;
+            Rectangle {
+                height: 1px;
+                background: #000;
+                width: parent.width - 10px;
+                x: 5px;
+            }
+        }
+        VerticalBox {
+            Text {
+                text: "Add New Seed";
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Server URL:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Server URL With Port";
+                edited(value) => {
+                    root.server-url = value;
+                }
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Password:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Password (leave blank if no password)";
+                edited(value) => {
+                    root.password = value;
+                }
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Player ID:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Your Player ID";
+                edited(value) => {
+                    root.player-id = value;
+                }
+            }
+        }
+        VerticalBox {
+            Button {
+                text: "Add Seed";
+                height: 30px;
+                width: 100px;
+            }
+        }
+    }
+}
+
 export component Launcher inherits Window {
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("lmmw.png");
-    preferred-height: 300px;
-    preferred-width: 400px;
+    height: 80px;
+    width: 450px;
+
+    in-out property <bool> seed-selected;
+    in-out property <string> current-seed;
+
+    callback close();
     callback connect-to-archipelago();
     callback launch-game();
-    callback close();
-    GridLayout {
-        Button {
-            height: 45px;
-            width: 80px;
-            text: "Connect\nto AP";
-            clicked => {
-                root.connect-to-archipelago();
+    callback select-seed();
+    VerticalLayout {
+        HorizontalBox {
+            Text {
+                text: "Current Seed:";
+                font-weight: 600;
+                width: 80px;
+            }
+            Text {
+                text: "\{root.current-seed}";
             }
         }
-        Button {
-            height: 45px;
-            width: 80px;
-            text: "Launch\nGame";
-            clicked => {
-                root.launch-game();
+        HorizontalBox {
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Select Seed";
+                clicked => {
+                    root.select-seed();
+                }
             }
-        }
-        Button {
-            height: 45px;
-            width: 80px;
-            text: "Done";
-            clicked => {
-                root.close();
+            if seed-selected: Button {
+                height: 30px;
+                width: 100px;
+                text: "Connect to AP";
+                clicked => {
+                    root.connect-to-archipelago();
+                }
+            }
+            if seed-selected: Button {
+                height: 30px;
+                width: 100px;
+                text: "Launch Game";
+                clicked => {
+                    root.launch-game();
+                }
+            }
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Done";
+                clicked => {
+                    root.close();
+                }
             }
         }
     }

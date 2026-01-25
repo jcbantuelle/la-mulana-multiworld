@@ -27,9 +27,36 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match verifier::verify_install() {
         Ok(lm_config) => {
             let ap_data = APData::new(lm_config)?;
-
             let launcher = Launcher::new().unwrap();
-            let launcher_handle = launcher.as_weak();
+            launcher.set_seed_selected(ap_data.seed_selected());
+            launcher.set_current_seed(ap_data.seed_name().into());
+
+            let launcher_select_seed_handle = launcher.as_weak().clone();
+            let launcher_open_handle = launcher.as_weak().clone();
+            let launcher_close_handle = launcher.as_weak().clone();
+
+            let seed_selector = SeedSelector::new().unwrap();
+            let seed_selector_close_handle = seed_selector.as_weak().clone();
+
+            seed_selector.on_close(move || {
+                let launcher = launcher_open_handle.unwrap();
+                let _ = launcher.show();
+
+                let seed_selector = seed_selector_close_handle.unwrap();
+                let _ = seed_selector.hide();
+            });
+
+            launcher.on_select_seed(move || {
+                let _ = seed_selector.show();
+
+                let launcher = launcher_select_seed_handle.unwrap();
+                let _ = launcher.hide();
+            });
+
+            launcher.on_close(move || {
+                let launcher = launcher_close_handle.unwrap();
+                let _ = launcher.hide();
+            });
 
             launcher.on_launch_game(move || {
                 let _ = slint::spawn_local(async move {
@@ -44,11 +71,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         ap_connection.connect_to_archipelago().await
                     }).await.unwrap();
                 });
-            });
-
-            launcher.on_close(move || {
-                let launcher = launcher_handle.unwrap();
-                let _ = launcher.hide();
             });
 
             launcher.run()?;

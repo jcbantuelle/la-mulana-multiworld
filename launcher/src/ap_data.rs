@@ -68,4 +68,19 @@ impl APData {
         file_utils::write_file(&data_path, &serialized_ap_data)?;
         Ok(ap_data)
     }
+
+    pub fn seed_selected(&self) -> bool {
+        self.active_game.is_some()
+    }
+
+    pub fn seed_name(&self) -> String {
+        match &self.active_game {
+            Some(active_game) => {
+                active_game.seed.clone()
+            },
+            None => {
+                "No Seed Selected".to_string()
+            }
+        }
+    }
 }
