@@ -32,7 +32,7 @@ export component ErrorMessage inherits Window {
 }
 
 export component SeedSelector inherits Window {
-    // in-out property <[string]> seeds;
+    in-out property <[string]> seeds;
     // in-out property <string> current-seed;
     in-out property <string> server-url;
     in-out property <string> password;
@@ -43,7 +43,7 @@ export component SeedSelector inherits Window {
     width: 460px;
     callback close();
     VerticalLayout {
-        HorizontalBox {
+        if seeds.length > 0: HorizontalBox {
             Text {
                 text: "Choose Seed:";
                 vertical-alignment: center;
@@ -69,7 +69,7 @@ export component SeedSelector inherits Window {
                 }
             }
         }
-        VerticalBox {
+        if seeds.length > 0: VerticalBox {
             padding-top: 20px;
             padding-bottom: 20px;
             Rectangle {
@@ -125,11 +125,19 @@ export component SeedSelector inherits Window {
                 }
             }
         }
-        VerticalBox {
+        HorizontalBox {
             Button {
                 text: "Add Seed";
                 height: 30px;
                 width: 100px;
+            }
+            if seeds.length == 0: Button {
+                text: "Cancel";
+                height: 30px;
+                width: 100px;
+                clicked => {
+                    root.close()
+                }
             }
         }
     }
