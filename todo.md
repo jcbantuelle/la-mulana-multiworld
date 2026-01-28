@@ -1,9 +1,7 @@
 # Launcher
 
 ## Implement Add New Seed
-* Wire up add button
 * Verify data
-* Attempt connection
 * Pass slot data to file gen
 * Gen files
 * Refactor file backup/restore into file_utils function

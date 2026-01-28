@@ -42,6 +42,7 @@ export component SeedSelector inherits Window {
     height: 320px;
     width: 460px;
     callback close();
+    callback add-seed();
     VerticalLayout {
         if seeds.length > 0: HorizontalBox {
             Text {
@@ -130,6 +131,9 @@ export component SeedSelector inherits Window {
                 text: "Add Seed";
                 height: 30px;
                 width: 100px;
+                clicked => {
+                    root.add-seed()
+                }
             }
             if seeds.length == 0: Button {
                 text: "Cancel";
