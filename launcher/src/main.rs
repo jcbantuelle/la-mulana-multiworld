@@ -4,6 +4,7 @@ pub mod ap_connection;
 pub mod ap_data;
 pub mod archipelago;
 pub mod consts;
+pub mod file_gen;
 pub mod file_utils;
 pub mod verifier;
 
@@ -151,10 +152,14 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
             let _ = tokio::spawn(async move {
                 match verify_new_seed(server_url, password, player_id_text, player_name).await {
                     Ok(slot_data) => {
-                        debug!("Slot Data: {:?}", slot_data);
-                        let _ = seed_selector_error_handle.upgrade_in_event_loop(move |seed_selector| {
-                            seed_selector.set_add_seed_error("Slot Data Downloaded".into());
-                        }).unwrap();
+                        match generator::generate_files(slot_data) {
+                            Ok(_) => {
+                                // Set Current Seed, switch back to launcher window
+                            },
+                            Err(e) => {
+                                // Update Add Seed Error text for whatever went wrong
+                            }
+                        }
                     },
                     Err(e) => {
                         debug!("Seed Failed to Validate with Error: {}", e);
