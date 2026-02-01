@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
-use crate::consts::LAMULANA_EXECUTABLE_NAME;
 
-pub static LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION: LazyLock<String> = LazyLock::new(|| { format!("{}.exe", LAMULANA_EXECUTABLE_NAME) });
-const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
     HashMap::from([
         ("screen_flag_00", 0x00),
         ("screen_flag_01", 0x01),
@@ -138,7 +136,7 @@ const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     ])
 });
 
-const INVENTORY: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+pub const INVENTORY: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
         HashMap::from([
             ("knife", 0x3),
             ("keysword", 0x4),
@@ -166,7 +164,7 @@ const INVENTORY: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     }
 );
 
-const HEADERS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+pub const HEADERS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     HashMap::from([
         ("break", 0x000a),
         ("white_space", 0x0020),
@@ -183,7 +181,7 @@ const HEADERS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     ])
 });
 
-const CARDS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+pub const CARDS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     HashMap::from([
         ("slushfund_give_pepper", 245),
         ("slushfund_give_anchor", 247),
@@ -201,7 +199,7 @@ const CARDS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     ])
 });
 
-const RCD_OBJECTS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     HashMap::from([
         ("ladder", 0x7),
         ("trigger_dais", 0x8),
@@ -232,7 +230,7 @@ const RCD_OBJECTS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
         ])
 });
 
-const TEST_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+pub const TEST_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     HashMap::from([
         ("eq", 0x0),
         ("lteq", 0x1),
@@ -251,7 +249,7 @@ const TEST_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     ])
 });
 
-const WRITE_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+pub const WRITE_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
     HashMap::from([
         ("assign", 0x0),
         ("add", 0x1),
@@ -260,51 +258,36 @@ const WRITE_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| 
         ("div", 0x4),
         ("and", 0x5),
         ("or", 0x6),
-        ("xor", 0x),
+        ("xor", 0x7),
     ])
 });
 
-
-def grail_flag_by_zone(zone, frontside):
-    match zone:
-        case 0:
-            return GLOBAL_FLAGS["grail_tablet_guidance"]
-        case 1:
-            return GLOBAL_FLAGS["grail_tablet_surface"]
-        case 2:
-            return GLOBAL_FLAGS["grail_tablet_mausoleum"]
-        case 3:
-            return GLOBAL_FLAGS["grail_tablet_sun"]
-        case 4:
-            return GLOBAL_FLAGS["grail_tablet_spring"]
-        case 5:
-            return GLOBAL_FLAGS["grail_tablet_inferno"]
-        case 6:
-            return GLOBAL_FLAGS["grail_tablet_extinction"]
-        case 7:
-            if frontside:
-                return GLOBAL_FLAGS["grail_tablet_twin_front"]
-            else:
-                return GLOBAL_FLAGS["grail_tablet_twin_back"]
-        case 8:
-            return GLOBAL_FLAGS["grail_tablet_endless"]
-        case 9:
-            return GLOBAL_FLAGS["grail_tablet_shrine_front"]
-        case 10:
-            return GLOBAL_FLAGS["grail_tablet_illusion"]
-        case 11:
-            return GLOBAL_FLAGS["grail_tablet_graveyard"]
-        case 12:
-            return GLOBAL_FLAGS["grail_tablet_moonlight"]
-        case 13:
-            return GLOBAL_FLAGS["grail_tablet_goddess"]
-        case 14:
-            return GLOBAL_FLAGS["grail_tablet_ruin"]
-        case 15|16:
-            return GLOBAL_FLAGS["grail_tablet_birth"]
-        case 17:
-            return GLOBAL_FLAGS["grail_tablet_dimensional"]
-        case 18:
-            return GLOBAL_FLAGS["grail_tablet_shrine_back"]
-        case _:
-            return 0xacf
+pub fn grail_flag_by_zone(zone: usize, frontside: bool) -> usize {
+    match zone {
+        0 => GLOBAL_FLAGS["grail_tablet_guidance"],
+        1 => GLOBAL_FLAGS["grail_tablet_surface"],
+        2 => GLOBAL_FLAGS["grail_tablet_mausoleum"],
+        3 => GLOBAL_FLAGS["grail_tablet_sun"],
+        4 => GLOBAL_FLAGS["grail_tablet_spring"],
+        5 => GLOBAL_FLAGS["grail_tablet_inferno"],
+        6 => GLOBAL_FLAGS["grail_tablet_extinction"],
+        7 => {
+            if frontside {
+                GLOBAL_FLAGS["grail_tablet_twin_front"]
+            } else {
+                GLOBAL_FLAGS["grail_tablet_twin_back"]
+            }
+        },
+        8 => GLOBAL_FLAGS["grail_tablet_endless"],
+        9 => GLOBAL_FLAGS["grail_tablet_shrine_front"],
+        10 => GLOBAL_FLAGS["grail_tablet_illusion"],
+        11 => GLOBAL_FLAGS["grail_tablet_graveyard"],
+        12 => GLOBAL_FLAGS["grail_tablet_moonlight"],
+        13 => GLOBAL_FLAGS["grail_tablet_goddess"],
+        14 => GLOBAL_FLAGS["grail_tablet_ruin"],
+        15 | 16 => GLOBAL_FLAGS["grail_tablet_birth"],
+        17 => GLOBAL_FLAGS["grail_tablet_dimensional"],
+        18 => GLOBAL_FLAGS["grail_tablet_shrine_back"],
+        _ => 0xacf
+    }
+}

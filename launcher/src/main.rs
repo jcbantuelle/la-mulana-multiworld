@@ -22,6 +22,7 @@ use crate::ap_connection::APConnection;
 use crate::ap_data::APData;
 use crate::archipelago::api::*;
 use crate::consts::*;
+use crate::file_gen::generator;
 
 slint::include_modules!();
 

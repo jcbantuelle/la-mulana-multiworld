@@ -5,6 +5,8 @@ use binrw::{BinRead, BinWrite};
 use binrw::helpers::args_iter;
 use modular_bitfield::prelude::*;
 
+use crate::archipelago::api::SlotData;
+
 static ZONE_SIZES: LazyLock<Vec<Vec<i32>>> = LazyLock::new(|| {
     vec![
         vec![2,2,2,2,3,1,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -136,11 +138,11 @@ pub struct Room {
     screens: Vec<Screen>,
 }
 
-pub fn generate(slot_data: SlotData) -> IOResult<()> {
+pub fn generate(slot_data: SlotData) {
     // Open the binary file
-    let file = File::open("script.rcd")?;
-    let mut reader = BufReader::new(file);
+    // let file = File::open("script.rcd")?;
+    // let mut reader = BufReader::new(file);
 
-    return LaMulanaRcd::read(&mut reader);
+    // LaMulanaRcd::read(&mut reader);
 }
 

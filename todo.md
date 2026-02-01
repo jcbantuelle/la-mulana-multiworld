@@ -1,8 +1,6 @@
 # Launcher
 
 ## Implement Add New Seed
-* Verify data
-* Pass slot data to file gen
 * Gen files
 * Refactor file backup/restore into file_utils function
 * Place files

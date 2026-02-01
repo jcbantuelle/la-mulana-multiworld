@@ -419,6 +419,7 @@ pub enum SlotType {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SlotData {
+    pub seed: String,
     pub options: HashMap<String, u64>,
     pub cursed_chests: Vec<String>,
     pub start_inventory: Vec<String>,

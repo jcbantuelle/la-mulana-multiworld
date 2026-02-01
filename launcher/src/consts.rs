@@ -11,5 +11,5 @@ pub static ORIGINAL_EFFECTS_PATH: &str = "data/graphics/00/01effect.png";
 
 pub static SOURCE_FILES_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}source/", AP_PATH) });
 pub static SOURCE_RCD_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}script.rcd", SOURCE_FILES_PATH.to_string()) });
-pub static SOURCE_DAT_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}script_code.rcd", SOURCE_FILES_PATH.to_string()) });
+pub static SOURCE_DAT_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}script_code.dat", SOURCE_FILES_PATH.to_string()) });
 pub static SOURCE_EFFECTS_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}01effect.png", SOURCE_FILES_PATH.to_string()) });
