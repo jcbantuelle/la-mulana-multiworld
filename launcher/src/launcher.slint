@@ -38,6 +38,7 @@ export component SeedSelector inherits Window {
     in-out property <string> password;
     in-out property <string> player-name;
     in-out property <string> player-id;
+    in-out property <string> add-seed-error;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("lmmw.png");
     height: 320px;
@@ -86,6 +87,12 @@ export component SeedSelector inherits Window {
                 text: "Add New Seed";
                 font-weight: 600;
                 horizontal-alignment: center;
+            }
+        }
+        if !add-seed-error.is-empty: VerticalBox {
+            Text {
+                text: "\{root.add-seed-error}";
+                color: red;
             }
         }
         HorizontalBox {

@@ -29,12 +29,16 @@ pub static AP_CONNECTION: Mutex<Option<APConnection>> = Mutex::new(None);
 
 #[derive(Clone, Error, Debug)]
 pub enum NewSeedError {
-    #[error("player id is not numeric")]
+    #[error("Player ID is not numeric")]
     InvalidPlayerId,
-    #[error("unable to connect to archipelago")]
-    APConnectionFailure,
-    #[error("unable to read from archipelago")]
-    APReadFailure
+    #[error("Unable to connect to Archipelago, please confirm Server URL")]
+    ConnectionFailure,
+    #[error("Archipelago connection dropped, please try again")]
+    ConnectionDropped,
+    #[error("Archipelago refused connection, please confirm Player Name and ID")]
+    ConnectionRefused,
+    #[error("Archipelago failed to send slot data, please confirm lamulana APworld is up to date")]
+    SlotDataMissing,
 }
 
 #[tokio::main]
@@ -119,11 +123,11 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
 }
 
 async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>, launcher_handle: Weak<Launcher>) {
-    let seed_selector = seed_selector_handle.unwrap();
+    let seed_selector = seed_selector_handle.clone().unwrap();
     let launcher = launcher_handle.unwrap();
 
-    let seed_selector_close_handle = seed_selector.as_weak().clone();
-    let seed_selector_add_seed_handle = seed_selector.as_weak().clone();
+    let seed_selector_close_handle = seed_selector_handle.clone();
+    let seed_selector_add_seed_handle = seed_selector_handle.clone();
 
     seed_selector.on_close(move || {
         let _ = launcher.show();
@@ -133,21 +137,30 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
     });
 
     seed_selector.on_add_seed(move || {
-        let seed_selector = seed_selector_add_seed_handle.unwrap();
+        let seed_selector = seed_selector_add_seed_handle.clone().unwrap();
+        seed_selector.set_add_seed_error("Connecting...".into());
 
         let server_url = seed_selector.get_server_url().to_string();
         let password = seed_selector.get_password().to_string();
         let player_id_text = seed_selector.get_player_id().to_string();
         let player_name = seed_selector.get_player_name().to_string();
 
+        let seed_selector_error_handle = seed_selector_add_seed_handle.clone();
+
         let _ = slint::spawn_local(async move {
             let _ = tokio::spawn(async move {
                 match verify_new_seed(server_url, password, player_id_text, player_name).await {
                     Ok(slot_data) => {
                         debug!("Slot Data: {:?}", slot_data);
+                        let _ = seed_selector_error_handle.upgrade_in_event_loop(move |seed_selector| {
+                            seed_selector.set_add_seed_error("Slot Data Downloaded".into());
+                        }).unwrap();
                     },
                     Err(e) => {
                         debug!("Seed Failed to Validate with Error: {}", e);
+                        let _ = seed_selector_error_handle.upgrade_in_event_loop(move |seed_selector| {
+                            seed_selector.set_add_seed_error(e.to_string().into());
+                        }).unwrap();
                     }
                 }
             }).await.unwrap();
@@ -158,12 +171,15 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
 async fn verify_new_seed(server_url: String, password: String, player_id_text: String, player_name: String) -> Result<SlotData, NewSeedError> {
     let player_id = player_id_text.parse::<i64>().map_err(|_| NewSeedError::InvalidPlayerId)?;
     let ap_connection = APConnection::new();
-    let mut ap_client = ap_connection.connect_to_archipelago(player_name, server_url, password, player_id).await.map_err(|_| NewSeedError::APConnectionFailure)?;
+    let mut ap_client = ap_connection.connect_to_archipelago(player_name, server_url, password, player_id).await.map_err(|_| NewSeedError::ConnectionFailure)?;
     loop {
-        let payload = ap_client.read().await.map_err(|_| NewSeedError::APReadFailure)?;
+        let payload = ap_client.read().await.map_err(|_| NewSeedError::ConnectionDropped)?;
         match payload {
             ServerPayload::Connected(connected) => {
-                return connected.slot_data.ok_or(NewSeedError::APReadFailure);
+                return connected.slot_data.ok_or(NewSeedError::SlotDataMissing);
+            },
+            ServerPayload::ConnectionRefused(connection_refused) => {
+                return Err(NewSeedError::ConnectionRefused);
             },
             _ => { debug!("Got payload other than Connected from AP Connection: {:?}", payload); }
         }
@@ -179,17 +195,17 @@ async fn launch_game() {
             let target_process = OwnedProcess::from_pid(process_id).unwrap();
             let syringe = Syringe::for_process(target_process);
 
-            println!("Injecting into {} of PID {} with {}.", LAMULANA_EXECUTABLE_NAME, process_id, dll);
+            debug!("Injecting into {} of PID {} with {}.", LAMULANA_EXECUTABLE_NAME, process_id, dll);
             match syringe.inject(dll) {
                 Ok(_) => {
-                    println!("Injected and now waiting on process exit.");
+                    debug!("Injected and now waiting on process exit.");
                     p.wait().unwrap();
                 },
-                Err(e) => println!("Could not inject: {}", e)
+                Err(e) => debug!("Could not inject: {}", e)
             }
         },
         Err(e) => {
-            println!("Could not launch LaMulanaWin: {:?}", e)
+            debug!("Could not launch LaMulanaWin: {:?}", e)
         }
     }
 }
