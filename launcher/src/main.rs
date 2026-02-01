@@ -7,15 +7,15 @@ pub mod consts;
 pub mod file_utils;
 pub mod verifier;
 
+use dll_syringe::{process::OwnedProcess, Syringe};
 use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
-
-use dll_syringe::{process::OwnedProcess, Syringe};
-use slint::ComponentHandle;
+use slint::{ComponentHandle, Weak};
 use std::error::Error;
 use std::sync::Mutex;
 use std::process;
+use thiserror::Error;
 
 use crate::ap_connection::APConnection;
 use crate::ap_data::APData;
@@ -27,119 +27,30 @@ slint::include_modules!();
 pub static AP_DATA: Mutex<Option<APData>> = Mutex::new(None);
 pub static AP_CONNECTION: Mutex<Option<APConnection>> = Mutex::new(None);
 
+#[derive(Clone, Error, Debug)]
+pub enum NewSeedError {
+    #[error("player id is not numeric")]
+    InvalidPlayerId,
+    #[error("couldn't connect to AP server")]
+    APConnectionFailure,
+    #[error("unable to read from AP server")]
+    APReadFailure,
+    #[error("slot data missing from AP Connection")]
+    MissingSlotData
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let file_appender = FileAppender::builder()
-        .build("lmmw_launcher.txt")
-        .unwrap();
-    let log_config = Config::builder()
-        .appender(Appender::builder().build("lmmw_launcher", Box::new(file_appender)))
-        .build(Root::builder().appender("lmmw_launcher").build(LevelFilter::Debug))
-        .unwrap();
-    log4rs::init_config(log_config).unwrap();
+    configure_logger().await;
 
     match verifier::verify_install() {
         Ok(lm_config) => {
             let ap_data = APData::new(lm_config)?;
             let launcher = Launcher::new().unwrap();
-            launcher.set_seed_selected(ap_data.seed_selected());
-            launcher.set_current_seed(ap_data.seed_name().into());
-
-            let launcher_select_seed_handle = launcher.as_weak().clone();
-            let launcher_open_handle = launcher.as_weak().clone();
-            let launcher_close_handle = launcher.as_weak().clone();
-
             let seed_selector = SeedSelector::new().unwrap();
-            let seed_selector_close_handle = seed_selector.as_weak().clone();
-            let seed_selector_add_seed_handle = seed_selector.as_weak().clone();
 
-            seed_selector.on_close(move || {
-                let launcher = launcher_open_handle.unwrap();
-                let _ = launcher.show();
-
-                let seed_selector = seed_selector_close_handle.unwrap();
-                let _ = seed_selector.hide();
-            });
-
-            seed_selector.on_add_seed(move || {
-                let seed_selector = seed_selector_add_seed_handle.unwrap();
-
-                let server_url = seed_selector.get_server_url().to_string();
-                let password = seed_selector.get_password().to_string();
-                let player_id_text = seed_selector.get_player_id().to_string();
-
-                let _ = slint::spawn_local(async move {
-                    let _ = tokio::spawn(async move {
-                        match player_id_text.parse::<i64>() {
-                            Ok(player_id) => {
-                                let ap_connection = APConnection::new();
-                                match ap_connection.connect_to_archipelago("File Generator".to_string(), server_url, password, player_id).await {
-                                    Ok(mut ap_client) => {
-                                        loop {
-                                            match ap_client.read().await {
-                                                Ok(payload) => {
-                                                    match payload {
-                                                        ServerPayload::Connected(connected) => {
-                                                            match connected.slot_data {
-                                                                Some(slot_data) => {
-                                                                    debug!("Slot Data: {:?}", slot_data);
-                                                                    // Generate Files
-                                                                },
-                                                                None => {
-                                                                    // Display Validation Error on No Slot Data for File Gen
-                                                                }
-                                                            }
-                                                            break;
-                                                        },
-                                                        _ => { debug!("Got payload other than Connected from AP Connection: {:?}", payload) }
-                                                    }
-                                                },
-                                                Err(e) => {
-                                                    // Display Validation Eerror on AP Read
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    },
-                                    Err(e) => {
-                                        // Display Validation Error on Connecting to AP
-                                    }
-                                }
-                            },
-                            Err(e) => {
-                                // Display Validation Error on Player ID
-                            }
-                        }
-                    }).await.unwrap();
-                });
-            });
-
-            launcher.on_select_seed(move || {
-                let _ = seed_selector.show();
-
-                let launcher = launcher_select_seed_handle.unwrap();
-                let _ = launcher.hide();
-            });
-
-            launcher.on_close(move || {
-                let launcher = launcher_close_handle.unwrap();
-                let _ = launcher.hide();
-            });
-
-            launcher.on_launch_game(move || {
-                let _ = slint::spawn_local(async move {
-                    let _ = tokio::spawn(async move { launch_game().await }).await.unwrap();
-                });
-            });
-
-            launcher.on_connect_to_archipelago(move || {
-                // let _ = slint::spawn_local(async move {
-                //     let _ = tokio::spawn(async move {
-                //         let ap_connection = APConnection::new();
-                //         ap_connection.connect_to_archipelago().await
-                //     }).await.unwrap();
-                // });
-            });
+            configure_launcher_window(launcher.as_weak(), seed_selector.as_weak(), ap_data.clone()).await;
+            configure_seed_selector_window(seed_selector.as_weak(), launcher.as_weak()).await;
 
             launcher.run()?;
         },
@@ -158,6 +69,106 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+async fn configure_logger() {
+    let file_appender = FileAppender::builder()
+        .build("lmmw_launcher.txt")
+        .unwrap();
+    let log_config = Config::builder()
+        .appender(Appender::builder().build("lmmw_launcher", Box::new(file_appender)))
+        .build(Root::builder().appender("lmmw_launcher").build(LevelFilter::Debug))
+        .unwrap();
+    log4rs::init_config(log_config).unwrap();
+}
+
+async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selector_handle: Weak<SeedSelector>, ap_data: APData) {
+    let launcher = launcher_handle.unwrap();
+    let seed_selector = seed_selector_handle.unwrap();
+
+    launcher.set_seed_selected(ap_data.seed_selected());
+    launcher.set_current_seed(ap_data.seed_name().into());
+
+    let launcher_select_seed_handle = launcher.as_weak();
+    let launcher_close_handle = launcher.as_weak();
+
+    launcher.on_select_seed(move || {
+        let _ = seed_selector.show();
+
+        let launcher = launcher_select_seed_handle.unwrap();
+        let _ = launcher.hide();
+    });
+
+    launcher.on_close(move || {
+        let launcher = launcher_close_handle.unwrap();
+        let _ = launcher.hide();
+    });
+
+    launcher.on_launch_game(move || {
+        let _ = slint::spawn_local(async move {
+            let _ = tokio::spawn(async move { launch_game().await }).await.unwrap();
+        });
+    });
+
+    launcher.on_connect_to_archipelago(move || {
+        // let _ = slint::spawn_local(async move {
+        //     let _ = tokio::spawn(async move {
+        //         let ap_connection = APConnection::new();
+        //         ap_connection.connect_to_archipelago().await
+        //     }).await.unwrap();
+        // });
+    });
+}
+
+async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>, launcher_handle: Weak<Launcher>) {
+    let seed_selector = seed_selector_handle.unwrap();
+    let launcher = launcher_handle.unwrap();
+
+    let seed_selector_close_handle = seed_selector.as_weak().clone();
+    let seed_selector_add_seed_handle = seed_selector.as_weak().clone();
+
+    seed_selector.on_close(move || {
+        let _ = launcher.show();
+
+        let seed_selector = seed_selector_close_handle.unwrap();
+        let _ = seed_selector.hide();
+    });
+
+    seed_selector.on_add_seed(move || {
+        let seed_selector = seed_selector_add_seed_handle.unwrap();
+
+        let server_url = seed_selector.get_server_url().to_string();
+        let password = seed_selector.get_password().to_string();
+        let player_id_text = seed_selector.get_player_id().to_string();
+
+        let _ = slint::spawn_local(async move {
+            let _ = tokio::spawn(async move {
+                match verify_new_seed(server_url, password, player_id_text).await {
+                    Ok(slot_data) => {
+                        debug!("Slot Data: {:?}", slot_data);
+                    },
+                    Err(e) => {
+                        debug!("Seed Failed to Validate with Error: {}", e);
+                    }
+                }
+            }).await.unwrap();
+        });
+    });
+}
+
+async fn verify_new_seed(server_url: String, password: String, player_id_text: String) -> Result<SlotData, NewSeedError> {
+    let player_id = player_id_text.parse::<i64>().map_err(|_| NewSeedError::InvalidPlayerId)?;
+    let ap_connection = APConnection::new();
+    let mut ap_client = ap_connection.connect_to_archipelago("File Generator".to_string(), server_url, password, player_id).await.map_err(|_| NewSeedError::APConnectionFailure)?;
+    loop {
+        let payload = ap_client.read().await.map_err(|_| NewSeedError::APReadFailure)?;
+        match payload {
+            ServerPayload::Connected(connected) => {
+                return connected.slot_data.ok_or(NewSeedError::MissingSlotData);
+            },
+            _ => { debug!("Got payload other than Connected from AP Connection: {:?}", payload); }
+        }
+    }
 }
 
 async fn launch_game() {
