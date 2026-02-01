@@ -31,12 +31,10 @@ pub static AP_CONNECTION: Mutex<Option<APConnection>> = Mutex::new(None);
 pub enum NewSeedError {
     #[error("player id is not numeric")]
     InvalidPlayerId,
-    #[error("couldn't connect to AP server")]
+    #[error("unable to connect to archipelago")]
     APConnectionFailure,
-    #[error("unable to read from AP server")]
-    APReadFailure,
-    #[error("slot data missing from AP Connection")]
-    MissingSlotData
+    #[error("unable to read from archipelago")]
+    APReadFailure
 }
 
 #[tokio::main]
@@ -140,10 +138,11 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
         let server_url = seed_selector.get_server_url().to_string();
         let password = seed_selector.get_password().to_string();
         let player_id_text = seed_selector.get_player_id().to_string();
+        let player_name = seed_selector.get_player_name().to_string();
 
         let _ = slint::spawn_local(async move {
             let _ = tokio::spawn(async move {
-                match verify_new_seed(server_url, password, player_id_text).await {
+                match verify_new_seed(server_url, password, player_id_text, player_name).await {
                     Ok(slot_data) => {
                         debug!("Slot Data: {:?}", slot_data);
                     },
@@ -156,15 +155,15 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
     });
 }
 
-async fn verify_new_seed(server_url: String, password: String, player_id_text: String) -> Result<SlotData, NewSeedError> {
+async fn verify_new_seed(server_url: String, password: String, player_id_text: String, player_name: String) -> Result<SlotData, NewSeedError> {
     let player_id = player_id_text.parse::<i64>().map_err(|_| NewSeedError::InvalidPlayerId)?;
     let ap_connection = APConnection::new();
-    let mut ap_client = ap_connection.connect_to_archipelago("File Generator".to_string(), server_url, password, player_id).await.map_err(|_| NewSeedError::APConnectionFailure)?;
+    let mut ap_client = ap_connection.connect_to_archipelago(player_name, server_url, password, player_id).await.map_err(|_| NewSeedError::APConnectionFailure)?;
     loop {
         let payload = ap_client.read().await.map_err(|_| NewSeedError::APReadFailure)?;
         match payload {
             ServerPayload::Connected(connected) => {
-                return connected.slot_data.ok_or(NewSeedError::MissingSlotData);
+                return connected.slot_data.ok_or(NewSeedError::APReadFailure);
             },
             _ => { debug!("Got payload other than Connected from AP Connection: {:?}", payload); }
         }

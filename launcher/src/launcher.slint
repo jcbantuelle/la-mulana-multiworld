@@ -36,6 +36,7 @@ export component SeedSelector inherits Window {
     // in-out property <string> current-seed;
     in-out property <string> server-url;
     in-out property <string> password;
+    in-out property <string> player-name;
     in-out property <string> player-id;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("lmmw.png");
@@ -123,6 +124,19 @@ export component SeedSelector inherits Window {
                 placeholder-text: "Your Player ID";
                 edited(value) => {
                     root.player-id = value;
+                }
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Player Name:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Your Player Name";
+                edited(value) => {
+                    root.player-name = value;
                 }
             }
         }
