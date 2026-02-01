@@ -1,5 +1,3 @@
-use log::debug;
-
 use crate::archipelago::api::*;
 use crate::archipelago::client::APClient;
 

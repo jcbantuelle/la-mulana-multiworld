@@ -131,6 +131,8 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|
         ("replacement_mulbruk_book_of_the_dead", 0x864),
         ("xelpud_conversation_talisman_found", 0x865),
         ("xelpud_conversation_diary_found", 0x866),
+        ("received_items_index_1", 0x867),
+        ("received_items_index_2", 0x868),
         ("rcd_filler_items", 0x9f6),
         ("dat_filler_items", 0xa8)
     ])
@@ -164,130 +166,148 @@ pub const INVENTORY: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
     }
 );
 
-pub const HEADERS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-    HashMap::from([
-        ("break", 0x000a),
-        ("white_space", 0x0020),
-        ("flag", 0x0040),
-        ("flag2", 0x0041),
-        ("item", 0x0042),
-        ("newline", 0x0045),
-        ("pose", 0x0046),
-        ("mantra", 0x0047),
-        ("color", 0x004a),
-        ("item_name", 0x004d),
-        ("data", 0x004e),
-        ("anime", 0x004),
+// pub const HEADERS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+//     HashMap::from([
+//         ("break", 0x000a),
+//         ("white_space", 0x0020),
+//         ("flag", 0x0040),
+//         ("flag2", 0x0041),
+//         ("item", 0x0042),
+//         ("newline", 0x0045),
+//         ("pose", 0x0046),
+//         ("mantra", 0x0047),
+//         ("color", 0x004a),
+//         ("item_name", 0x004d),
+//         ("data", 0x004e),
+//         ("anime", 0x004),
+//     ])
+// });
+
+// pub const CARDS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+//     HashMap::from([
+//         ("slushfund_give_pepper", 245),
+//         ("slushfund_give_anchor", 247),
+//         ("xelpud_xmailer", 364),
+//         ("xelpud_talisman", 369),
+//         ("xelpud_pillar", 370),
+//         ("xelpud_mulana_talisman", 371),
+//         ("xelpud_score_howling_wind", 373),
+//         ("mulbruk_book_of_the_dead_conversation", 397),
+//         ("xelpud_conversation_tree", 480),
+//         ("xelpud_score_tree", 482),
+//         ("mulbruk_conversation_tree", 486),
+//         ("nebur_guardian", 490),
+//         ("xelpud_howling_wind", 104),
+//     ])
+// });
+
+// pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+//     HashMap::from([
+//         ("ladder", 0x7),
+//         ("trigger_dais", 0x8),
+//         ("moving_texture", 0xa),
+//         ("flag_timer", 0xb),
+//         ("room_spawner", 0xe),
+//         ("crusher", 0x11),
+//         ("hitbox_generator", 0x12),
+//         ("lemeza_detector", 0x14),
+//         ("counterweight_platform", 0x33),
+//         ("chest", 0x2c),
+//         ("ankh", 0x2e),
+//         ("naked_item", 0x2f),
+//         ("big_anubis", 0x6b),
+//         ("vimana", 0x71),
+//         ("texture_draw_animation", 0x93),
+//         ("warp_door", 0x98),
+//         ("use_item", 0x9c),
+//         ("scannable", 0x9e),
+//         ("grail_point", 0x9f),
+//         ("language_conversation", 0xa0),
+//         ("animation", 0xa3),
+//         ("fairy_keyspot", 0xa7),
+//         ("explosion", 0xb4),
+//         ("instant_item", 0xb5),
+//         ("mother_ankh", 0xc0),
+//         ("scan", 0xc),
+//     ])
+// });
+
+// pub const TEST_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+//     HashMap::from([
+//         ("eq", 0x0),
+//         ("lteq", 0x1),
+//         ("gteq", 0x2),
+//         ("andnz", 0x3),
+//         ("ornz", 0x4),
+//         ("xornz", 0x5),
+//         ("zero", 0x6),
+//         ("neq", 0x40),
+//         ("gt", 0x41),
+//         ("lt", 0x42),
+//         ("andz", 0x43),
+//         ("orz", 0x44),
+//         ("xorz", 0x45),
+//         ("nz", 0x4),
+//     ])
+// });
+
+// pub const WRITE_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
+//     HashMap::from([
+//         ("assign", 0x0),
+//         ("add", 0x1),
+//         ("sub", 0x2),
+//         ("mult", 0x3),
+//         ("div", 0x4),
+//         ("and", 0x5),
+//         ("or", 0x6),
+//         ("xor", 0x7),
+//     ])
+// });
+
+pub const STARTING_WEAPONS: LazyLock<HashMap<u64, &'static str>> = LazyLock::new(|| {
+	HashMap::from([
+        (0, "Leather Whip"),
+        (1, "Knife"),
+        (2, "Key Sword"),
+        (3, "Axe"),
+        (4, "Katana"),
+        (5, "Shuriken"),
+        (6, "Rolling Shuriken"),
+        (7, "Earth Spear"),
+        (8, "Flare Gun"),
+        (9, "Bomb"),
+        (10, "Chakram"),
+        (11, "Caltrops"),
+        (12, "Pistol")
     ])
 });
 
-pub const CARDS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-    HashMap::from([
-        ("slushfund_give_pepper", 245),
-        ("slushfund_give_anchor", 247),
-        ("xelpud_xmailer", 364),
-        ("xelpud_talisman", 369),
-        ("xelpud_pillar", 370),
-        ("xelpud_mulana_talisman", 371),
-        ("xelpud_score_howling_wind", 373),
-        ("mulbruk_book_of_the_dead_conversation", 397),
-        ("xelpud_conversation_tree", 480),
-        ("xelpud_score_tree", 482),
-        ("mulbruk_conversation_tree", 486),
-        ("nebur_guardian", 490),
-        ("xelpud_howling_wind", 104),
-    ])
-});
-
-pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-    HashMap::from([
-        ("ladder", 0x7),
-        ("trigger_dais", 0x8),
-        ("moving_texture", 0xa),
-        ("flag_timer", 0xb),
-        ("room_spawner", 0xe),
-        ("crusher", 0x11),
-        ("hitbox_generator", 0x12),
-        ("lemeza_detector", 0x14),
-        ("counterweight_platform", 0x33),
-        ("chest", 0x2c),
-        ("ankh", 0x2e),
-        ("naked_item", 0x2f),
-        ("big_anubis", 0x6b),
-        ("vimana", 0x71),
-        ("texture_draw_animation", 0x93),
-        ("warp_door", 0x98),
-        ("use_item", 0x9c),
-        ("scannable", 0x9e),
-        ("grail_point", 0x9f),
-        ("language_conversation", 0xa0),
-        ("animation", 0xa3),
-        ("fairy_keyspot", 0xa7),
-        ("explosion", 0xb4),
-        ("instant_item", 0xb5),
-        ("mother_ankh", 0xc0),
-        ("scan", 0xc),
-        ])
-});
-
-pub const TEST_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-    HashMap::from([
-        ("eq", 0x0),
-        ("lteq", 0x1),
-        ("gteq", 0x2),
-        ("andnz", 0x3),
-        ("ornz", 0x4),
-        ("xornz", 0x5),
-        ("zero", 0x6),
-        ("neq", 0x40),
-        ("gt", 0x41),
-        ("lt", 0x42),
-        ("andz", 0x43),
-        ("orz", 0x44),
-        ("xorz", 0x45),
-        ("nz", 0x4),
-    ])
-});
-
-pub const WRITE_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-    HashMap::from([
-        ("assign", 0x0),
-        ("add", 0x1),
-        ("sub", 0x2),
-        ("mult", 0x3),
-        ("div", 0x4),
-        ("and", 0x5),
-        ("or", 0x6),
-        ("xor", 0x7),
-    ])
-});
-
-pub fn grail_flag_by_zone(zone: usize, frontside: bool) -> usize {
-    match zone {
-        0 => GLOBAL_FLAGS["grail_tablet_guidance"],
-        1 => GLOBAL_FLAGS["grail_tablet_surface"],
-        2 => GLOBAL_FLAGS["grail_tablet_mausoleum"],
-        3 => GLOBAL_FLAGS["grail_tablet_sun"],
-        4 => GLOBAL_FLAGS["grail_tablet_spring"],
-        5 => GLOBAL_FLAGS["grail_tablet_inferno"],
-        6 => GLOBAL_FLAGS["grail_tablet_extinction"],
-        7 => {
-            if frontside {
-                GLOBAL_FLAGS["grail_tablet_twin_front"]
-            } else {
-                GLOBAL_FLAGS["grail_tablet_twin_back"]
-            }
-        },
-        8 => GLOBAL_FLAGS["grail_tablet_endless"],
-        9 => GLOBAL_FLAGS["grail_tablet_shrine_front"],
-        10 => GLOBAL_FLAGS["grail_tablet_illusion"],
-        11 => GLOBAL_FLAGS["grail_tablet_graveyard"],
-        12 => GLOBAL_FLAGS["grail_tablet_moonlight"],
-        13 => GLOBAL_FLAGS["grail_tablet_goddess"],
-        14 => GLOBAL_FLAGS["grail_tablet_ruin"],
-        15 | 16 => GLOBAL_FLAGS["grail_tablet_birth"],
-        17 => GLOBAL_FLAGS["grail_tablet_dimensional"],
-        18 => GLOBAL_FLAGS["grail_tablet_shrine_back"],
-        _ => 0xacf
-    }
-}
+// pub fn grail_flag_by_zone(zone: usize, frontside: bool) -> usize {
+//     match zone {
+//         0 => GLOBAL_FLAGS["grail_tablet_guidance"],
+//         1 => GLOBAL_FLAGS["grail_tablet_surface"],
+//         2 => GLOBAL_FLAGS["grail_tablet_mausoleum"],
+//         3 => GLOBAL_FLAGS["grail_tablet_sun"],
+//         4 => GLOBAL_FLAGS["grail_tablet_spring"],
+//         5 => GLOBAL_FLAGS["grail_tablet_inferno"],
+//         6 => GLOBAL_FLAGS["grail_tablet_extinction"],
+//         7 => {
+//             if frontside {
+//                 GLOBAL_FLAGS["grail_tablet_twin_front"]
+//             } else {
+//                 GLOBAL_FLAGS["grail_tablet_twin_back"]
+//             }
+//         },
+//         8 => GLOBAL_FLAGS["grail_tablet_endless"],
+//         9 => GLOBAL_FLAGS["grail_tablet_shrine_front"],
+//         10 => GLOBAL_FLAGS["grail_tablet_illusion"],
+//         11 => GLOBAL_FLAGS["grail_tablet_graveyard"],
+//         12 => GLOBAL_FLAGS["grail_tablet_moonlight"],
+//         13 => GLOBAL_FLAGS["grail_tablet_goddess"],
+//         14 => GLOBAL_FLAGS["grail_tablet_ruin"],
+//         15 | 16 => GLOBAL_FLAGS["grail_tablet_birth"],
+//         17 => GLOBAL_FLAGS["grail_tablet_dimensional"],
+//         18 => GLOBAL_FLAGS["grail_tablet_shrine_back"],
+//         _ => 0xacf
+//     }
+// }

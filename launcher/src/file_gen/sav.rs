@@ -1,8 +1,10 @@
 use binrw::{BinRead, BinWrite};
+use std::io::Cursor;
 
 use crate::archipelago::api::SlotData;
+use crate::file_gen::generator::FileGenerationError;
 
-use super::lm_flags::GLOBAL_FLAGS;
+use super::lm_flags::{GLOBAL_FLAGS, INVENTORY, STARTING_WEAPONS};
 
 const NUM_EMAILS: u16 = 46;
 
@@ -20,7 +22,7 @@ pub struct LaMulanaSav {
     current_hp: u16,
     current_exp: u16,
     flags: [u8; 4096],
-    invetory: [u16; 255],
+    inventory: [u16; 255],
     held_main_weapon: u8,
     held_sub_weapon: u8,
     held_use_item: u8,
@@ -58,8 +60,8 @@ pub struct BunemonRecord {
     is_tablet: u8
 }
 
-pub fn generate(slot_data: &SlotData) {
-    let save_file = LaMulanaSav {
+pub fn generate(slot_data: &SlotData) -> Result<Vec<u8>, FileGenerationError> {
+    let mut save_file = LaMulanaSav {
         valid: 1,
         game_time: 0,
         zone: 1,
@@ -71,7 +73,7 @@ pub fn generate(slot_data: &SlotData) {
         current_hp: 32,
         current_exp: 0,
         flags: default_flags(),
-        invetory: [0; 255],
+        inventory: [0; 255],
         held_main_weapon: 0,
         held_sub_weapon: 0xff,
         held_use_item: 0xff,
@@ -88,11 +90,114 @@ pub fn generate(slot_data: &SlotData) {
         maps_owned_bit_array: 0
     };
 
-    // Open the binary file
-    // let file = File::open("script.rcd")?;
-    // let mut reader = BufReader::new(file);
+    set_starting_weapon(&mut save_file, slot_data)?;
 
-    // return LaMulanaSave::new()
+    let mut writer = Cursor::new(Vec::new());
+    let _ = save_file.write_be(&mut writer).map_err(|_| FileGenerationError::SaveFileModFailure)?;
+    Ok(writer.into_inner())
+}
+
+fn set_starting_weapon(save_file: &mut LaMulanaSav, slot_data: &SlotData) -> Result<(), FileGenerationError> {
+    let weapon = STARTING_WEAPONS[&slot_data.options["StartingWeapon"]];
+
+    if weapon != "Leather Whip" {
+        // Remove Default Leather Whip
+        save_file.inventory[0] = 0xffff;
+
+        match weapon {
+            "Knife" => {
+                save_file.flags[GLOBAL_FLAGS["knife_found"]] = 2;
+                save_file.inventory[INVENTORY["knife"]] = 1;
+                save_file.held_main_weapon = 3;
+                save_file.held_main_weapon_slot = 1;
+            },
+            "Key Sword" => {
+                save_file.flags[GLOBAL_FLAGS["keysword_found"]] = 2;
+                save_file.inventory[INVENTORY["keysword"]] = 1;
+                save_file.held_main_weapon = 4;
+                save_file.held_main_weapon_slot = 2;
+            },
+            "Axe" => {
+                save_file.flags[GLOBAL_FLAGS["axe_found"]] = 2;
+                save_file.inventory[INVENTORY["axe"]] = 1;
+                save_file.held_main_weapon = 5;
+                save_file.held_main_weapon_slot = 3;
+            },
+            "Katana" => {
+                save_file.flags[GLOBAL_FLAGS["katana_found"]] = 2;
+                save_file.inventory[INVENTORY["katana"]] = 1;
+                save_file.held_main_weapon = 6;
+                save_file.held_main_weapon_slot = 4;
+            },
+            subweapon => {
+                save_file.held_main_weapon = 0xff;
+                save_file.held_main_weapon_slot = 0xff;
+                match subweapon {
+                    "Shuriken" => {
+                        save_file.flags[GLOBAL_FLAGS["shurikens_found"]] = 2;
+                        save_file.inventory[INVENTORY["shurikens"]] = 1;
+                        save_file.inventory[INVENTORY["shuriken_ammo"]] = 150;
+                        save_file.held_sub_weapon = 8;
+                        save_file.held_sub_weapon_slot = 0;
+                    },
+                    "Rolling Shuriken" => {
+                        save_file.flags[GLOBAL_FLAGS["rolling_shurikens_found"]] = 2;
+                        save_file.inventory[INVENTORY["rolling_shurikens"]] = 1;
+                        save_file.inventory[INVENTORY["rolling_shuriken_ammo"]] = 100;
+                        save_file.held_sub_weapon = 9;
+                        save_file.held_sub_weapon_slot = 1;
+                    },
+                    "Earth Spear" => {
+                        save_file.flags[GLOBAL_FLAGS["earth_spears_found"]] = 2;
+                        save_file.inventory[INVENTORY["earth_spears"]] = 1;
+                        save_file.inventory[INVENTORY["earth_spear_ammo"]] = 80;
+                        save_file.held_sub_weapon = 10;
+                        save_file.held_sub_weapon_slot = 2;
+                    },
+                    "Flare Gun" => {
+                        save_file.flags[GLOBAL_FLAGS["flare_gun_found"]] = 2;
+                        save_file.inventory[INVENTORY["flare_gun"]] = 1;
+                        save_file.inventory[INVENTORY["flare_gun_ammo"]] = 80;
+                        save_file.held_sub_weapon = 11;
+                        save_file.held_sub_weapon_slot = 3;
+                    },
+                    "Bomb" => {
+                        save_file.flags[GLOBAL_FLAGS["bombs_found"]] = 2;
+                        save_file.inventory[INVENTORY["bombs"]] = 1;
+                        save_file.inventory[INVENTORY["bomb_ammo"]] = 30;
+                        save_file.held_sub_weapon = 12;
+                        save_file.held_sub_weapon_slot = 4;
+                    },
+                    "Chakram" => {
+                        save_file.flags[GLOBAL_FLAGS["chakrams_found"]] = 2;
+                        save_file.inventory[INVENTORY["chakrams"]] = 1;
+                        save_file.inventory[INVENTORY["chakram_ammo"]] = 10;
+                        save_file.held_sub_weapon = 13;
+                        save_file.held_sub_weapon_slot = 5;
+                    },
+                    "Caltrops" => {
+                        save_file.flags[GLOBAL_FLAGS["caltrops_found"]] = 2;
+                        save_file.inventory[INVENTORY["caltrops"]] = 1;
+                        save_file.inventory[INVENTORY["caltrop_ammo"]] = 80;
+                        save_file.held_sub_weapon = 14;
+                        save_file.held_sub_weapon_slot = 6;
+                    },
+                    "Pistol" => {
+                        save_file.flags[GLOBAL_FLAGS["pistol_found"]] = 2;
+                        save_file.inventory[INVENTORY["pistol"]] = 1;
+                        save_file.inventory[INVENTORY["pistol_clip_ammo"]] = 3;
+                        save_file.inventory[INVENTORY["pistol_bullet_ammo"]] = 6;
+                        save_file.held_sub_weapon = 15;
+                        save_file.held_sub_weapon_slot = 7;
+                    },
+                    &_ => {
+                        return Err(FileGenerationError::InvalidStartingWeapon);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn default_flags() -> [u8; 4096] {

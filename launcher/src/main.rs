@@ -153,6 +153,7 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
             let _ = tokio::spawn(async move {
                 match verify_new_seed(server_url, password, player_id_text, player_name).await {
                     Ok(slot_data) => {
+                        debug!("{:?}", slot_data);
                         match generator::generate_files(slot_data) {
                             Ok(_) => {
                                 // Set Current Seed, switch back to launcher window
@@ -184,7 +185,7 @@ async fn verify_new_seed(server_url: String, password: String, player_id_text: S
             ServerPayload::Connected(connected) => {
                 return connected.slot_data.ok_or(NewSeedError::SlotDataMissing);
             },
-            ServerPayload::ConnectionRefused(connection_refused) => {
+            ServerPayload::ConnectionRefused(_) => {
                 return Err(NewSeedError::ConnectionRefused);
             },
             _ => { debug!("Got payload other than Connected from AP Connection: {:?}", payload); }
