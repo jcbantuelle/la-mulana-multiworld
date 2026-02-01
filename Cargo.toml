@@ -8,12 +8,10 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-binrw = "0.15.0"
 bytes = "1.11.0"
 futures = { "version" = "0.3.31", "features" = ["executor"] }
 log = "0.4.16"
 log4rs = { "version" = "1.0.0", "features" = ["file_appender"] }
-modular-bitfield = "0.13.1"
 pelite = "0.10.0"
 ratchet_rs = { version = "1.2.1", features = ["deflate"] }
 retour = { version = "0.4.0-alpha.4", features = ["static-detour"] }

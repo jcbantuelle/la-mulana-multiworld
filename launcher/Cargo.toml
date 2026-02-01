@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+binrw = "0.15.0"
 bytes = "1.11.0"
 dll-syringe = { version = "0.17.1", features = ["into-x86-from-x64"] }
 hex = "0.4.3"
 log = "0.4.16"
 log4rs = { "version" = "1.0.0", "features" = ["file_appender"] }
+modular-bitfield = "0.13.1"
 ratchet_rs = { version = "1.2.1", features = ["deflate"] }
 serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"
