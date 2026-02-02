@@ -9,7 +9,6 @@ use super::lm_flags::{GLOBAL_FLAGS, INVENTORY, STARTING_WEAPONS};
 const NUM_EMAILS: u16 = 46;
 
 #[derive(Debug, BinRead, BinWrite)]
-#[br(big)]
 pub struct LaMulanaSav {
     valid: u8,
     game_time: u32,
