@@ -132,7 +132,7 @@ impl Dat {
 
     pub fn apply_mods(&mut self) -> Result<(), FileGenerationError> {
         self.rewrite_xelpud_flag_checks();
-        // self.rewrite_xelpud_xmailer_conversation();
+        self.rewrite_xelpud_xmailer_conversation();
         // self.rewrite_xelpud_talisman_conversation();
         // self.rewrite_xelpud_pillar_conversation();
         // self.rewrite_xelpud_mulana_talisman_conversation();
@@ -164,6 +164,23 @@ impl Dat {
         ];
         for entry in entries_to_add {
             self.add_data_entry(CARDS["xelpud_conversation_tree"], entry);
+        }
+    }
+
+    fn rewrite_xelpud_xmailer_conversation(&mut self) {
+        let card_index = CARDS["xelpud_xmailer"];
+        let entries = &mut self.dat_file.cards[card_index].contents;
+
+        for entry in entries.iter_mut() {
+            match entry.contents {
+                EntryContents::Flag(ref mut flag) => {
+                    if flag.address == GLOBAL_FLAGS["xmailer"] as i16 {
+                        flag.value = 2;
+                        break;
+                    }
+                },
+                _ => ()
+            }
         }
     }
 
