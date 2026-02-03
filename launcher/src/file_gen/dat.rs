@@ -137,7 +137,7 @@ impl Dat {
         self.rewrite_xelpud_pillar_conversation();
         self.rewrite_xelpud_mulana_talisman_conversation();
         self.rewrite_mulbruk_book_of_the_dead_conversation();
-        // self.update_slushfund_flags();
+        self.rewrite_slushfund_flags();
         Ok(())
     }
 
@@ -278,6 +278,16 @@ impl Dat {
             .unwrap();
 
         self.add_flag_entry(mulbruk_book_of_the_dead_index, cant_leave_entry_index, GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], 2);
+    }
+
+    fn rewrite_slushfund_flags(&mut self) {
+        let slushfund_pepper_index = CARDS["slushfund_give_pepper"];
+        let slushfund_pepper_card = &self.dat_file.cards[slushfund_pepper_index];
+        self.add_flag_entry(slushfund_pepper_index, slushfund_pepper_card.contents.len(), GLOBAL_FLAGS["replacement_slushfund_conversation"], 1);
+
+        let slushfund_anchor_index = CARDS["slushfund_give_anchor"];
+        let slushfund_anchor_card = &self.dat_file.cards[slushfund_anchor_index];
+        self.add_flag_entry(slushfund_anchor_index, slushfund_anchor_card.contents.len(), GLOBAL_FLAGS["replacement_slushfund_conversation"], 2);
     }
 
     // Utility Functions
