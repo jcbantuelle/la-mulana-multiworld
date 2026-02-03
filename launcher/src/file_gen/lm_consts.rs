@@ -166,6 +166,23 @@ pub const INVENTORY: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
     }
 );
 
+pub const HEADERS: LazyLock<HashMap<&'static str, u16>> = LazyLock::new(|| {
+    HashMap::from([
+        ("break", 0x000a),
+        ("white_space", 0x0020),
+        ("flag", 0x0040),
+        ("flag2", 0x0041),
+        ("item", 0x0042),
+        ("newline", 0x0045),
+        ("pose", 0x0046),
+        ("mantra", 0x0047),
+        ("color", 0x004a),
+        ("item_name", 0x004d),
+        ("data", 0x004e),
+        ("anime", 0x004f)
+    ])
+});
+
 pub const CARDS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
     HashMap::from([
         ("slushfund_give_pepper", 245),

@@ -10,7 +10,7 @@ use crate::consts::SOURCE_DAT_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_utils;
 
-use super::lm_consts::{CARDS, GLOBAL_FLAGS};
+use super::lm_consts::{CARDS, GLOBAL_FLAGS, HEADERS};
 
 #[derive(BinRead, BinWrite, Clone, Debug)]
 pub struct LaMulanaDat {
@@ -157,13 +157,14 @@ impl Dat {
             self.remove_data_entry_by_value(CARDS["xelpud_conversation_tree"], entry_value as i16);
         }
 
-        // data_values_to_add = [
-        //     [GLOBAL_FLAGS["xelpud_conversation_diary_found"], 1, CARDS["xelpud_mulana_talisman"], 0],
-        //     [GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 2, CARDS["xelpud_pillar"], 0],
-        //     [GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 1, CARDS["xelpud_talisman"], 0]
-        // ]
-        // for data_values in data_values_to_add:
-        //     self.__add_data_entry(card, data_values)
+        let entries_to_add: Vec<Vec<i16>> = vec![
+            vec![GLOBAL_FLAGS["xelpud_conversation_diary_found"] as i16, 1, CARDS["xelpud_mulana_talisman"] as i16, 0],
+            vec![GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16, 2, CARDS["xelpud_pillar"] as i16, 0],
+            vec![GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16, 1, CARDS["xelpud_talisman"] as i16, 0]
+        ];
+        for entry in entries_to_add {
+            self.add_data_entry(CARDS["xelpud_conversation_tree"], entry);
+        }
     }
 
     fn remove_data_entry_by_value(&mut self, card_index: usize, value: i16) {
@@ -192,5 +193,30 @@ impl Dat {
 
         entries.drain(start_delete_index..end_delete_index);
         card.len_contents -= removed_bytes;
+    }
+
+    fn add_data_entry(&mut self, card_index: usize, entry: Vec<i16>) {
+        let card = &mut self.dat_file.cards[card_index];
+        let entries = &mut card.contents;
+
+        let break_entry = Entry {
+            header: HEADERS["break"],
+            contents: EntryContents::Noop(Noop{})
+        };
+
+        let data_size = entry.len();
+
+        let data_entry = Entry {
+            header: HEADERS["data"],
+            contents: EntryContents::Data(Data {
+                num_values: data_size as i16,
+                values: entry
+            })
+        };
+
+        entries.insert(0, break_entry);
+        entries.insert(0, data_entry);
+
+        card.len_contents += 6 + (data_size as u16 * 2);
     }
 }
