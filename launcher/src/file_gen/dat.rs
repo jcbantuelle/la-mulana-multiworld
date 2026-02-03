@@ -136,7 +136,7 @@ impl Dat {
         self.rewrite_xelpud_talisman_conversation();
         self.rewrite_xelpud_pillar_conversation();
         self.rewrite_xelpud_mulana_talisman_conversation();
-        // self.rewrite_mulbruk_book_of_the_dead_conversation();
+        self.rewrite_mulbruk_book_of_the_dead_conversation();
         // self.update_slushfund_flags();
         Ok(())
     }
@@ -242,6 +242,45 @@ impl Dat {
             }
         }
     }
+
+    fn rewrite_mulbruk_book_of_the_dead_conversation(&mut self) {
+        let mulbruk_conversation_tree_index = CARDS["mulbruk_conversation_tree"];
+        let mulbruk_conversation_tree_entries = &mut self.dat_file.cards[mulbruk_conversation_tree_index].contents;
+
+        for entry in mulbruk_conversation_tree_entries.iter_mut() {
+            match entry.contents {
+                EntryContents::Data(ref mut data) => {
+                    if data.values[0] == GLOBAL_FLAGS["mulbruk_book_of_the_dead"] as i16 {
+                        data.values[0] = GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"] as i16;
+                        break;
+                    }
+                },
+                _ => ()
+            }
+        }
+
+        let mulbruk_book_of_the_dead_index = CARDS["mulbruk_book_of_the_dead_conversation"];
+        let mulbruk_book_of_the_dead_entries = &mut self.dat_file.cards[mulbruk_book_of_the_dead_index].contents;
+
+        let cant_leave_entry_index = mulbruk_book_of_the_dead_entries
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| {
+                match &entry.contents {
+                    EntryContents::Flag(flag) => {
+                        flag.address == GLOBAL_FLAGS["cant_leave_conversation"] as i16
+                    },
+                    _ => false
+                }
+            })
+            .map(|(index, _)| index)
+            .max()
+            .unwrap();
+
+        self.add_flag_entry(mulbruk_book_of_the_dead_index, cant_leave_entry_index, GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], 2);
+    }
+
+    // Utility Functions
 
     fn remove_data_entry_by_value(&mut self, card_index: usize, value: i16) {
         let card = &mut self.dat_file.cards[card_index];
