@@ -135,7 +135,7 @@ impl Dat {
         self.rewrite_xelpud_xmailer_conversation();
         self.rewrite_xelpud_talisman_conversation();
         self.rewrite_xelpud_pillar_conversation();
-        // self.rewrite_xelpud_mulana_talisman_conversation();
+        self.rewrite_xelpud_mulana_talisman_conversation();
         // self.rewrite_mulbruk_book_of_the_dead_conversation();
         // self.update_slushfund_flags();
         Ok(())
@@ -217,6 +217,24 @@ impl Dat {
                     if flag.address == GLOBAL_FLAGS["shrine_diary_chest"] as i16 {
                         flag.address = GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16;
                         flag.value = 3;
+                        break;
+                    }
+                },
+                _ => ()
+            }
+        }
+    }
+
+    fn rewrite_xelpud_mulana_talisman_conversation(&mut self) {
+        let card_index = CARDS["xelpud_mulana_talisman"];
+        let entries = &mut self.dat_file.cards[card_index].contents;
+
+        for entry in entries.iter_mut() {
+            match entry.contents {
+                EntryContents::Flag(ref mut flag) => {
+                    if flag.address == GLOBAL_FLAGS["diary_chest_puzzle"] as i16 {
+                        flag.address = GLOBAL_FLAGS["xelpud_conversation_diary_found"] as i16;
+                        flag.value = 2;
                         break;
                     }
                 },
