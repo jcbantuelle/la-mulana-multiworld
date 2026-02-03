@@ -2,9 +2,9 @@ use thiserror::Error;
 
 use crate::archipelago::api::SlotData;
 use crate::consts::AP_PATH;
+use crate::file_gen::dat::Dat;
+use crate::file_gen::sav::Sav;
 use crate::file_utils;
-
-use super::{dat, sav};
 
 #[derive(Clone, Error, Debug)]
 pub enum FileGenerationError {
@@ -28,8 +28,13 @@ pub enum FileGenerationError {
 
 pub fn generate_files(slot_data: SlotData) -> Result<(), FileGenerationError>{
     // let rcd_bytes = rcd::generate(&slot_data);
-    let dat_bytes = dat::generate(&slot_data)?;
-    let sav_bytes = sav::generate(&slot_data)?;
+
+    let mut dat_file = Dat::new()?;
+    dat_file.apply_mods()?;
+
+    let mut sav_file = Sav::new();
+    sav_file.apply_mods(&slot_data)?;
+
     // let effect_bytes = effects::generate();
 
     // Write files to disk
@@ -37,9 +42,9 @@ pub fn generate_files(slot_data: SlotData) -> Result<(), FileGenerationError>{
     file_utils::create_dir(&new_seed_path).map_err(|_| FileGenerationError::SeedDirWriteFailure)?;
 
     let dat_file_path = format!("{}/{}", new_seed_path, "script_code.dat");
-    file_utils::write_file(&dat_file_path, dat_bytes).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
+    file_utils::write_file(&dat_file_path, dat_file.to_bytes()?).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
 
     let save_file_path = format!("{}/{}", new_seed_path, "lm00.sav");
-    file_utils::write_file(&save_file_path, sav_bytes).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
+    file_utils::write_file(&save_file_path, sav_file.to_bytes()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
     Ok(())
 }

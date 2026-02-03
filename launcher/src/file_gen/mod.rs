@@ -1,6 +1,6 @@
 pub mod generator;
 
-mod lm_flags;
 mod dat;
+mod lm_consts;
 mod rcd;
 mod sav;

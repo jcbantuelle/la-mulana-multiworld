@@ -153,7 +153,7 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
             let _ = tokio::spawn(async move {
                 match verify_new_seed(server_url, password, player_id_text, player_name).await {
                     Ok(slot_data) => {
-                        debug!("{:?}", slot_data);
+                        // debug!("{:?}", slot_data);
                         match generator::generate_files(slot_data) {
                             Ok(_) => {
                                 // Set Current Seed, switch back to launcher window
