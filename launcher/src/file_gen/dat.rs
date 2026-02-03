@@ -133,7 +133,7 @@ impl Dat {
     pub fn apply_mods(&mut self) -> Result<(), FileGenerationError> {
         self.rewrite_xelpud_flag_checks();
         self.rewrite_xelpud_xmailer_conversation();
-        // self.rewrite_xelpud_talisman_conversation();
+        self.rewrite_xelpud_talisman_conversation();
         // self.rewrite_xelpud_pillar_conversation();
         // self.rewrite_xelpud_mulana_talisman_conversation();
         // self.rewrite_mulbruk_book_of_the_dead_conversation();
@@ -182,6 +182,29 @@ impl Dat {
                 _ => ()
             }
         }
+    }
+
+    fn rewrite_xelpud_talisman_conversation(&mut self) {
+        let card_index = CARDS["xelpud_talisman"];
+        let entries = &mut self.dat_file.cards[card_index].contents;
+
+        let cant_leave_entry_index = entries
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| {
+                match &entry.contents {
+                    EntryContents::Flag(flag) => {
+                        flag.address == GLOBAL_FLAGS["cant_leave_conversation"] as i16
+                    },
+                    _ => false
+                }
+            })
+            .map(|(index, _)| index)
+            .max()
+            .unwrap();
+
+        self.add_flag_entry(card_index, cant_leave_entry_index, GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 2);
+        self.add_flag_entry(card_index, cant_leave_entry_index, GLOBAL_FLAGS["xelpud_talisman"], 1);
     }
 
     fn remove_data_entry_by_value(&mut self, card_index: usize, value: i16) {
@@ -235,5 +258,21 @@ impl Dat {
         entries.insert(0, data_entry);
 
         card.len_contents += 6 + (data_size as u16 * 2);
+    }
+
+    fn add_flag_entry(&mut self, card_index: usize, index: usize, address: usize, value: i16) {
+        let card = &mut self.dat_file.cards[card_index];
+        let entries = &mut card.contents;
+
+        let flag = Entry {
+            header: HEADERS["flag"],
+            contents: EntryContents::Flag(Flag {
+                address: address as i16,
+                value
+            })
+        };
+
+        entries.insert(index, flag);
+        card.len_contents += 6;
     }
 }
