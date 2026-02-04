@@ -133,8 +133,7 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|
         ("xelpud_conversation_diary_found", 0x866),
         ("received_items_index_1", 0x867),
         ("received_items_index_2", 0x868),
-        ("rcd_filler_items", 0x9f6),
-        ("dat_filler_items", 0xa8c)
+        ("filler_items", 0x9f6)
     ])
 });
 

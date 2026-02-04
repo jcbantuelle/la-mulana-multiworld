@@ -438,7 +438,9 @@ pub struct Location {
     pub room: Option<u64>,
     pub screen: Option<u64>,
     pub slot: Option<u64>,
-    pub zones: Option<Vec<u64>>
+    pub zones: Option<Vec<u64>>,
+    pub is_shop: bool,
+    pub file_type: Option<String>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

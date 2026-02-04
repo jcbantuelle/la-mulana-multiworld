@@ -23,6 +23,7 @@ use crate::ap_data::APData;
 use crate::archipelago::api::*;
 use crate::consts::*;
 use crate::file_gen::generator;
+use crate::file_gen::app_config::AppConfig;
 
 slint::include_modules!();
 
@@ -151,10 +152,11 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
 
         let _ = slint::spawn_local(async move {
             let _ = tokio::spawn(async move {
-                match verify_new_seed(server_url, password, player_id_text, player_name).await {
+                match verify_new_seed(server_url.clone(), password.clone(), player_id_text.clone(), player_name.clone()).await {
                     Ok(slot_data) => {
-                        // debug!("{:?}", slot_data);
-                        match generator::generate_files(slot_data) {
+                        debug!("{:?}", slot_data);
+                        let app_config = AppConfig::new(server_url, password, player_id_text, slot_data.players.clone());
+                        match generator::generate_files(app_config, slot_data) {
                             Ok(_) => {
                                 // Set Current Seed, switch back to launcher window
                             },

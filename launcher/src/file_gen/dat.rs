@@ -5,7 +5,7 @@ use log::debug;
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use crate::archipelago::api::SlotData;
+use crate::archipelago::api::Location;
 use crate::consts::SOURCE_DAT_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_utils;
@@ -113,8 +113,7 @@ pub struct Anime {
 pub struct Noop {}
 
 pub struct Dat {
-    next_filler_item_flag: usize,
-    shop_placements: HashMap<u64,[Option<String>;3]>,
+    shop_placements: HashMap<usize,[Option<String>;3]>,
     dat_file: LaMulanaDat
 }
 
@@ -124,7 +123,6 @@ impl Dat {
         let mut reader = Cursor::new(raw_file);
         let dat_file = LaMulanaDat::read_be(&mut reader).map_err(|_| FileGenerationError::DatFileParseFailure)?;
         Ok(Dat {
-            next_filler_item_flag: GLOBAL_FLAGS["dat_filler_items"],
             shop_placements: HashMap::new(),
             dat_file
         })
@@ -141,10 +139,53 @@ impl Dat {
         Ok(())
     }
 
+    pub fn place_item(&mut self, item_id: i64, location: &Location, flag: u16) {
+        for card_index in location.cards.clone().unwrap() {
+            let old_flag = match location.original_obtain_flag {
+                Some(obtain_flag) => obtain_flag,
+                None => location.obtain_flag
+            };
+            if location.slot.is_none() {
+                self.place_conversation_item(card_index, location.item_id.unwrap() as i16, item_id as i16, old_flag as i16, flag as i16);
+                if card_index == CARDS["xelpud_xmailer"] {
+                    self.update_xelpud_xmailer_flag(flag as i16);
+                }
+            } else {
+                self.place_shop_item(card_index);
+            }
+        }
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
         let mut writer = Cursor::new(Vec::new());
         let _ = self.dat_file.write_be(&mut writer).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
         Ok(writer.into_inner())
+    }
+
+    fn place_conversation_item(&mut self, card_index: usize, old_item_id: i16, new_item_id: i16, original_flag: i16, new_flag: i16) {
+        let card = &mut self.dat_file.cards[card_index];
+        for entry in card.contents.iter_mut() {
+            match entry.contents {
+                EntryContents::Item(ref mut item) => {
+                    if item.value == old_item_id {
+                        item.value = new_item_id;
+                    }
+                },
+                EntryContents::Flag(ref mut flag) => {
+                    if flag.address == original_flag {
+                        flag.address = new_flag;
+                        flag.value = 2;
+                    }
+                },
+                _ => ()
+            }
+        }
+    }
+
+    fn place_shop_item(&mut self, card_index: usize) {
+        if !self.shop_placements.contains_key(&card_index) {
+            self.shop_placements.insert(card_index, [None, None, None]);
+        }
     }
 
     fn rewrite_xelpud_flag_checks(&mut self) {
@@ -168,116 +209,32 @@ impl Dat {
     }
 
     fn rewrite_xelpud_xmailer_conversation(&mut self) {
-        let card_index = CARDS["xelpud_xmailer"];
-        let entries = &mut self.dat_file.cards[card_index].contents;
-
-        for entry in entries.iter_mut() {
-            match entry.contents {
-                EntryContents::Flag(ref mut flag) => {
-                    if flag.address == GLOBAL_FLAGS["xmailer"] as i16 {
-                        flag.value = 2;
-                        break;
-                    }
-                },
-                _ => ()
-            }
-        }
+        self.update_flag_entry(CARDS["xelpud_xmailer"], GLOBAL_FLAGS["xmailer"] as i16, None, Some(2));
     }
 
     fn rewrite_xelpud_talisman_conversation(&mut self) {
         let card_index = CARDS["xelpud_talisman"];
-        let entries = &mut self.dat_file.cards[card_index].contents;
+        let insert_at_index = self.cant_leave_index(card_index);
 
-        let cant_leave_entry_index = entries
-            .iter()
-            .enumerate()
-            .filter(|(_, entry)| {
-                match &entry.contents {
-                    EntryContents::Flag(flag) => {
-                        flag.address == GLOBAL_FLAGS["cant_leave_conversation"] as i16
-                    },
-                    _ => false
-                }
-            })
-            .map(|(index, _)| index)
-            .max()
-            .unwrap();
-
-        self.add_flag_entry(card_index, cant_leave_entry_index, GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 2);
-        self.add_flag_entry(card_index, cant_leave_entry_index, GLOBAL_FLAGS["xelpud_talisman"], 1);
+        self.add_flag_entry(card_index, insert_at_index, GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 2);
+        self.add_flag_entry(card_index, insert_at_index, GLOBAL_FLAGS["xelpud_talisman"], 1);
     }
 
     fn rewrite_xelpud_pillar_conversation(&mut self) {
-        let card_index = CARDS["xelpud_pillar"];
-        let entries = &mut self.dat_file.cards[card_index].contents;
-
-        for entry in entries.iter_mut() {
-            match entry.contents {
-                EntryContents::Flag(ref mut flag) => {
-                    if flag.address == GLOBAL_FLAGS["shrine_diary_chest"] as i16 {
-                        flag.address = GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16;
-                        flag.value = 3;
-                        break;
-                    }
-                },
-                _ => ()
-            }
-        }
+        self.update_flag_entry(CARDS["xelpud_pillar"], GLOBAL_FLAGS["shrine_diary_chest"] as i16, Some(GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16), Some(3));
     }
 
     fn rewrite_xelpud_mulana_talisman_conversation(&mut self) {
-        let card_index = CARDS["xelpud_mulana_talisman"];
-        let entries = &mut self.dat_file.cards[card_index].contents;
-
-        for entry in entries.iter_mut() {
-            match entry.contents {
-                EntryContents::Flag(ref mut flag) => {
-                    if flag.address == GLOBAL_FLAGS["diary_chest_puzzle"] as i16 {
-                        flag.address = GLOBAL_FLAGS["xelpud_conversation_diary_found"] as i16;
-                        flag.value = 2;
-                        break;
-                    }
-                },
-                _ => ()
-            }
-        }
+        self.update_flag_entry(CARDS["xelpud_mulana_talisman"], GLOBAL_FLAGS["diary_chest_puzzle"] as i16, Some(GLOBAL_FLAGS["xelpud_conversation_diary_found"] as i16), Some(2));
     }
 
     fn rewrite_mulbruk_book_of_the_dead_conversation(&mut self) {
-        let mulbruk_conversation_tree_index = CARDS["mulbruk_conversation_tree"];
-        let mulbruk_conversation_tree_entries = &mut self.dat_file.cards[mulbruk_conversation_tree_index].contents;
-
-        for entry in mulbruk_conversation_tree_entries.iter_mut() {
-            match entry.contents {
-                EntryContents::Data(ref mut data) => {
-                    if data.values[0] == GLOBAL_FLAGS["mulbruk_book_of_the_dead"] as i16 {
-                        data.values[0] = GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"] as i16;
-                        break;
-                    }
-                },
-                _ => ()
-            }
-        }
+        self.update_data_entry(CARDS["mulbruk_conversation_tree"], 0, GLOBAL_FLAGS["mulbruk_book_of_the_dead"] as i16, GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"] as i16);
 
         let mulbruk_book_of_the_dead_index = CARDS["mulbruk_book_of_the_dead_conversation"];
-        let mulbruk_book_of_the_dead_entries = &mut self.dat_file.cards[mulbruk_book_of_the_dead_index].contents;
+        let insert_at_index = self.cant_leave_index(mulbruk_book_of_the_dead_index);
 
-        let cant_leave_entry_index = mulbruk_book_of_the_dead_entries
-            .iter()
-            .enumerate()
-            .filter(|(_, entry)| {
-                match &entry.contents {
-                    EntryContents::Flag(flag) => {
-                        flag.address == GLOBAL_FLAGS["cant_leave_conversation"] as i16
-                    },
-                    _ => false
-                }
-            })
-            .map(|(index, _)| index)
-            .max()
-            .unwrap();
-
-        self.add_flag_entry(mulbruk_book_of_the_dead_index, cant_leave_entry_index, GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], 2);
+        self.add_flag_entry(mulbruk_book_of_the_dead_index, insert_at_index , GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], 2);
     }
 
     fn rewrite_slushfund_flags(&mut self) {
@@ -290,7 +247,48 @@ impl Dat {
         self.add_flag_entry(slushfund_anchor_index, slushfund_anchor_card.contents.len(), GLOBAL_FLAGS["replacement_slushfund_conversation"], 2);
     }
 
+    fn update_xelpud_xmailer_flag(&mut self, flag: i16) {
+        self.update_data_entry(CARDS["xelpud_conversation_tree"], 0, GLOBAL_FLAGS["xmailer"] as i16, flag);
+    }
+
     // Utility Functions
+
+    fn update_data_entry(&mut self, card_index: usize, data_index: usize, old_value: i16, new_value: i16) {
+        let card = &mut self.dat_file.cards[card_index];
+        for entry in card.contents.iter_mut() {
+            match entry.contents {
+                EntryContents::Data(ref mut data) => {
+                    if data.values[data_index] == old_value {
+                        data.values[data_index] = new_value;
+                        break;
+                    }
+                },
+                _ => ()
+            }
+        }
+    }
+
+    fn update_flag_entry(&mut self, card_index: usize, old_address: i16, new_address: Option<i16>, value: Option<i16>) {
+        let card = &mut self.dat_file.cards[card_index];
+        for entry in card.contents.iter_mut() {
+            match entry.contents {
+                EntryContents::Flag(ref mut flag) => {
+                    if flag.address == old_address {
+                        match new_address {
+                            Some(flag_address) => flag.address = flag_address,
+                            None => ()
+                        }
+                        match value {
+                            Some(flag_value) => flag.value = flag_value,
+                            None => ()
+                        }
+                        break;
+                    }
+                },
+                _ => ()
+            }
+        }
+    }
 
     fn remove_data_entry_by_value(&mut self, card_index: usize, value: i16) {
         let card = &mut self.dat_file.cards[card_index];
@@ -359,5 +357,23 @@ impl Dat {
 
         entries.insert(index, flag);
         card.len_contents += 6;
+    }
+
+    fn cant_leave_index(&mut self, card_index: usize) -> usize {
+        let card = &mut self.dat_file.cards[card_index];
+        card.contents
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| {
+                match &entry.contents {
+                    EntryContents::Flag(flag) => {
+                        flag.address == GLOBAL_FLAGS["cant_leave_conversation"] as i16
+                    },
+                    _ => false
+                }
+            })
+            .map(|(index, _)| index)
+            .max()
+            .unwrap()
     }
 }
