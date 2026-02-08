@@ -1,6 +1,6 @@
 use binrw::helpers::until_eof;
 use binrw::io::TakeSeekExt;
-use binrw::{BinRead, binread, BinWrite, binwrite};
+use binrw::{BinRead, binrw, BinWrite};
 use log::debug;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -19,8 +19,7 @@ pub struct LaMulanaDat {
     cards: Vec<Card>
 }
 
-#[binread]
-#[binwrite]
+#[binrw]
 #[derive(Clone, Debug)]
 pub struct Card {
     #[bw(calc = calculate_contents_size(contents))]
