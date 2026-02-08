@@ -37,11 +37,16 @@ impl AppConfig {
         }
     }
 
-    pub fn add_item(&mut self, item: Option<&ItemData>, item_id: i16, location: &Location) -> i16 {
-        let flag = if item_id == 38 || item_id == 83 || item.is_none() || item.unwrap().obtain_flag.is_none() {
-            self.filler_flag()
-        } else {
-            item.unwrap().obtain_flag.unwrap()
+    pub fn add_item(&mut self, item: ItemData, item_id: i16, location: &Location) -> i16 {
+        let flag = match item.obtain_flag {
+            Some(obtain_flag) => {
+                if item_id == 38 || item_id == 83 {
+                    self.filler_flag()
+                } else {
+                    obtain_flag
+                }
+            },
+            None => self.filler_flag()
         };
 
         let ap_item = ArchipelagoItem {

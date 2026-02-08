@@ -168,13 +168,16 @@ impl Dat {
                 Some(obtain_flag) => obtain_flag,
                 None => location.obtain_flag.unwrap()
             };
-            if location.slot.is_none() {
-                self.place_conversation_item(card_index, location.item_id.unwrap(), item_id, old_flag, flag);
-                if card_index == self.card_lookup["xelpud_xmailer"] {
-                    self.update_xelpud_xmailer_flag(flag);
+            match location.slot {
+                Some(slot) => {
+                    self.place_shop_item(card_index, slot);
+                },
+                None => {
+                    self.place_conversation_item(card_index, location.item_id.unwrap(), item_id, old_flag, flag);
+                    if card_index == self.card_lookup["xelpud_xmailer"] {
+                        self.update_xelpud_xmailer_flag(flag);
+                    }
                 }
-            } else {
-                self.place_shop_item(card_index);
             }
         }
     }
@@ -205,10 +208,11 @@ impl Dat {
         }
     }
 
-    fn place_shop_item(&mut self, card_index: usize) {
+    fn place_shop_item(&mut self, card_index: usize, slot: usize) {
         if !self.shop_placements.contains_key(&card_index) {
             self.shop_placements.insert(card_index, [None, None, None]);
         }
+        // Do rest of shop placement logic
     }
 
     fn rewrite_xelpud_flag_checks(&mut self) {

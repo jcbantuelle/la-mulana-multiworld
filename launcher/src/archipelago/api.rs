@@ -439,7 +439,7 @@ pub struct Location {
     pub object_type: Option<u64>,
     pub room: Option<u64>,
     pub screen: Option<u64>,
-    pub slot: Option<u64>,
+    pub slot: Option<usize>,
     pub zones: Option<Vec<u64>>,
     pub file_type: Option<String>,
     pub original_obtain_flag: Option<i16>,
