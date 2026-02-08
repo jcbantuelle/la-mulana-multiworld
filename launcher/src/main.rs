@@ -40,6 +40,8 @@ pub enum NewSeedError {
     ConnectionDropped,
     #[error("Archipelago refused connection, please confirm Player Name and ID")]
     ConnectionRefused,
+    #[error("Archipelago rejected the payload, please confirm all software is up to date")]
+    InvalidPacket,
     #[error("Archipelago failed to send slot data, please confirm lamulana APworld is up to date")]
     SlotDataMissing,
 }
@@ -148,7 +150,7 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
         let player_id_text = seed_selector.get_player_id().to_string();
         let player_name = seed_selector.get_player_name().to_string();
 
-        let seed_selector_error_handle = seed_selector_add_seed_handle.clone();
+        let seed_selector_text_handle = seed_selector_add_seed_handle.clone();
 
         let _ = slint::spawn_local(async move {
             let _ = tokio::spawn(async move {
@@ -158,16 +160,22 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                         let app_config = AppConfig::new(server_url, password, slot_data.player_id.clone(), slot_data.players.clone());
                         match generator::generate_files(app_config, slot_data) {
                             Ok(_) => {
+                                let _ = seed_selector_text_handle.upgrade_in_event_loop(move |seed_selector| {
+                                    seed_selector.set_add_seed_error("Success".into());
+                                }).unwrap();
                                 // Set Current Seed, switch back to launcher window
                             },
                             Err(e) => {
-                                // Update Add Seed Error text for whatever went wrong
+                                debug!("Files failed to Generate with Error: {}", e);
+                                let _ = seed_selector_text_handle.upgrade_in_event_loop(move |seed_selector| {
+                                    seed_selector.set_add_seed_error(e.to_string().into());
+                                }).unwrap();
                             }
                         }
                     },
                     Err(e) => {
                         debug!("Seed Failed to Validate with Error: {}", e);
-                        let _ = seed_selector_error_handle.upgrade_in_event_loop(move |seed_selector| {
+                        let _ = seed_selector_text_handle.upgrade_in_event_loop(move |seed_selector| {
                             seed_selector.set_add_seed_error(e.to_string().into());
                         }).unwrap();
                     }
@@ -187,8 +195,13 @@ async fn verify_new_seed(server_url: String, password: String, player_id_text: S
             ServerPayload::Connected(connected) => {
                 return connected.slot_data.ok_or(NewSeedError::SlotDataMissing);
             },
-            ServerPayload::ConnectionRefused(_) => {
+            ServerPayload::ConnectionRefused(connection_refused) => {
+                debug!("Connection Refused: {:?}", connection_refused);
                 return Err(NewSeedError::ConnectionRefused);
+            },
+            ServerPayload::InvalidPacket(invalid_packet) => {
+                debug!("Invalid Packet: {:?}", invalid_packet);
+                return Err(NewSeedError::InvalidPacket);
             },
             _ => { debug!("Got payload other than Connected from AP Connection: {:?}", payload); }
         }
