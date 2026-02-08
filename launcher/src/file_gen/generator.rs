@@ -38,14 +38,14 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
 
     // let effect_bytes = effects::generate();
 
-    let fallback_item_id: i64 = 83;
+    let fallback_item_id: i16 = 83;
     for slot_data_location in slot_data.locations.iter() {
         let location = slot_data_location.clone();
         if location.item.is_none() || location.address.is_none() {
             continue;
         }
         let ap_item = location.item.as_ref().unwrap();
-        let for_self = ap_item.player == app_config.local_player_id as u64;
+        let for_self = ap_item.player == app_config.local_player_id;
 
         let lm_item = slot_data.item_table.get(&ap_item.name);
         if lm_item.is_none() && for_self {

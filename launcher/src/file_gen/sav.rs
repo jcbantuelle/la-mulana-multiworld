@@ -1,4 +1,5 @@
 use binrw::{BinRead, BinWrite};
+use std::collections::HashMap;
 use std::io::Cursor;
 
 use crate::archipelago::api::SlotData;
@@ -60,11 +61,13 @@ pub struct BunemonRecord {
 }
 
 pub struct Sav {
-    save_file: LaMulanaSav
+    save_file: LaMulanaSav,
+    global_flag_lookup: HashMap<&'static str, usize>
 }
 
 impl Sav {
     pub fn new() -> Self {
+        let global_flag_lookup = GLOBAL_FLAGS.iter().map(|(k,v)| (*k, *v as usize)).collect::<HashMap<&str, usize>>();
         let save_file = LaMulanaSav {
             valid: 1,
             game_time: 0,
@@ -76,7 +79,7 @@ impl Sav {
             max_hp: 1,
             current_hp: 32,
             current_exp: 0,
-            flags: Self::default_flags(),
+            flags: Self::default_flags(global_flag_lookup.clone()),
             inventory: [0; 255],
             held_main_weapon: 0,
             held_sub_weapon: 0xff,
@@ -93,7 +96,7 @@ impl Sav {
             mantras_learned: [0; 10],
             maps_owned_bit_array: 0
         };
-        Sav { save_file }
+        Sav { save_file, global_flag_lookup }
     }
 
     pub fn apply_mods(&mut self, slot_data: &SlotData) -> Result<(), FileGenerationError> {
@@ -109,25 +112,25 @@ impl Sav {
 
             match starting_weapon {
                 "Knife" => {
-                    self.save_file.flags[GLOBAL_FLAGS["knife_found"]] = 2;
+                    self.save_file.flags[self.global_flag_lookup["knife_found"]] = 2;
                     self.save_file.inventory[INVENTORY["knife"]] = 1;
                     self.save_file.held_main_weapon = 3;
                     self.save_file.held_main_weapon_slot = 1;
                 },
                 "Key Sword" => {
-                    self.save_file.flags[GLOBAL_FLAGS["keysword_found"]] = 2;
+                    self.save_file.flags[self.global_flag_lookup["keysword_found"]] = 2;
                     self.save_file.inventory[INVENTORY["keysword"]] = 1;
                     self.save_file.held_main_weapon = 4;
                     self.save_file.held_main_weapon_slot = 2;
                 },
                 "Axe" => {
-                    self.save_file.flags[GLOBAL_FLAGS["axe_found"]] = 2;
+                    self.save_file.flags[self.global_flag_lookup["axe_found"]] = 2;
                     self.save_file.inventory[INVENTORY["axe"]] = 1;
                     self.save_file.held_main_weapon = 5;
                     self.save_file.held_main_weapon_slot = 3;
                 },
                 "Katana" => {
-                    self.save_file.flags[GLOBAL_FLAGS["katana_found"]] = 2;
+                    self.save_file.flags[self.global_flag_lookup["katana_found"]] = 2;
                     self.save_file.inventory[INVENTORY["katana"]] = 1;
                     self.save_file.held_main_weapon = 6;
                     self.save_file.held_main_weapon_slot = 4;
@@ -137,56 +140,56 @@ impl Sav {
                     self.save_file.held_main_weapon_slot = 0xff;
                     match subweapon {
                         "Shuriken" => {
-                            self.save_file.flags[GLOBAL_FLAGS["shurikens_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["shurikens_found"]] = 2;
                             self.save_file.inventory[INVENTORY["shurikens"]] = 1;
                             self.save_file.inventory[INVENTORY["shuriken_ammo"]] = 150;
                             self.save_file.held_sub_weapon = 8;
                             self.save_file.held_sub_weapon_slot = 0;
                         },
                         "Rolling Shuriken" => {
-                            self.save_file.flags[GLOBAL_FLAGS["rolling_shurikens_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["rolling_shurikens_found"]] = 2;
                             self.save_file.inventory[INVENTORY["rolling_shurikens"]] = 1;
                             self.save_file.inventory[INVENTORY["rolling_shuriken_ammo"]] = 100;
                             self.save_file.held_sub_weapon = 9;
                             self.save_file.held_sub_weapon_slot = 1;
                         },
                         "Earth Spear" => {
-                            self.save_file.flags[GLOBAL_FLAGS["earth_spears_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["earth_spears_found"]] = 2;
                             self.save_file.inventory[INVENTORY["earth_spears"]] = 1;
                             self.save_file.inventory[INVENTORY["earth_spear_ammo"]] = 80;
                             self.save_file.held_sub_weapon = 10;
                             self.save_file.held_sub_weapon_slot = 2;
                         },
                         "Flare Gun" => {
-                            self.save_file.flags[GLOBAL_FLAGS["flare_gun_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["flare_gun_found"]] = 2;
                             self.save_file.inventory[INVENTORY["flare_gun"]] = 1;
                             self.save_file.inventory[INVENTORY["flare_gun_ammo"]] = 80;
                             self.save_file.held_sub_weapon = 11;
                             self.save_file.held_sub_weapon_slot = 3;
                         },
                         "Bomb" => {
-                            self.save_file.flags[GLOBAL_FLAGS["bombs_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["bombs_found"]] = 2;
                             self.save_file.inventory[INVENTORY["bombs"]] = 1;
                             self.save_file.inventory[INVENTORY["bomb_ammo"]] = 30;
                             self.save_file.held_sub_weapon = 12;
                             self.save_file.held_sub_weapon_slot = 4;
                         },
                         "Chakram" => {
-                            self.save_file.flags[GLOBAL_FLAGS["chakrams_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["chakrams_found"]] = 2;
                             self.save_file.inventory[INVENTORY["chakrams"]] = 1;
                             self.save_file.inventory[INVENTORY["chakram_ammo"]] = 10;
                             self.save_file.held_sub_weapon = 13;
                             self.save_file.held_sub_weapon_slot = 5;
                         },
                         "Caltrops" => {
-                            self.save_file.flags[GLOBAL_FLAGS["caltrops_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["caltrops_found"]] = 2;
                             self.save_file.inventory[INVENTORY["caltrops"]] = 1;
                             self.save_file.inventory[INVENTORY["caltrop_ammo"]] = 80;
                             self.save_file.held_sub_weapon = 14;
                             self.save_file.held_sub_weapon_slot = 6;
                         },
                         "Pistol" => {
-                            self.save_file.flags[GLOBAL_FLAGS["pistol_found"]] = 2;
+                            self.save_file.flags[self.global_flag_lookup["pistol_found"]] = 2;
                             self.save_file.inventory[INVENTORY["pistol"]] = 1;
                             self.save_file.inventory[INVENTORY["pistol_clip_ammo"]] = 3;
                             self.save_file.inventory[INVENTORY["pistol_bullet_ammo"]] = 6;
@@ -209,13 +212,13 @@ impl Sav {
         Ok(writer.into_inner())
     }
 
-    fn default_flags() -> [u8; 4096] {
+    fn default_flags(global_flag_lookup: HashMap<&'static str, usize>) -> [u8; 4096] {
         let mut flags = [0; 4096];
 
-        flags[GLOBAL_FLAGS["end_start_animation"]] = 1;
-        flags[GLOBAL_FLAGS["hell_dlc"]] = 1;
-        flags[GLOBAL_FLAGS["randomizer_save_loaded"]] = 1;
-        flags[GLOBAL_FLAGS["received_items_index_2"]] = 1;
+        flags[global_flag_lookup["end_start_animation"]] = 1;
+        flags[global_flag_lookup["hell_dlc"]] = 1;
+        flags[global_flag_lookup["randomizer_save_loaded"]] = 1;
+        flags[global_flag_lookup["received_items_index_2"]] = 1;
 
         flags
     }

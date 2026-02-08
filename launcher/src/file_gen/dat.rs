@@ -14,7 +14,7 @@ use super::lm_consts::{CARDS, GLOBAL_FLAGS, HEADERS};
 
 #[derive(BinRead, BinWrite, Clone, Debug)]
 pub struct LaMulanaDat {
-    num_cards: u16,
+    num_cards: i16,
     #[br(count = num_cards)]
     cards: Vec<Card>
 }
@@ -114,7 +114,8 @@ pub struct Noop {}
 
 pub struct Dat {
     shop_placements: HashMap<usize,[Option<String>;3]>,
-    dat_file: LaMulanaDat
+    dat_file: LaMulanaDat,
+    card_lookup: HashMap<&'static str, usize>
 }
 
 impl Dat {
@@ -122,9 +123,11 @@ impl Dat {
         let raw_file = file_utils::read_file(&SOURCE_DAT_PATH).map_err(|_| FileGenerationError::DatFileReadFailure)?;
         let mut reader = Cursor::new(raw_file);
         let dat_file = LaMulanaDat::read_be(&mut reader).map_err(|_| FileGenerationError::DatFileParseFailure)?;
+        let card_lookup = CARDS.iter().map(|(k,v)| (*k, *v as usize)).collect::<HashMap<&str, usize>>();
         Ok(Dat {
             shop_placements: HashMap::new(),
-            dat_file
+            dat_file,
+            card_lookup
         })
     }
 
@@ -139,16 +142,16 @@ impl Dat {
         Ok(())
     }
 
-    pub fn place_item(&mut self, item_id: i64, location: &Location, flag: u16) {
+    pub fn place_item(&mut self, item_id: i16, location: &Location, flag: i16) {
         for card_index in location.cards.clone().unwrap() {
             let old_flag = match location.original_obtain_flag {
                 Some(obtain_flag) => obtain_flag,
                 None => location.obtain_flag
             };
             if location.slot.is_none() {
-                self.place_conversation_item(card_index, location.item_id.unwrap() as i16, item_id as i16, old_flag as i16, flag as i16);
-                if card_index == CARDS["xelpud_xmailer"] {
-                    self.update_xelpud_xmailer_flag(flag as i16);
+                self.place_conversation_item(card_index, location.item_id.unwrap(), item_id, old_flag, flag);
+                if card_index == self.card_lookup["xelpud_xmailer"] {
+                    self.update_xelpud_xmailer_flag(flag);
                 }
             } else {
                 self.place_shop_item(card_index);
@@ -195,25 +198,25 @@ impl Dat {
             CARDS["xelpud_pillar"]
         ];
         for entry_value in entries_to_remove {
-            self.remove_data_entry_by_value(CARDS["xelpud_conversation_tree"], entry_value as i16);
+            self.remove_data_entry_by_value(self.card_lookup["xelpud_conversation_tree"], entry_value);
         }
 
         let entries_to_add: Vec<Vec<i16>> = vec![
-            vec![GLOBAL_FLAGS["xelpud_conversation_diary_found"] as i16, 1, CARDS["xelpud_mulana_talisman"] as i16, 0],
-            vec![GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16, 2, CARDS["xelpud_pillar"] as i16, 0],
-            vec![GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16, 1, CARDS["xelpud_talisman"] as i16, 0]
+            vec![GLOBAL_FLAGS["xelpud_conversation_diary_found"], 1, CARDS["xelpud_mulana_talisman"], 0],
+            vec![GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 2, CARDS["xelpud_pillar"], 0],
+            vec![GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 1, CARDS["xelpud_talisman"], 0]
         ];
         for entry in entries_to_add {
-            self.add_data_entry(CARDS["xelpud_conversation_tree"], entry);
+            self.add_data_entry(self.card_lookup["xelpud_conversation_tree"], entry);
         }
     }
 
     fn rewrite_xelpud_xmailer_conversation(&mut self) {
-        self.update_flag_entry(CARDS["xelpud_xmailer"], GLOBAL_FLAGS["xmailer"] as i16, None, Some(2));
+        self.update_flag_entry(self.card_lookup["xelpud_xmailer"], GLOBAL_FLAGS["xmailer"], None, Some(2));
     }
 
     fn rewrite_xelpud_talisman_conversation(&mut self) {
-        let card_index = CARDS["xelpud_talisman"];
+        let card_index = self.card_lookup["xelpud_talisman"];
         let insert_at_index = self.cant_leave_index(card_index);
 
         self.add_flag_entry(card_index, insert_at_index, GLOBAL_FLAGS["xelpud_conversation_talisman_found"], 2);
@@ -221,34 +224,34 @@ impl Dat {
     }
 
     fn rewrite_xelpud_pillar_conversation(&mut self) {
-        self.update_flag_entry(CARDS["xelpud_pillar"], GLOBAL_FLAGS["shrine_diary_chest"] as i16, Some(GLOBAL_FLAGS["xelpud_conversation_talisman_found"] as i16), Some(3));
+        self.update_flag_entry(self.card_lookup["xelpud_pillar"], GLOBAL_FLAGS["shrine_diary_chest"], Some(GLOBAL_FLAGS["xelpud_conversation_talisman_found"]), Some(3));
     }
 
     fn rewrite_xelpud_mulana_talisman_conversation(&mut self) {
-        self.update_flag_entry(CARDS["xelpud_mulana_talisman"], GLOBAL_FLAGS["diary_chest_puzzle"] as i16, Some(GLOBAL_FLAGS["xelpud_conversation_diary_found"] as i16), Some(2));
+        self.update_flag_entry(self.card_lookup["xelpud_mulana_talisman"], GLOBAL_FLAGS["diary_chest_puzzle"], Some(GLOBAL_FLAGS["xelpud_conversation_diary_found"]), Some(2));
     }
 
     fn rewrite_mulbruk_book_of_the_dead_conversation(&mut self) {
-        self.update_data_entry(CARDS["mulbruk_conversation_tree"], 0, GLOBAL_FLAGS["mulbruk_book_of_the_dead"] as i16, GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"] as i16);
+        self.update_data_entry(self.card_lookup["mulbruk_conversation_tree"], 0, GLOBAL_FLAGS["mulbruk_book_of_the_dead"], GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"]);
 
-        let mulbruk_book_of_the_dead_index = CARDS["mulbruk_book_of_the_dead_conversation"];
+        let mulbruk_book_of_the_dead_index = self.card_lookup["mulbruk_book_of_the_dead_conversation"];
         let insert_at_index = self.cant_leave_index(mulbruk_book_of_the_dead_index);
 
         self.add_flag_entry(mulbruk_book_of_the_dead_index, insert_at_index , GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], 2);
     }
 
     fn rewrite_slushfund_flags(&mut self) {
-        let slushfund_pepper_index = CARDS["slushfund_give_pepper"];
+        let slushfund_pepper_index = self.card_lookup["slushfund_give_pepper"];
         let slushfund_pepper_card = &self.dat_file.cards[slushfund_pepper_index];
         self.add_flag_entry(slushfund_pepper_index, slushfund_pepper_card.contents.len(), GLOBAL_FLAGS["replacement_slushfund_conversation"], 1);
 
-        let slushfund_anchor_index = CARDS["slushfund_give_anchor"];
+        let slushfund_anchor_index = self.card_lookup["slushfund_give_anchor"];
         let slushfund_anchor_card = &self.dat_file.cards[slushfund_anchor_index];
         self.add_flag_entry(slushfund_anchor_index, slushfund_anchor_card.contents.len(), GLOBAL_FLAGS["replacement_slushfund_conversation"], 2);
     }
 
     fn update_xelpud_xmailer_flag(&mut self, flag: i16) {
-        self.update_data_entry(CARDS["xelpud_conversation_tree"], 0, GLOBAL_FLAGS["xmailer"] as i16, flag);
+        self.update_data_entry(self.card_lookup["xelpud_conversation_tree"], 0, GLOBAL_FLAGS["xmailer"], flag);
     }
 
     // Utility Functions
@@ -327,12 +330,12 @@ impl Dat {
             contents: EntryContents::Noop(Noop{})
         };
 
-        let data_size = entry.len();
+        let data_size = entry.len() as i16;
 
         let data_entry = Entry {
             header: HEADERS["data"],
             contents: EntryContents::Data(Data {
-                num_values: data_size as i16,
+                num_values: data_size,
                 values: entry
             })
         };
@@ -343,14 +346,14 @@ impl Dat {
         card.len_contents += 6 + (data_size as u16 * 2);
     }
 
-    fn add_flag_entry(&mut self, card_index: usize, index: usize, address: usize, value: i16) {
+    fn add_flag_entry(&mut self, card_index: usize, index: usize, address: i16, value: i16) {
         let card = &mut self.dat_file.cards[card_index];
         let entries = &mut card.contents;
 
         let flag = Entry {
             header: HEADERS["flag"],
             contents: EntryContents::Flag(Flag {
-                address: address as i16,
+                address: address,
                 value
             })
         };
@@ -367,7 +370,7 @@ impl Dat {
             .filter(|(_, entry)| {
                 match &entry.contents {
                     EntryContents::Flag(flag) => {
-                        flag.address == GLOBAL_FLAGS["cant_leave_conversation"] as i16
+                        flag.address == GLOBAL_FLAGS["cant_leave_conversation"]
                     },
                     _ => false
                 }

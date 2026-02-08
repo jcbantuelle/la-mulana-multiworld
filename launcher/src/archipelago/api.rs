@@ -425,15 +425,16 @@ pub struct SlotData {
     pub start_inventory: Vec<String>,
     pub locations: Vec<Location>,
     pub item_table: HashMap<String, ItemData>,
+    pub player_id: i64,
     pub players: Vec<ArchipelagoPlayer>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Location {
-    pub address: Option<u64>,
+    pub address: Option<i64>,
     pub cards: Option<Vec<usize>>,
     pub item: Option<Item>,
-    pub item_id: Option<u64>,
+    pub item_id: Option<i16>,
     pub name: String,
     pub object_type: Option<u64>,
     pub room: Option<u64>,
@@ -442,14 +443,14 @@ pub struct Location {
     pub zones: Option<Vec<u64>>,
     pub is_shop: bool,
     pub file_type: String,
-    pub original_obtain_flag: Option<u64>,
-    pub obtain_flag: u64
+    pub original_obtain_flag: Option<i16>,
+    pub obtain_flag: i16
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Item {
 	pub name: String,
-	pub player: u64
+	pub player: i64
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -460,11 +461,11 @@ pub struct ItemData {
 	pub useful: bool,
 	pub trap: bool,
 	pub number: u64,
-	pub game_code: i64,
+	pub game_code: i16,
 	pub cost: Option<u64>,
 	pub quantity: u64,
-	pub obtain_flag: Option<u64>,
-	pub obtain_value: Option<u64>
+	pub obtain_flag: Option<i16>,
+	pub obtain_value: Option<u8>
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

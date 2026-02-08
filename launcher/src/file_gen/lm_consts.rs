@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
+pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
     HashMap::from([
         ("screen_flag_00", 0x00),
         ("screen_flag_01", 0x01),
@@ -182,7 +182,7 @@ pub const HEADERS: LazyLock<HashMap<&'static str, u16>> = LazyLock::new(|| {
     ])
 });
 
-pub const CARDS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
+pub const CARDS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
     HashMap::from([
         ("slushfund_give_pepper", 245),
         ("slushfund_give_anchor", 247),
