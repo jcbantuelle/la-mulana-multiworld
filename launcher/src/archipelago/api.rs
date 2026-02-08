@@ -441,10 +441,9 @@ pub struct Location {
     pub screen: Option<u64>,
     pub slot: Option<u64>,
     pub zones: Option<Vec<u64>>,
-    pub is_shop: bool,
-    pub file_type: String,
+    pub file_type: Option<String>,
     pub original_obtain_flag: Option<i16>,
-    pub obtain_flag: i16
+    pub obtain_flag: Option<i16>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

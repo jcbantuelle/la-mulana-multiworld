@@ -146,7 +146,7 @@ impl Dat {
         for card_index in location.cards.clone().unwrap() {
             let old_flag = match location.original_obtain_flag {
                 Some(obtain_flag) => obtain_flag,
-                None => location.obtain_flag
+                None => location.obtain_flag.unwrap()
             };
             if location.slot.is_none() {
                 self.place_conversation_item(card_index, location.item_id.unwrap(), item_id, old_flag, flag);

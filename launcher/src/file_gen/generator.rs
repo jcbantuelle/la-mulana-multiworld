@@ -60,7 +60,7 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
 
         let item_flag = app_config.add_item(lm_item, item_id, &location);
 
-        if location.file_type == "dat" {
+        if location.file_type.clone().unwrap() == "dat" {
             dat_file.place_item(item_id, &location, item_flag);
         }
     }
