@@ -1,6 +1,6 @@
 use binrw::helpers::until_eof;
 use binrw::io::TakeSeekExt;
-use binrw::{BinRead, BinWrite};
+use binrw::{BinRead, binread, BinWrite, binwrite};
 use log::debug;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -19,8 +19,11 @@ pub struct LaMulanaDat {
     cards: Vec<Card>
 }
 
-#[derive(BinRead, BinWrite, Clone, Debug)]
+#[binread]
+#[binwrite]
+#[derive(Clone, Debug)]
 pub struct Card {
+    #[bw(calc = calculate_contents_size(contents))]
     len_contents: u16,
     #[br(map_stream = |s| s.take_seek(len_contents as u64), parse_with = until_eof)]
     contents: Vec<Entry>
@@ -111,6 +114,24 @@ pub struct Anime {
 
 #[derive(BinRead, BinWrite, Clone, Debug)]
 pub struct Noop {}
+
+fn calculate_contents_size(contents: &Vec<Entry>) -> u16 {
+    contents.iter().fold(0, |bytes, entry| {
+        let entry_bytes = match &entry.contents {
+            EntryContents::Flag(_) => 4,
+            EntryContents::Flag2(_) => 4,
+            EntryContents::Item(_) => 2,
+            EntryContents::Pose(_) => 2,
+            EntryContents::Mantra(_) => 2,
+            EntryContents::Color(_) => 6,
+            EntryContents::ItemName(_) => 2,
+            EntryContents::Data(data) => 2 + (data.num_values * 2) as u16 ,
+            EntryContents::Anime(_) => 2,
+            EntryContents::Noop(_) => 0
+        };
+        bytes + entry_bytes + 2
+    })
+}
 
 pub struct Dat {
     shop_placements: HashMap<usize,[Option<String>;3]>,
@@ -296,16 +317,9 @@ impl Dat {
     fn remove_data_entry_by_value(&mut self, card_index: usize, value: i16) {
         let card = &mut self.dat_file.cards[card_index];
         let entries = &mut card.contents;
-        let mut removed_bytes: u16 = 6;
         let mut start_delete_index = entries.iter().position(|entry| {
             match &entry.contents {
-                EntryContents::Data(data) => {
-                    if data.values[2] == value {
-                        removed_bytes += (data.num_values as u16) * 2;
-                        return true
-                    }
-                    false
-                },
+                EntryContents::Data(data) => data.values[2] == value,
                 _ => false
             }
         }).unwrap();
@@ -318,7 +332,6 @@ impl Dat {
         }
 
         entries.drain(start_delete_index..end_delete_index);
-        card.len_contents -= removed_bytes;
     }
 
     fn add_data_entry(&mut self, card_index: usize, entry: Vec<i16>) {
@@ -330,20 +343,16 @@ impl Dat {
             contents: EntryContents::Noop(Noop{})
         };
 
-        let data_size = entry.len() as i16;
-
         let data_entry = Entry {
             header: HEADERS["data"],
             contents: EntryContents::Data(Data {
-                num_values: data_size,
+                num_values: entry.len() as i16,
                 values: entry
             })
         };
 
         entries.insert(0, break_entry);
         entries.insert(0, data_entry);
-
-        card.len_contents += 6 + (data_size as u16 * 2);
     }
 
     fn add_flag_entry(&mut self, card_index: usize, index: usize, address: i16, value: i16) {
@@ -359,7 +368,6 @@ impl Dat {
         };
 
         entries.insert(index, flag);
-        card.len_contents += 6;
     }
 
     fn cant_leave_index(&mut self, card_index: usize) -> usize {
