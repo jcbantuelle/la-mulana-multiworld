@@ -51,12 +51,12 @@ impl AppConfig {
             None => self.filler_flag()
         };
 
-        let location_id = location.address.clone().ok_or({
+        let location_id = location.address.clone().ok_or_else(|| {
             debug!("Address field was missing on Location in Slot Data: {:?}", location);
             FileGenerationError::MalformedSlotData
         })?;
 
-        let player_id = location.item.clone().ok_or({
+        let player_id = location.item.clone().ok_or_else(|| {
             debug!("Item field was missing on Location in Slot Data: {:?}", location);
             FileGenerationError::MalformedSlotData
         })?.player;

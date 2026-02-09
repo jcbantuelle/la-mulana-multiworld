@@ -19,6 +19,8 @@ pub enum FileGenerationError {
     DatFileReadFailure,
     #[error("Failed to parse Original Dat File")]
     DatFileParseFailure,
+    #[error("Original Dat File is missing expected data, please report this issue to the devs")]
+    MalformedDatFile,
     #[error("Failed to apply Mods to Dat File")]
     DatFileModFailure,
     #[error("Failed to write Dat File")]
@@ -60,20 +62,20 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
 
     for slot_data_location in slot_data.locations.iter() {
         match &slot_data_location.address {
-            None => continue,
+            None => { continue; },
             _ => ()
         }
 
         let ap_item = match &slot_data_location.item {
             Some(item) => item,
-            None => continue
+            None => { continue; }
         };
 
         let lm_item = match slot_data.item_table.get(&ap_item.name) {
             Some(item) => item.clone(),
             None => {
                 if ap_item.player == app_config.local_player_id {
-                    continue
+                    continue;
                 }
                 Default::default()
             }
@@ -85,7 +87,7 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
         match &slot_data_location.file_type {
             Some(file_type) => {
                 if file_type == "dat" {
-                    dat_file.place_item(item_id, &slot_data_location, item_flag);
+                    dat_file.place_item(item_id, &slot_data_location, item_flag)?;
                 }
             },
             None => ()
