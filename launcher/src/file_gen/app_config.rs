@@ -1,6 +1,8 @@
+use log::debug;
 use serde::{Serialize, Deserialize};
 
 use crate::archipelago::api::{ArchipelagoPlayer, ItemData, Location};
+use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::GLOBAL_FLAGS;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -37,7 +39,7 @@ impl AppConfig {
         }
     }
 
-    pub fn add_item(&mut self, item: ItemData, item_id: i16, location: &Location) -> i16 {
+    pub fn add_item(&mut self, item: ItemData, item_id: i16, location: &Location) -> Result<i16, FileGenerationError> {
         let flag = match item.obtain_flag {
             Some(obtain_flag) => {
                 if item_id == 38 || item_id == 83 {
@@ -49,16 +51,26 @@ impl AppConfig {
             None => self.filler_flag()
         };
 
+        let location_id = location.address.clone().ok_or({
+            debug!("Address field was missing on Location in Slot Data: {:?}", location);
+            FileGenerationError::MalformedSlotData
+        })?;
+
+        let player_id = location.item.clone().ok_or({
+            debug!("Item field was missing on Location in Slot Data: {:?}", location);
+            FileGenerationError::MalformedSlotData
+        })?.player;
+
         let ap_item = ArchipelagoItem {
             flag,
-            location_id: location.address.unwrap(),
-            player_id: location.item.as_ref().unwrap().player,
+            location_id,
+            player_id,
             obtain_value: 2
         };
 
         self.item_mapping.push(ap_item);
 
-        flag
+        Ok(flag)
     }
 
     fn filler_flag(&mut self) -> i16 {

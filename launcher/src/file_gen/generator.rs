@@ -13,6 +13,8 @@ pub enum FileGenerationError {
     InvalidStartingWeapon,
     #[error("Failed to write Seed Directory")]
     SeedDirWriteFailure,
+    #[error("Archipelago Slot Data was malformed, please check software versions")]
+    MalformedSlotData,
     #[error("Failed to read Original Dat File")]
     DatFileReadFailure,
     #[error("Failed to parse Original Dat File")]
@@ -78,7 +80,7 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
         };
 
         let item_id = if lm_item.game_code == 0 { 83 } else { lm_item.game_code };
-        let item_flag = app_config.add_item(lm_item, item_id, &slot_data_location);
+        let item_flag = app_config.add_item(lm_item, item_id, &slot_data_location)?;
 
         match &slot_data_location.file_type {
             Some(file_type) => {
@@ -99,5 +101,6 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
 
     let save_file_path = format!("{}/{}", new_seed_path, "lm00.sav");
     file_utils::write_file(&save_file_path, sav_file.to_bytes()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
+
     Ok(())
 }
