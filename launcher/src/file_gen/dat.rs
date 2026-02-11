@@ -545,19 +545,15 @@ impl Dat {
             debug!("Error Reading Font Encoding");
             FileGenerationError::FontEncodingError
         })?;
-        debug!("Font Graphemes: {:?}", font_graphemes);
 
         let text_graphemes = UnicodeSegmentation::graphemes(text.as_str(), true).collect::<Vec<&str>>().into_iter();
-        debug!("Text Graphemes: {:?}", text_graphemes);
         let encoded_text = text_graphemes.map(|text_grapheme| {
-            debug!("Char to Encode: {}", text_grapheme);
             let codepoint = if text_grapheme == " " {
                 HEADERS["white_space"]
             } else {
                 let grapheme_position = font_graphemes.iter().position(|font_grapheme| { *font_grapheme == text_grapheme }).unwrap_or_else(|| fallback_grapheme_position);
                 (grapheme_position + 0x100) as u16
             };
-            debug!("Codepoint: {}", codepoint);
 
             Entry {
                 header: codepoint,
