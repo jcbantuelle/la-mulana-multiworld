@@ -36,6 +36,6 @@ pub fn generate_effects() -> Result<Vec<u8>, FileGenerationError> {
     })?;
 
     let mut writer = Cursor::new(Vec::new());
-    generated.write_to(&mut writer, ImageFormat::Png).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
+    generated.write_to(&mut writer, ImageFormat::Png).map_err(|_| FileGenerationError::EffectsFileWriteFailure)?;
     Ok(writer.into_inner())
 }
