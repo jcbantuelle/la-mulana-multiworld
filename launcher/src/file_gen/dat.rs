@@ -4,10 +4,12 @@ use binrw::{BinRead, binrw, BinWrite};
 use log::debug;
 use std::collections::HashMap;
 use std::io::Cursor;
+use unicode_segmentation::UnicodeSegmentation;
 
-use crate::archipelago::api::Location;
+use crate::archipelago::api::{ItemData, Location};
 use crate::consts::SOURCE_DAT_PATH;
 use crate::file_gen::generator::FileGenerationError;
+use crate::file_gen::lm_consts::{FONT, ITEM_CODES, STARTING_WEAPONS, SUBWEAPON_AMMO};
 use crate::file_utils;
 
 use super::lm_consts::{CARDS, GLOBAL_FLAGS, HEADERS};
@@ -133,7 +135,7 @@ fn calculate_contents_size(contents: &Vec<Entry>) -> u16 {
 }
 
 pub struct Dat {
-    shop_placements: HashMap<usize,[Option<String>;3]>,
+    shop_placements: HashMap<usize,[String;3]>,
     dat_file: LaMulanaDat,
     card_lookup: HashMap<&'static str, usize>
 }
@@ -163,7 +165,7 @@ impl Dat {
         Ok(())
     }
 
-    pub fn place_item(&mut self, item_id: i16, location: &Location, flag: i16) -> Result<(), FileGenerationError> {
+    pub fn place_conversation_item(&mut self, location: &Location, new_item_id: i16, new_flag: i16) -> Result<(), FileGenerationError> {
         let cards = location.cards.clone().ok_or_else(|| {
             debug!("Cards were not set for Dat Location: {:?}", location);
             FileGenerationError::MalformedSlotData
@@ -177,22 +179,164 @@ impl Dat {
                     FileGenerationError::MalformedSlotData
                 })?
             };
-            match location.slot {
-                Some(slot) => {
-                    self.place_shop_item(card_index, slot);
-                },
-                None => {
-                    let old_item_id = location.item_id.ok_or_else(|| {
-                        debug!("Item ID is missing for Dat Location: {:?}", location);
-                        FileGenerationError::MalformedSlotData
-                    })?;
+            let old_item_id = location.item_id.ok_or_else(|| {
+                debug!("Item ID is missing for Dat Location: {:?}", location);
+                FileGenerationError::MalformedSlotData
+            })?;
 
-                    self.place_conversation_item(card_index, old_item_id, item_id, old_flag, flag);
-                    if card_index == self.card_lookup["xelpud_xmailer"] {
-                        self.update_xelpud_xmailer_flag(flag);
-                    }
+            let card = &mut self.dat_file.cards[card_index];
+            for entry in card.contents.iter_mut() {
+                match entry.contents {
+                    EntryContents::Item(ref mut item) => {
+                        if item.value == old_item_id {
+                            item.value = new_item_id;
+                        }
+                    },
+                    EntryContents::Flag(ref mut flag) => {
+                        if flag.address == old_flag {
+                            flag.address = new_flag;
+                            flag.value = 2;
+                        }
+                    },
+                    _ => ()
                 }
             }
+
+            if card_index == self.card_lookup["xelpud_xmailer"] {
+                self.update_xelpud_xmailer_flag(new_flag);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn place_shop_item(&mut self, location: &Location, item_id: i16, item_flag: i16, slot: usize, mut item: ItemData, options: &HashMap<String, u64>) -> Result<(), FileGenerationError> {
+        let cards = location.cards.clone().ok_or_else(|| {
+            debug!("Cards were not set for Dat Location: {:?}", location);
+            FileGenerationError::MalformedSlotData
+        })?;
+
+        for card_index in cards {
+            if !self.shop_placements.contains_key(&card_index) {
+                self.shop_placements.insert(card_index, ["".into(), "".into(), "".into()]);
+            }
+
+            // Override Other Player Item to Map if in a Shop to prevent quantity from selling out
+            let shop_item_id = if item_id == ITEM_CODES["Holy Grail (Full)"] { ITEM_CODES["Map"] } else { item_id };
+
+            let card = &mut self.dat_file.cards[card_index];
+            let mut data_entries = card.contents.iter_mut().filter_map(|entry| {
+                match entry.contents {
+                    EntryContents::Data(ref mut data) => Some(data),
+                    _ => None
+                }
+            }).collect::<Vec<&mut Data>>();
+
+            // Update Shop Item ID
+            data_entries[0].values[slot] = shop_item_id;
+
+            // Set Name of Item for Updating Shop Text
+            let item_name = self.shop_placements.get_mut(&card_index).ok_or_else(|| {
+                debug!("Invalid Card Index for Dat Shop Placement: {:?}", card_index);
+                FileGenerationError::MalformedSlotData
+            })?.get_mut(slot).ok_or_else(|| {
+                debug!("Shop slot was out of bounds for Dat Location: {:?}", location);
+                FileGenerationError::MalformedSlotData
+            })?;
+
+            let new_name = match &location.item {
+                Some(location_item) => location_item.name.clone(),
+                None => "Unknown".to_string()
+            };
+            *item_name = new_name;
+
+            // Subweapon Start - make ammo for starting subweapon free and max out in 1 purchase. Same behavior for subweapon only across all subweapons
+            if *item_name == format!("{} Ammo", STARTING_WEAPONS[&options["StartingWeapon"]]) || (options["SubweaponOnly"] == 1 && SUBWEAPON_AMMO.contains_key(item_name.as_str())) {
+                item.cost = Some(0);
+                item.quantity = SUBWEAPON_AMMO[item_name.as_str()];
+            }
+
+            // Set Cost
+            data_entries[1].values[slot] = item.cost.unwrap_or_else(|| 10);
+            // Set Quantity
+            data_entries[2].values[slot] = item.quantity;
+            // Set Flag
+            data_entries[3].values[slot] = item_flag;
+
+            // Update Little Brother Weights Purchase Flag
+            if card_index == self.card_lookup["little_brother_shop"] && shop_item_id == ITEM_CODES["Weights"] {
+                data_entries[6].values[slot] = GLOBAL_FLAGS["little_brother_purchase_counter"];
+            } else {
+                data_entries[6].values[slot] = item_flag;
+            }
+
+            // Set New Item Name In Shop Description
+            let break_indices: Vec<usize> = card.contents.iter().enumerate().filter_map(|(index, entry)| {
+                if entry.header == HEADERS["break"] {
+                    Some(index)
+                } else {
+                    None
+                }
+            }).collect();
+
+            // The item descriptions in a shop are always the 7th, 8th, and 9th lines, so we want to start from the 6th break
+            let item_description_start_index = break_indices[6 + slot];
+
+            // The item name always appears between color entries
+            let color_indices: Vec<usize> = card.contents[item_description_start_index..].iter().enumerate().filter_map(|(index, entry)| {
+                match entry.contents {
+                    EntryContents::Color(_) => Some(index + item_description_start_index),
+                    _ => None
+                }
+            }).collect();
+            let item_name_start_index = color_indices[0] + 1;
+
+            // Encode the new item name as Entries
+            let item_name_entries = Self::encode(item_name.clone())?;
+
+            // Remove the old item name
+            let entries = &mut card.contents;
+            entries.drain(item_name_start_index..color_indices[1]);
+
+            // Add the new item name
+            entries.splice(item_name_start_index..item_name_start_index, item_name_entries.into_iter()); 
+        }
+
+        Ok(())
+    }
+
+    pub fn update_shop_bunemon_text(&mut self) -> Result<(), FileGenerationError> {
+        for (card_index, items) in self.shop_placements.clone() {
+            let entries = &mut self.dat_file.cards[card_index].contents;
+
+            // The bunemon text is always from the final break to a newline
+            let last_break = entries.iter().enumerate().filter_map(|(index, entry)| {
+                if entry.header == HEADERS["break"] {
+                    Some(index)
+                } else {
+                    None
+                }
+            }).collect::<Vec<usize>>().last().ok_or_else(|| {
+                debug!("Shop is missing Breaks: {:?}", card_index);
+                FileGenerationError::MalformedDatFile
+            })? + 1;
+
+            let last_newline = entries.iter().enumerate().filter_map(|(index, entry)| {
+                if entry.header == HEADERS["newline"] {
+                    Some(index)
+                } else {
+                    None
+                }
+            }).collect::<Vec<usize>>().last().ok_or_else(|| {
+                debug!("Shop is missing Newlines: {:?}", card_index);
+                FileGenerationError::MalformedDatFile
+            })?.clone();
+
+            entries.drain(last_break..last_newline);
+
+            let bunemon_text = items.join(" , ");
+            let bunemon_entries = Self::encode(bunemon_text)?;
+            entries.splice(last_break..last_break, bunemon_entries.into_iter());
         }
 
         Ok(())
@@ -202,33 +346,6 @@ impl Dat {
         let mut writer = Cursor::new(Vec::new());
         let _ = self.dat_file.write_be(&mut writer).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
         Ok(writer.into_inner())
-    }
-
-    fn place_conversation_item(&mut self, card_index: usize, old_item_id: i16, new_item_id: i16, original_flag: i16, new_flag: i16) {
-        let card = &mut self.dat_file.cards[card_index];
-        for entry in card.contents.iter_mut() {
-            match entry.contents {
-                EntryContents::Item(ref mut item) => {
-                    if item.value == old_item_id {
-                        item.value = new_item_id;
-                    }
-                },
-                EntryContents::Flag(ref mut flag) => {
-                    if flag.address == original_flag {
-                        flag.address = new_flag;
-                        flag.value = 2;
-                    }
-                },
-                _ => ()
-            }
-        }
-    }
-
-    fn place_shop_item(&mut self, card_index: usize, slot: usize) {
-        if !self.shop_placements.contains_key(&card_index) {
-            self.shop_placements.insert(card_index, [None, None, None]);
-        }
-        // Do rest of shop placement logic
     }
 
     fn rewrite_xelpud_flag_checks(&mut self) -> Result<(), FileGenerationError> {
@@ -420,5 +537,34 @@ impl Dat {
                 debug!("Can't Leave Conversation Flag is missing for Card {:?}", card_index);
                 FileGenerationError::MalformedDatFile
             })
+    }
+
+    fn encode(text: String) -> Result<Vec<Entry>, FileGenerationError> {
+        let font_graphemes = UnicodeSegmentation::graphemes(FONT, true).collect::<Vec<&str>>();
+        let fallback_grapheme_position = font_graphemes.iter().position(|font_grapheme| { *font_grapheme == "?" }).ok_or_else(|| {
+            debug!("Error Reading Font Encoding");
+            FileGenerationError::FontEncodingError
+        })?;
+        debug!("Font Graphemes: {:?}", font_graphemes);
+
+        let text_graphemes = UnicodeSegmentation::graphemes(text.as_str(), true).collect::<Vec<&str>>().into_iter();
+        debug!("Text Graphemes: {:?}", text_graphemes);
+        let encoded_text = text_graphemes.map(|text_grapheme| {
+            debug!("Char to Encode: {}", text_grapheme);
+            let codepoint = if text_grapheme == " " {
+                HEADERS["white_space"]
+            } else {
+                let grapheme_position = font_graphemes.iter().position(|font_grapheme| { *font_grapheme == text_grapheme }).unwrap_or_else(|| fallback_grapheme_position);
+                (grapheme_position + 0x100) as u16
+            };
+            debug!("Codepoint: {}", codepoint);
+
+            Entry {
+                header: codepoint,
+                contents: EntryContents::Noop(Noop{})
+            }
+        }).collect::<Vec<Entry>>();
+
+        Ok(encoded_text)
     }
 }

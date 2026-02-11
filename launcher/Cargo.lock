@@ -2680,6 +2680,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tokio-native-tls",
+ "unicode-segmentation",
 ]
 
 [[package]]

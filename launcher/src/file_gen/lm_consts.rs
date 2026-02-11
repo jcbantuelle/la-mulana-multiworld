@@ -184,6 +184,7 @@ pub const HEADERS: LazyLock<HashMap<&'static str, u16>> = LazyLock::new(|| {
 
 pub const CARDS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
     HashMap::from([
+        ("little_brother_shop", 185),
         ("slushfund_give_pepper", 245),
         ("slushfund_give_anchor", 247),
         ("xelpud_xmailer", 364),
@@ -281,6 +282,28 @@ pub const STARTING_WEAPONS: LazyLock<HashMap<u64, &'static str>> = LazyLock::new
     ])
 });
 
+pub const SUBWEAPON_AMMO: LazyLock<HashMap<&str, i16>> = LazyLock::new(|| {
+    HashMap::from([
+        ("Shuriken Ammo", 150),
+        ("Rolling Shuriken Ammo", 100),
+        ("Earth Spear Ammo", 80),
+        ("Flare Gun Ammo", 80),
+        ("Bomb Ammo", 30),
+        ("Chakram Ammo", 10),
+        ("Caltrops Ammo", 80),
+        ("Pistol Ammo", 3)
+    ])
+});
+
+pub const ITEM_CODES: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
+	HashMap::from([
+        ("Shell Horn", 38),
+        ("Map", 70),
+        ("Holy Grail (Full)", 83),
+        ("Weights", 105)
+    ])
+});
+
 // pub fn grail_flag_by_zone(zone: usize, frontside: bool) -> usize {
 //     match zone {
 //         0 => GLOBAL_FLAGS["grail_tablet_guidance"],
@@ -311,8 +334,8 @@ pub const STARTING_WEAPONS: LazyLock<HashMap<u64, &'static str>> = LazyLock::new
 //     }
 // }
 
-pub const FONT: &'static str = "!\"&'(),-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-　]^_abcdefghijklmnopqrstuvwxyz…♪、。々「」ぁあぃいぅうぇえぉおか\
+pub const FONT: &'static str = "!\"&'(),-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZ　]^_\
+abcdefghijklmnopqrstuvwxyz…♪、。々「」ぁあぃいぅうぇえぉおか\
 がきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほ\
 ぼぽまみむめもゃやゅゆょよらりるれろわをんァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセ\
 ゼソゾタダチヂッツヅテデトドナニヌネノハバパヒビピフブプヘベペホボポマミムメモャヤュユョヨラリル\

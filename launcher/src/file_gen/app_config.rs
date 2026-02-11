@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::archipelago::api::{ArchipelagoPlayer, ItemData, Location};
 use crate::file_gen::generator::FileGenerationError;
-use crate::file_gen::lm_consts::GLOBAL_FLAGS;
+use crate::file_gen::lm_consts::{GLOBAL_FLAGS, ITEM_CODES};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
@@ -42,7 +42,7 @@ impl AppConfig {
     pub fn add_item(&mut self, item: ItemData, item_id: i16, location: &Location) -> Result<i16, FileGenerationError> {
         let flag = match item.obtain_flag {
             Some(obtain_flag) => {
-                if item_id == 38 || item_id == 83 {
+                if item_id == ITEM_CODES["Shell Horn"] || item_id == ITEM_CODES["Holy Grail (Full)"] {
                     self.filler_flag()
                 } else {
                     obtain_flag

@@ -461,8 +461,8 @@ pub struct ItemData {
 	pub trap: bool,
 	pub number: u64,
 	pub game_code: i16,
-	pub cost: Option<u64>,
-	pub quantity: u64,
+	pub cost: Option<i16>,
+	pub quantity: i16,
 	pub obtain_flag: Option<i16>,
 	pub obtain_value: Option<u8>
 }

@@ -4,6 +4,7 @@ use crate::archipelago::api::{ItemData, SlotData};
 use crate::consts::AP_PATH;
 use crate::file_gen::app_config::AppConfig;
 use crate::file_gen::dat::Dat;
+use crate::file_gen::lm_consts::ITEM_CODES;
 use crate::file_gen::sav::Sav;
 use crate::file_utils;
 
@@ -25,6 +26,8 @@ pub enum FileGenerationError {
     DatFileModFailure,
     #[error("Failed to write Dat File")]
     DatFileWriteFailure,
+    #[error("Failed to Encode Item data, please report this issue to the devs")]
+    FontEncodingError,
     #[error("Failed to apply Mods to Save File")]
     SaveFileModFailure,
     #[error("Failed to write Save File")]
@@ -81,18 +84,27 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
             }
         };
 
-        let item_id = if lm_item.game_code == 0 { 83 } else { lm_item.game_code };
-        let item_flag = app_config.add_item(lm_item, item_id, &slot_data_location)?;
+        let item_id = if lm_item.game_code == 0 { ITEM_CODES["Holy Grail (Full)"] } else { lm_item.game_code };
+        let item_flag = app_config.add_item(lm_item.clone(), item_id, &slot_data_location)?;
 
         match &slot_data_location.file_type {
             Some(file_type) => {
                 if file_type == "dat" {
-                    dat_file.place_item(item_id, &slot_data_location, item_flag)?;
+                    match &slot_data_location.slot {
+                        Some(slot) => {
+                            dat_file.place_shop_item(&slot_data_location, item_id, item_flag, *slot, lm_item.clone(), &slot_data.options)?;
+                        },
+                        None => {
+                            dat_file.place_conversation_item(&slot_data_location, item_id, item_flag)?;
+                        }
+                    }
                 }
             },
             None => ()
         }
     }
+
+    dat_file.update_shop_bunemon_text()?;
 
     // Write files to disk
     let new_seed_path = format!("{}{}", AP_PATH, slot_data.seed);
