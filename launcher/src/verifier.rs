@@ -1,5 +1,5 @@
+use dirs_next;
 use sha2::{Sha256, Digest};
-use std::env;
 use sysinfo::System;
 
 use crate::ap_data::LaMulanaConfig;
@@ -135,10 +135,14 @@ fn fetch_config(digest: String) -> Result<LaMulanaConfig, String> {
             effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
         })
     } else if digest == "94228016FFFF8A0BA6325140F0CFF6896E2BD0579BB2099D234508DEDE65923F" {
-        let home_dir = env::var("USERPROFILE").unwrap_or(String::new());
+        let documents_dir = match dirs_next::document_dir() {
+            Some(doc_path) => doc_path.into_os_string().into_string().unwrap_or(String::new()),
+            None => String::new()
+        };
+
         Ok(LaMulanaConfig {
             version: "1.6.6.2".to_string(),
-            save_path: format!("{}/Documents/nigoro/la-mulana/save/", home_dir),
+            save_path: format!("{}/nigoro/la-mulana/save/", documents_dir),
             rcd_digest: "583DCE2B2BB41E7A1927C6052F7A6AEFEE3F021A792E1AC587E2103C8B5D4CAC".to_string(),
             dat_digest: "89A2AA21E2CB2DAD6DB5F2EEA474903927980384DE4BC868A9494B1DA3DFED2B".to_string(),
             effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
