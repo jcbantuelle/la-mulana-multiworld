@@ -344,7 +344,7 @@ impl Dat {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
         let mut writer = Cursor::new(Vec::new());
-        let _ = self.dat_file.write_be(&mut writer).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
+        self.dat_file.write_be(&mut writer).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
         Ok(writer.into_inner())
     }
 

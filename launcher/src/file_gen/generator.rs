@@ -4,6 +4,7 @@ use crate::archipelago::api::{ItemData, SlotData};
 use crate::consts::AP_PATH;
 use crate::file_gen::app_config::AppConfig;
 use crate::file_gen::dat::Dat;
+use crate::file_gen::graphics;
 use crate::file_gen::lm_consts::ITEM_CODES;
 use crate::file_gen::sav::Sav;
 use crate::file_utils;
@@ -31,7 +32,13 @@ pub enum FileGenerationError {
     #[error("Failed to apply Mods to Save File")]
     SaveFileModFailure,
     #[error("Failed to write Save File")]
-    SaveFileWriteFailure
+    SaveFileWriteFailure,
+    #[error("Failed to read 01effect.png")]
+    EffectsFileOpenFailure,
+    #[error("Failed to copy 01effect.png")]
+    EffectsFileCopyFailure,
+    #[error("Failed to write 01effect.png")]
+    EffectsFileWriteFailure
 }
 
 impl Default for ItemData {
@@ -60,8 +67,6 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
 
     let mut sav_file = Sav::new();
     sav_file.apply_mods(&slot_data)?;
-
-    // let effect_bytes = effects::generate();
 
     for slot_data_location in slot_data.locations.iter() {
         match &slot_data_location.address {
@@ -106,6 +111,8 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
 
     dat_file.update_shop_bunemon_text()?;
 
+    let effect_bytes = graphics::generate_effects()?;
+
     // Write files to disk
     let new_seed_path = format!("{}{}", AP_PATH, slot_data.seed);
     file_utils::create_dir(&new_seed_path).map_err(|_| FileGenerationError::SeedDirWriteFailure)?;
@@ -115,6 +122,9 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
 
     let save_file_path = format!("{}/{}", new_seed_path, "lm00.sav");
     file_utils::write_file(&save_file_path, sav_file.to_bytes()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
+
+    let effects_file_path = format!("{}/{}", new_seed_path, "01effect.png");
+    file_utils::write_file(&effects_file_path, effect_bytes).map_err(|_| FileGenerationError::EffectsFileWriteFailure)?;
 
     Ok(())
 }

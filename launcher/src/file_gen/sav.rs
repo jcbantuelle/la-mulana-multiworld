@@ -104,6 +104,12 @@ impl Sav {
         Ok(())
     }
 
+    pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
+        let mut writer = Cursor::new(Vec::new());
+        self.save_file.write_be(&mut writer).map_err(|_| FileGenerationError::SaveFileModFailure)?;
+        Ok(writer.into_inner())
+    }
+
     fn set_starting_weapon(&mut self, weapon_id: u64) -> Result<(), FileGenerationError> {
         let starting_weapon = STARTING_WEAPONS[&weapon_id];
         if starting_weapon != "Leather Whip" {
@@ -204,12 +210,6 @@ impl Sav {
             }
         }
         Ok(())
-    }
-
-    pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
-        let mut writer = Cursor::new(Vec::new());
-        let _ = self.save_file.write_be(&mut writer).map_err(|_| FileGenerationError::SaveFileModFailure)?;
-        Ok(writer.into_inner())
     }
 
     fn default_flags(global_flag_lookup: HashMap<&'static str, usize>) -> [u8; 4096] {

@@ -2688,6 +2688,7 @@ dependencies = [
  "dirs-next",
  "dll-syringe",
  "hex",
+ "image",
  "log",
  "log4rs",
  "modular-bitfield",
