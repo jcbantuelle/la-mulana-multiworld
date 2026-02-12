@@ -1,4 +1,4 @@
-use binrw::{BinRead, BinWrite};
+use binrw::{BinRead, BinWrite, binrw};
 use binrw::helpers::args_iter;
 use modular_bitfield::prelude::*;
 use std::io::Cursor;
@@ -16,10 +16,12 @@ pub struct LaMulanaRcd {
     zones: Vec<Zone>
 }
 
-#[derive(Debug, BinRead, BinWrite)]
+#[binrw]
+#[derive(Debug)]
 #[br(big, import_raw(room_sizes: Vec<i32>))]
 pub struct Zone {
     zone_name_length: u8,
+    #[bw(calc = objects.len() as u16)]
     objects_length: u16,
     #[br(count = zone_name_length)]
     zone_name: Vec<u8>,
@@ -36,12 +38,19 @@ pub struct ObjectHeader {
     write_operations_length: B4
 }
 
-#[derive(Debug, BinRead, BinWrite)]
+#[binrw]
+#[derive(Debug)]
 pub struct ObjectWithoutPosition {
     id: u16,
     #[br(map = ObjectHeader::from_bytes)]
-    #[bw(map = |obj| obj.into_bytes())]
+    #[bw(map = |obj| {
+        let mut o = obj.clone();
+        o.set_test_operations_length(test_operations.len() as u8);
+        o.set_write_operations_length(write_operations.len() as u8);
+        o.into_bytes()
+    })]
     header: ObjectHeader,
+    #[bw(calc = parameters.len() as u8)]
     parameters_length: u8,
     #[br(count = header.test_operations_length())]
     test_operations: Vec<Operation>,
@@ -51,12 +60,19 @@ pub struct ObjectWithoutPosition {
     parameters: Vec<i16>
 }
 
-#[derive(Debug, BinRead, BinWrite)]
+#[binrw]
+#[derive(Debug)]
 pub struct ObjectWithPosition{
     id: u16,
     #[br(map = ObjectHeader::from_bytes)]
-    #[bw(map = |obj| obj.into_bytes())]
+    #[bw(map = |obj| {
+        let mut o = obj.clone();
+        o.set_test_operations_length(test_operations.len() as u8);
+        o.set_write_operations_length(write_operations.len() as u8);
+        o.into_bytes()
+    })]
     header: ObjectHeader,
+    #[bw(calc = parameters.len() as u8)]
     parameters_length: u8,
     x_pos: i16,
     y_pos: i16,
@@ -82,11 +98,14 @@ pub struct Operation {
     operation: i8,
 }
 
-#[derive(Debug, BinRead, BinWrite)]
+#[binrw]
+#[derive(Debug)]
 #[br(big, import_raw(screen_count: i32))]
 pub struct Screen {
     screen_name_length: i8,
+    #[bw(calc = (objects_with_position.len() + objects_without_position.len()) as i16)]
     objects_length: i16,
+    #[bw(calc = objects_without_position.len() as i8)]
     objects_without_position_length: i8,
     #[br(count = objects_without_position_length)]
     objects_without_position: Vec<ObjectWithoutPosition>,
@@ -98,9 +117,11 @@ pub struct Screen {
     exits: Vec<Exit>,
 }
 
-#[derive(Debug, BinRead, BinWrite)]
+#[binrw]
+#[derive(Debug)]
 #[br(big, import_raw(screen_count: i32))]
 pub struct Room {
+    #[bw(calc = objects.len() as i16)]
     objects_length: i16,
     #[br(count = objects_length)]
     objects: Vec<ObjectWithoutPosition>,
