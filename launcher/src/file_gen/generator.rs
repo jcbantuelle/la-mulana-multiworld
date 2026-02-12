@@ -6,6 +6,7 @@ use crate::file_gen::app_config::AppConfig;
 use crate::file_gen::dat::Dat;
 use crate::file_gen::graphics;
 use crate::file_gen::lm_consts::ITEM_CODES;
+use crate::file_gen::rcd::Rcd;
 use crate::file_gen::sav::Sav;
 use crate::file_utils;
 
@@ -29,6 +30,12 @@ pub enum FileGenerationError {
     DatFileWriteFailure,
     #[error("Failed to Encode Item data, please report this issue to the devs")]
     FontEncodingError,
+    #[error("Failed to read Original Rcd File")]
+    RcdFileReadFailure,
+    #[error("Failed to parse Original Rcd File")]
+    RcdFileParseFailure,
+    #[error("Failed to write Rcd File")]
+    RcdFileWriteFailure,
     #[error("Failed to apply Mods to Save File")]
     SaveFileModFailure,
     #[error("Failed to write Save File")]
@@ -60,7 +67,7 @@ impl Default for ItemData {
 }
 
 pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<(), FileGenerationError>{
-    // let rcd_bytes = rcd::generate(&slot_data);
+    let mut rcd_file = Rcd::new()?;
 
     let mut dat_file = Dat::new()?;
     dat_file.apply_mods()?;
@@ -116,6 +123,9 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
     // Write files to disk
     let new_seed_path = format!("{}{}", AP_PATH, slot_data.seed);
     file_utils::create_dir(&new_seed_path).map_err(|_| FileGenerationError::SeedDirWriteFailure)?;
+
+    let rcd_file_path = format!("{}/{}", new_seed_path, "script.rcd");
+    file_utils::write_file(&rcd_file_path, rcd_file.to_bytes()?).map_err(|_| FileGenerationError::RcdFileWriteFailure)?;
 
     let dat_file_path = format!("{}/{}", new_seed_path, "script_code.dat");
     file_utils::write_file(&dat_file_path, dat_file.to_bytes()?).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
