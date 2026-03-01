@@ -201,68 +201,68 @@ pub const CARDS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
     ])
 });
 
-// pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-//     HashMap::from([
-//         ("ladder", 0x7),
-//         ("trigger_dais", 0x8),
-//         ("moving_texture", 0xa),
-//         ("flag_timer", 0xb),
-//         ("room_spawner", 0xe),
-//         ("crusher", 0x11),
-//         ("hitbox_generator", 0x12),
-//         ("lemeza_detector", 0x14),
-//         ("counterweight_platform", 0x33),
-//         ("chest", 0x2c),
-//         ("ankh", 0x2e),
-//         ("naked_item", 0x2f),
-//         ("big_anubis", 0x6b),
-//         ("vimana", 0x71),
-//         ("texture_draw_animation", 0x93),
-//         ("warp_door", 0x98),
-//         ("use_item", 0x9c),
-//         ("scannable", 0x9e),
-//         ("grail_point", 0x9f),
-//         ("language_conversation", 0xa0),
-//         ("animation", 0xa3),
-//         ("fairy_keyspot", 0xa7),
-//         ("explosion", 0xb4),
-//         ("instant_item", 0xb5),
-//         ("mother_ankh", 0xc0),
-//         ("scan", 0xc3),
-//     ])
-// });
+pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
+    HashMap::from([
+        ("ladder", 0x7),
+        ("trigger_dais", 0x8),
+        ("moving_texture", 0xa),
+        ("flag_timer", 0xb),
+        ("room_spawner", 0xe),
+        ("crusher", 0x11),
+        ("hitbox_generator", 0x12),
+        ("lemeza_detector", 0x14),
+        ("counterweight_platform", 0x33),
+        ("chest", 0x2c),
+        ("ankh", 0x2e),
+        ("naked_item", 0x2f),
+        ("big_anubis", 0x6b),
+        ("vimana", 0x71),
+        ("texture_draw_animation", 0x93),
+        ("warp_door", 0x98),
+        ("use_item", 0x9c),
+        ("scannable", 0x9e),
+        ("grail_point", 0x9f),
+        ("language_conversation", 0xa0),
+        ("animation", 0xa3),
+        ("fairy_keyspot", 0xa7),
+        ("explosion", 0xb4),
+        ("instant_item", 0xb5),
+        ("mother_ankh", 0xc0),
+        ("scan", 0xc3),
+    ])
+});
 
-// pub const TEST_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-//     HashMap::from([
-//         ("eq", 0x0),
-//         ("lteq", 0x1),
-//         ("gteq", 0x2),
-//         ("andnz", 0x3),
-//         ("ornz", 0x4),
-//         ("xornz", 0x5),
-//         ("zero", 0x6),
-//         ("neq", 0x40),
-//         ("gt", 0x41),
-//         ("lt", 0x42),
-//         ("andz", 0x43),
-//         ("orz", 0x44),
-//         ("xorz", 0x45),
-//         ("nz", 0x46),
-//     ])
-// });
+pub const TEST_OPERATIONS: LazyLock<HashMap<&'static str, i8>> = LazyLock::new(|| {
+    HashMap::from([
+        ("eq", 0x0),
+        ("lteq", 0x1),
+        ("gteq", 0x2),
+        ("andnz", 0x3),
+        ("ornz", 0x4),
+        ("xornz", 0x5),
+        ("zero", 0x6),
+        ("neq", 0x40),
+        ("gt", 0x41),
+        ("lt", 0x42),
+        ("andz", 0x43),
+        ("orz", 0x44),
+        ("xorz", 0x45),
+        ("nz", 0x46),
+    ])
+});
 
-// pub const WRITE_OPERATIONS: LazyLock<HashMap<&'static str, u32>> = LazyLock::new(|| {
-//     HashMap::from([
-//         ("assign", 0x0),
-//         ("add", 0x1),
-//         ("sub", 0x2),
-//         ("mult", 0x3),
-//         ("div", 0x4),
-//         ("and", 0x5),
-//         ("or", 0x6),
-//         ("xor", 0x7),
-//     ])
-// });
+pub const WRITE_OPERATIONS: LazyLock<HashMap<&'static str, i8>> = LazyLock::new(|| {
+    HashMap::from([
+        ("assign", 0x0),
+        ("add", 0x1),
+        ("sub", 0x2),
+        ("mult", 0x3),
+        ("div", 0x4),
+        ("and", 0x5),
+        ("or", 0x6),
+        ("xor", 0x7),
+    ])
+});
 
 pub const STARTING_WEAPONS: LazyLock<HashMap<u64, &'static str>> = LazyLock::new(|| {
 	HashMap::from([
@@ -297,42 +297,31 @@ pub const SUBWEAPON_AMMO: LazyLock<HashMap<&str, i16>> = LazyLock::new(|| {
 
 pub const ITEM_CODES: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
 	HashMap::from([
+        ("Key Sword", 4),
         ("Shell Horn", 38),
+        ("Twin Statue", 59),
         ("Map", 70),
         ("Holy Grail (Full)", 83),
         ("Weights", 105)
     ])
 });
 
-// pub fn grail_flag_by_zone(zone: usize, frontside: bool) -> usize {
-//     match zone {
-//         0 => GLOBAL_FLAGS["grail_tablet_guidance"],
-//         1 => GLOBAL_FLAGS["grail_tablet_surface"],
-//         2 => GLOBAL_FLAGS["grail_tablet_mausoleum"],
-//         3 => GLOBAL_FLAGS["grail_tablet_sun"],
-//         4 => GLOBAL_FLAGS["grail_tablet_spring"],
-//         5 => GLOBAL_FLAGS["grail_tablet_inferno"],
-//         6 => GLOBAL_FLAGS["grail_tablet_extinction"],
-//         7 => {
-//             if frontside {
-//                 GLOBAL_FLAGS["grail_tablet_twin_front"]
-//             } else {
-//                 GLOBAL_FLAGS["grail_tablet_twin_back"]
-//             }
-//         },
-//         8 => GLOBAL_FLAGS["grail_tablet_endless"],
-//         9 => GLOBAL_FLAGS["grail_tablet_shrine_front"],
-//         10 => GLOBAL_FLAGS["grail_tablet_illusion"],
-//         11 => GLOBAL_FLAGS["grail_tablet_graveyard"],
-//         12 => GLOBAL_FLAGS["grail_tablet_moonlight"],
-//         13 => GLOBAL_FLAGS["grail_tablet_goddess"],
-//         14 => GLOBAL_FLAGS["grail_tablet_ruin"],
-//         15 | 16 => GLOBAL_FLAGS["grail_tablet_birth"],
-//         17 => GLOBAL_FLAGS["grail_tablet_dimensional"],
-//         18 => GLOBAL_FLAGS["grail_tablet_shrine_back"],
-//         _ => 0xacf
-//     }
-// }
+#[derive(Clone, Debug)]
+pub struct RcdParams {
+    pub param_index: usize,
+    pub param_length: usize,
+    pub item_mod: i16,
+    pub iterations: u8
+}
+
+pub const RCD_OBJECT_PARAMS: LazyLock<HashMap<i16, RcdParams>> = LazyLock::new(|| {
+    HashMap::from([
+        (RCD_OBJECTS["chest"], RcdParams { param_index: 0, param_length: 7, item_mod: 11, iterations: 1 }),
+        (RCD_OBJECTS["naked_item"], RcdParams { param_index: 1, param_length: 4, item_mod: 0, iterations: 1 }),
+        (RCD_OBJECTS["instant_item"], RcdParams { param_index: 0, param_length: 5, item_mod: 0, iterations: 1 }),
+        (RCD_OBJECTS["scan"], RcdParams { param_index: 3, param_length: 5, item_mod: 0, iterations: 2 }),
+    ])
+});
 
 pub const ZONES: LazyLock<Vec<Vec<i32>>> = LazyLock::new(|| {
     vec![
@@ -397,3 +386,33 @@ abcdefghijklmnopqrstuvwxyz…♪、。々「」ぁあぃいぅうぇえぉおか
 猿獲率珍甦由甲病症痩療癒皮益盛監眼睡矛短砕硬磁礁禽秀程穏筋管築簡粉粘糞級給統継綿総線縁縛縦織羅羊\
 群耳職肌股肢肪育脂脅脈脚腐膚膜臭致興舞般良花荒葬蛮被裂襲覆討託訪詰諸貢質赦趣距跳軍軟迂迎迫逆透途\
 這遅遥避邪都酸銭鋭錬鎌鑑闊阻陥陰陸障離震露非預頼額養騙驚骸髪鱗鶏鹿鼻龍";
+
+pub fn grail_flag_by_zone(zone: usize, frontside: bool) -> i16 {
+    match zone {
+        0 => GLOBAL_FLAGS["grail_tablet_guidance"],
+        1 => GLOBAL_FLAGS["grail_tablet_surface"],
+        2 => GLOBAL_FLAGS["grail_tablet_mausoleum"],
+        3 => GLOBAL_FLAGS["grail_tablet_sun"],
+        4 => GLOBAL_FLAGS["grail_tablet_spring"],
+        5 => GLOBAL_FLAGS["grail_tablet_inferno"],
+        6 => GLOBAL_FLAGS["grail_tablet_extinction"],
+        7 => {
+            if frontside {
+                GLOBAL_FLAGS["grail_tablet_twin_front"]
+            } else {
+                GLOBAL_FLAGS["grail_tablet_twin_back"]
+            }
+        },
+        8 => GLOBAL_FLAGS["grail_tablet_endless"],
+        9 => GLOBAL_FLAGS["grail_tablet_shrine_front"],
+        10 => GLOBAL_FLAGS["grail_tablet_illusion"],
+        11 => GLOBAL_FLAGS["grail_tablet_graveyard"],
+        12 => GLOBAL_FLAGS["grail_tablet_moonlight"],
+        13 => GLOBAL_FLAGS["grail_tablet_goddess"],
+        14 => GLOBAL_FLAGS["grail_tablet_ruin"],
+        15 | 16 => GLOBAL_FLAGS["grail_tablet_birth"],
+        17 => GLOBAL_FLAGS["grail_tablet_dimensional"],
+        18 => GLOBAL_FLAGS["grail_tablet_shrine_back"],
+        _ => 0xacf
+    }
+}

@@ -34,6 +34,8 @@ pub enum FileGenerationError {
     RcdFileReadFailure,
     #[error("Failed to parse Original Rcd File")]
     RcdFileParseFailure,
+    #[error("Original Rcd File is missing expected data, please report this issue to the devs")]
+    MalformedRcdFile,
     #[error("Failed to write Rcd File")]
     RcdFileWriteFailure,
     #[error("Failed to apply Mods to Save File")]
@@ -67,7 +69,7 @@ impl Default for ItemData {
 }
 
 pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<(), FileGenerationError>{
-    let mut rcd_file = Rcd::new()?;
+    let mut rcd_file = Rcd::new(slot_data.start_inventory.clone(), slot_data.cursed_chests.clone())?;
 
     let mut dat_file = Dat::new()?;
     dat_file.apply_mods()?;
@@ -110,6 +112,8 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
                             dat_file.place_conversation_item(&slot_data_location, item_id, item_flag)?;
                         }
                     }
+                } else if file_type == "rcd" {
+                    rcd_file.place_item(&slot_data_location, lm_item.clone(), item_id)?;
                 }
             },
             None => ()

@@ -36,6 +36,9 @@
 
 # DLL
 
+## Bugs
+* % in player name may crash game?
+
 ## Text Corruption
 * Ensure text overwrite persists lifetime of string
 
