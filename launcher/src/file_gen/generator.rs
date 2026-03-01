@@ -113,7 +113,7 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
                         }
                     }
                 } else if file_type == "rcd" {
-                    rcd_file.place_item(&slot_data_location, lm_item.clone(), item_id)?;
+                    rcd_file.place_item(&slot_data_location, lm_item.clone(), item_id, item_flag)?;
                 }
             },
             None => ()
