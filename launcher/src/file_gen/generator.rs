@@ -69,7 +69,7 @@ impl Default for ItemData {
 }
 
 pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<(), FileGenerationError>{
-    let mut rcd_file = Rcd::new(slot_data.start_inventory.clone(), slot_data.cursed_chests.clone())?;
+    let mut rcd_file = Rcd::new(slot_data.cursed_chests.clone())?;
 
     let mut dat_file = Dat::new()?;
     dat_file.apply_mods()?;
@@ -113,7 +113,7 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
                         }
                     }
                 } else if file_type == "rcd" {
-                    rcd_file.place_item(&slot_data_location, lm_item.clone(), item_id, item_flag)?;
+                    rcd_file.place_item(&slot_data_location, item_id, item_flag)?;
                 }
             },
             None => ()
@@ -121,6 +121,11 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
     }
 
     dat_file.update_shop_bunemon_text()?;
+    rcd_file.give_starting_items(
+        slot_data.start_inventory.clone(),
+        slot_data.options["StartingWeapon"],
+        slot_data.item_table.clone()
+    )?;
 
     let effect_bytes = graphics::generate_effects()?;
 

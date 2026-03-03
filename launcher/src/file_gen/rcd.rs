@@ -2,12 +2,13 @@ use binrw::{BinRead, BinWrite, binrw};
 use binrw::helpers::args_iter;
 use log::debug;
 use modular_bitfield::prelude::*;
+use std::collections::HashMap;
 use std::io::Cursor;
 
 use crate::archipelago::api::{ItemData, Location};
 use crate::consts::SOURCE_RCD_PATH;
 use crate::file_gen::generator::FileGenerationError;
-use crate::file_gen::lm_consts::{GLOBAL_FLAGS, ITEM_CODES, RCD_OBJECT_PARAMS, RCD_OBJECTS, WRITE_OPERATIONS, ZONES};
+use crate::file_gen::lm_consts::{GLOBAL_FLAGS, ITEM_CODES, RCD_OBJECT_PARAMS, RCD_OBJECTS, STARTING_WEAPONS, TEST_OPERATIONS, WRITE_OPERATIONS, ZONES};
 use crate::file_utils;
 
 #[derive(Debug, BinRead, BinWrite)]
@@ -133,19 +134,18 @@ pub struct Room {
 
 pub struct Rcd {
     rcd_file: LaMulanaRcd,
-    starting_inventory: Vec<String>,
     cursed_chests: Vec<String>
 }
 
 impl Rcd {
-    pub fn new(starting_inventory: Vec<String>, cursed_chests: Vec<String>) -> Result<Self, FileGenerationError> {
+    pub fn new(cursed_chests: Vec<String>) -> Result<Self, FileGenerationError> {
         let raw_file = file_utils::read_file(&SOURCE_RCD_PATH).map_err(|_| FileGenerationError::RcdFileReadFailure)?;
         let mut reader = Cursor::new(raw_file);
         let rcd_file = LaMulanaRcd::read_be(&mut reader).map_err(|_| FileGenerationError::RcdFileParseFailure)?;
-        Ok(Rcd { rcd_file, starting_inventory, cursed_chests })
+        Ok(Rcd { rcd_file, cursed_chests })
     }
 
-    pub fn place_item(&mut self, location: &Location, item: ItemData, item_id: i16, new_item_flag: i16) -> Result<(), FileGenerationError> {
+    pub fn place_item(&mut self, location: &Location, item_id: i16, new_item_flag: i16) -> Result<(), FileGenerationError> {
         let item_type = location.object_type.ok_or_else(|| {
             debug!("Object Type Missing for Rcd Location: {:?}", location);
             FileGenerationError::MalformedSlotData
@@ -290,6 +290,53 @@ impl Rcd {
                     Self::update_operations(&mut vimana_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    pub fn give_starting_items(&mut self, starting_inventory: Vec<String>, starting_weapon_id: u64, item_table: HashMap<String, ItemData>) -> Result<(), FileGenerationError> {
+        let start_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
+        let starting_weapon = STARTING_WEAPONS[&starting_weapon_id].to_string();
+
+        for (flag_counter, item_name) in starting_inventory.iter().enumerate() {
+            if item_name == &starting_weapon { continue; }
+
+            let item = item_table[item_name].clone();
+
+            let obtain_flag = item.obtain_flag.ok_or_else(|| {
+                debug!("Obtain Flag is missing for Item: {:?}", item_name);
+                FileGenerationError::MalformedSlotData
+            })?;
+
+            let item_giver = ObjectWithPosition {
+                id: RCD_OBJECTS["instant_item"],
+                header: ObjectHeader::from_bytes([0b00010010]),
+                x_pos: 0,
+                y_pos: 0,
+                test_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["starting_items"],
+                        op_value: flag_counter as i8,
+                        operation: TEST_OPERATIONS["eq"]
+                    }
+                ],
+                write_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["starting_items"],
+                        op_value: 1,
+                        operation: WRITE_OPERATIONS["add"]
+                    },
+                    Operation {
+                        id: obtain_flag,
+                        op_value: 2,
+                        operation: WRITE_OPERATIONS["add"]
+                    }
+                ],
+                parameters: vec![item.game_code, 160, 120, 39]
+            };
+
+            start_screen.objects_with_position.push(item_giver);
         }
 
         Ok(())
