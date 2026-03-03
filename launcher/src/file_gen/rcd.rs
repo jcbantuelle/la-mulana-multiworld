@@ -198,6 +198,9 @@ impl Rcd {
                             if screen_object.id == item_type && screen_object.parameters[item_params.param_index] == old_item_id && screen_object.parameters.len() < item_params.param_length {
                                 Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
                                 Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
+
+                                screen_object.parameters[item_params.param_index] = item_id + item_params.item_mod;
+                                screen_object.parameters.push(1);
                             }
                         }
                     } else {
@@ -223,6 +226,10 @@ impl Rcd {
                                 };
                                 Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, write_op_value);
 
+                                screen_object.parameters[item_params.param_index] = item_id + item_params.item_mod;
+                                screen_object.parameters.push(1);
+
+                                // Additional customization is necessary for the Surface Map location
                                 if old_item_flag == GLOBAL_FLAGS["surface_map"] {
                                     screen_object.test_operations[0].id = GLOBAL_FLAGS["replacement_surface_map_scan"];
                                     screen_object.write_operations.push(Operation {
@@ -232,6 +239,8 @@ impl Rcd {
                                     });
                                 }
                             }
+
+                            // Same Screen Object Customizations
 
                             // Destructible Cover customization
                             if screen_object.id == RCD_OBJECTS["hitbox_generator"] || screen_object.id == RCD_OBJECTS["room_spawner"] {
@@ -255,31 +264,37 @@ impl Rcd {
                                     Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
                                 }
                             }
+
+                            // Mausoleum Ankh Jewel Trap customization
+                            if old_item_flag == GLOBAL_FLAGS["ankh_jewel_mausoleum"] {
+                                if screen_object.id == RCD_OBJECTS["moving_texture"] {
+                                    Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
+                                }
+                            }
+
+                            // Yagostr Dais customization
+                            if old_item_flag == GLOBAL_FLAGS["yagostr_found"] {
+                                if screen_object.id == RCD_OBJECTS["trigger_dais"] {
+                                    Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-        // def __place_item(self, objects, object_type, param_index, param_len, location, location_id, item_id, original_obtain_flag, new_obtain_flag, obtain_value, item_mod, iterations, item):
+        // Separate Screen Object Customizations
 
-        //     # Mausoleum Ankh Jewel Trap customization
-        //     if original_obtain_flag == GLOBAL_FLAGS["ankh_jewel_mausoleum"]:
-        //         self.__update_operation("write", objects, [RCD_OBJECTS["moving_texture"]], original_obtain_flag, new_obtain_flag, new_op_value=obtain_value)
-
-        //     # Yagostr Dais customization
-        //     if original_obtain_flag == GLOBAL_FLAGS["yagostr_found"]:
-        //         self.__update_operation("test", objects, [RCD_OBJECTS["trigger_dais"]], original_obtain_flag, new_obtain_flag)
-
-        //     # Vimana customization
-        //     if original_obtain_flag == GLOBAL_FLAGS["plane_found"]:
-        //         vimana_objects = self.file_contents.zones[13].rooms[6].screens[1].objects_with_position
-        //         self.__update_operation("test", vimana_objects, [RCD_OBJECTS["vimana"]], original_obtain_flag, new_obtain_flag)
-
-        //     item_location.parameters[param_index] = item_id+item_mod
-        //     item_location.parameters.append(1)
-        //     item_location.parameters_length += 1
-        //     self.file_size += 2
+        // Vimana customization
+        if old_item_flag == GLOBAL_FLAGS["plane_found"] {
+            let vimana_screen = &mut self.rcd_file.zones[13].rooms[6].screens[1];
+            for vimana_object in vimana_screen.objects_with_position.iter_mut() {
+                if vimana_object.id == RCD_OBJECTS["vimana"] {
+                    Self::update_operations(&mut vimana_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                }
+            }
+        }
 
         Ok(())
     }
