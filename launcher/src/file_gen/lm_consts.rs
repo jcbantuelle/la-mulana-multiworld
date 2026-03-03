@@ -309,17 +309,15 @@ pub const ITEM_CODES: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
 #[derive(Clone, Debug)]
 pub struct RcdParams {
     pub param_index: usize,
-    pub param_length: usize,
-    pub item_mod: i16,
-    pub iterations: u8
+    pub item_mod: i16
 }
 
 pub const RCD_OBJECT_PARAMS: LazyLock<HashMap<i16, RcdParams>> = LazyLock::new(|| {
     HashMap::from([
-        (RCD_OBJECTS["chest"], RcdParams { param_index: 0, param_length: 7, item_mod: 11, iterations: 1 }),
-        (RCD_OBJECTS["naked_item"], RcdParams { param_index: 1, param_length: 4, item_mod: 0, iterations: 1 }),
-        (RCD_OBJECTS["instant_item"], RcdParams { param_index: 0, param_length: 5, item_mod: 0, iterations: 1 }),
-        (RCD_OBJECTS["scan"], RcdParams { param_index: 3, param_length: 5, item_mod: 0, iterations: 2 }),
+        (RCD_OBJECTS["chest"], RcdParams { param_index: 0, item_mod: 11 }),
+        (RCD_OBJECTS["naked_item"], RcdParams { param_index: 1, item_mod: 0 }),
+        (RCD_OBJECTS["instant_item"], RcdParams { param_index: 0, item_mod: 0 }),
+        (RCD_OBJECTS["scan"], RcdParams { param_index: 3, item_mod: 0 }),
     ])
 });
 

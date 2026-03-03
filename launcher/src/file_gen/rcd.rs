@@ -161,9 +161,11 @@ impl Rcd {
             FileGenerationError::MalformedSlotData
         })?;
         let mut old_ids = vec![old_item_id];
+        // Endless Corridor Keysword Exists Twice, Once as Regular and Once as Empowered
+        if old_item_id == ITEM_CODES["Key Sword"] { old_ids.push(7) };
 
-        let old_item_flag = item.obtain_flag.ok_or_else(|| {
-            debug!("Item Flag is missing for Rcd Item: {:?}", item);
+        let old_item_flag = location.obtain_flag.ok_or_else(|| {
+            debug!("Item Flag is missing for Rcd Location: {:?}", location);
             FileGenerationError::MalformedSlotData
         })?;
 
@@ -183,101 +185,95 @@ impl Rcd {
         })?;
 
         for zone in zones {
-            let screen = &mut self.rcd_file.zones[zone].rooms[room].screens[screen];
+            let item_screen = &mut self.rcd_file.zones[zone].rooms[room].screens[screen];
 
-            // Endless Corridor Twin Statue Chest Exists Twice
-            let mut iterations = item_params.iterations;
-            if old_item_id == ITEM_CODES["Twin Statue"] { iterations = 2}
+            if item_type == RCD_OBJECTS["scan"] {
+                for screen_object in item_screen.objects_without_position.iter_mut() {
+                    if screen_object.id == item_type {
+                        let target_item_id = screen_object.parameters[item_params.param_index];
+                        if old_ids.contains(&target_item_id) {
+                            Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                            Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
 
-            // Endless Corridor Keysword Exists Twice, Once as Regular and Once as Empowered
-            if old_item_id == ITEM_CODES["Key Sword"] { old_ids.push(7) };
-            for old_id in &old_ids {
-                for _ in 0..iterations {
-                    if item_type == RCD_OBJECTS["scan"] {
-                        for screen_object in screen.objects_without_position.iter_mut() {
-                            if screen_object.id == item_type && screen_object.parameters[item_params.param_index] == old_item_id && screen_object.parameters.len() < item_params.param_length {
-                                Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
-                                Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
+                            screen_object.parameters[item_params.param_index] = item_id;
+                        }
+                    }
+                }
+            } else {
+                for screen_object in item_screen.objects_with_position.iter_mut() {
+                    // The item we're randomizing
+                    if screen_object.id == item_type {
+                        let target_item_id = screen_object.parameters[item_params.param_index] - item_params.item_mod;
+                        if old_ids.contains(&target_item_id) {
+                            if item_type == RCD_OBJECTS["chest"] {
+                                if self.cursed_chests.contains(&location.name) {
+                                    screen_object.parameters[3] = 1;
+                                    screen_object.parameters[4] = 1;
+                                    screen_object.parameters[5] = 50;
+                                } else {
+                                    screen_object.parameters[3] = 0;
+                                }
+                            }
 
-                                screen_object.parameters[item_params.param_index] = item_id + item_params.item_mod;
-                                screen_object.parameters.push(1);
+                            Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+
+                            let write_op_value = if item_type == RCD_OBJECTS["naked_item"] || item_type == RCD_OBJECTS["instant_item"] {
+                                Some(2)
+                            } else {
+                                None
+                            };
+                            Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, write_op_value);
+
+                            screen_object.parameters[item_params.param_index] = item_id + item_params.item_mod;
+
+                            // Additional customization is necessary for the Surface Map location
+                            if old_item_flag == GLOBAL_FLAGS["surface_map"] {
+                                screen_object.test_operations[0].id = GLOBAL_FLAGS["replacement_surface_map_scan"];
+                                screen_object.write_operations.push(Operation {
+                                    id: GLOBAL_FLAGS["replacement_surface_map_scan"],
+                                    operation: WRITE_OPERATIONS["add"],
+                                    op_value: 1
+                                });
                             }
                         }
-                    } else {
-                        for screen_object in screen.objects_with_position.iter_mut() {
-                            // The item we're randomizing
-                            if screen_object.id == item_type && screen_object.parameters[item_params.param_index] == old_item_id && screen_object.parameters.len() < item_params.param_length {
-                                if item_type == RCD_OBJECTS["chest"] {
-                                    if self.cursed_chests.contains(&location.name) {
-                                        screen_object.parameters[3] = 1;
-                                        screen_object.parameters[4] = 1;
-                                        screen_object.parameters[5] = 50;
-                                    } else {
-                                        screen_object.parameters[3] = 0;
-                                    }
-                                }
+                    }
 
-                                Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                    // Same Screen Object Customizations
 
-                                let write_op_value = if item_type == RCD_OBJECTS["naked_item"] || item_type == RCD_OBJECTS["instant_item"] {
-                                    Some(2)
-                                } else {
-                                    None
-                                };
-                                Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, write_op_value);
+                    // Destructible Cover customization
+                    if screen_object.id == RCD_OBJECTS["hitbox_generator"] || screen_object.id == RCD_OBJECTS["room_spawner"] {
+                        Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                        Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, None);
+                    }
 
-                                screen_object.parameters[item_params.param_index] = item_id + item_params.item_mod;
-                                screen_object.parameters.push(1);
-
-                                // Additional customization is necessary for the Surface Map location
-                                if old_item_flag == GLOBAL_FLAGS["surface_map"] {
-                                    screen_object.test_operations[0].id = GLOBAL_FLAGS["replacement_surface_map_scan"];
-                                    screen_object.write_operations.push(Operation {
-                                        id: GLOBAL_FLAGS["replacement_surface_map_scan"],
-                                        op_value: WRITE_OPERATIONS["add"],
-                                        operation: 1
-                                    });
-                                }
+                    // Surface Map customization
+                    if old_item_flag == GLOBAL_FLAGS["surface_map"] {
+                        if screen_object.id == RCD_OBJECTS["scannable"] {
+                            if screen_object.test_operations.iter().any(|op| { op.id == old_item_flag }) {
+                                screen_object.test_operations[0].id = GLOBAL_FLAGS["replacement_surface_map_scan"];
+                                screen_object.write_operations[0].id = GLOBAL_FLAGS["replacement_surface_map_scan"];
                             }
+                        }
+                    }
 
-                            // Same Screen Object Customizations
+                    // Shrine of the Mother Map Crusher customization
+                    if old_item_flag == GLOBAL_FLAGS["shrine_map"] {
+                        if screen_object.id == RCD_OBJECTS["crusher"] {
+                            Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
+                        }
+                    }
 
-                            // Destructible Cover customization
-                            if screen_object.id == RCD_OBJECTS["hitbox_generator"] || screen_object.id == RCD_OBJECTS["room_spawner"] {
-                                Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
-                                Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, None);
-                            }
+                    // Mausoleum Ankh Jewel Trap customization
+                    if old_item_flag == GLOBAL_FLAGS["ankh_jewel_mausoleum"] {
+                        if screen_object.id == RCD_OBJECTS["moving_texture"] {
+                            Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
+                        }
+                    }
 
-                            // Surface Map customization
-                            if old_item_flag == GLOBAL_FLAGS["surface_map"] {
-                                if screen_object.id == RCD_OBJECTS["scannable"] {
-                                    if screen_object.test_operations.iter().any(|op| { op.id == old_item_flag }) {
-                                        screen_object.test_operations[0].id = GLOBAL_FLAGS["replacement_surface_map_scan"];
-                                        screen_object.write_operations[0].id = GLOBAL_FLAGS["replacement_surface_map_scan"];
-                                    }
-                                }
-                            }
-
-                            // Shrine of the Mother Map Crusher customization
-                            if old_item_flag == GLOBAL_FLAGS["shrine_map"] {
-                                if screen_object.id == RCD_OBJECTS["crusher"] {
-                                    Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
-                                }
-                            }
-
-                            // Mausoleum Ankh Jewel Trap customization
-                            if old_item_flag == GLOBAL_FLAGS["ankh_jewel_mausoleum"] {
-                                if screen_object.id == RCD_OBJECTS["moving_texture"] {
-                                    Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, Some(2));
-                                }
-                            }
-
-                            // Yagostr Dais customization
-                            if old_item_flag == GLOBAL_FLAGS["yagostr_found"] {
-                                if screen_object.id == RCD_OBJECTS["trigger_dais"] {
-                                    Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
-                                }
-                            }
+                    // Yagostr Dais customization
+                    if old_item_flag == GLOBAL_FLAGS["yagostr_found"] {
+                        if screen_object.id == RCD_OBJECTS["trigger_dais"] {
+                            Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
                         }
                     }
                 }
