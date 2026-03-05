@@ -121,11 +121,13 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
     }
 
     dat_file.update_shop_bunemon_text()?;
+
     rcd_file.give_starting_items(
         slot_data.start_inventory.clone(),
         slot_data.options["StartingWeapon"],
         slot_data.item_table.clone()
     )?;
+    rcd_file.apply_mods(slot_data.options)?;
 
     let effect_bytes = graphics::generate_effects()?;
 

@@ -342,10 +342,170 @@ impl Rcd {
         Ok(())
     }
 
+    pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
+        self.rewrite_diary_events();
+        // self.__rewrite_mulbruk_doors()
+        // self.__rewrite_slushfund_conversation_conditions()
+        // self.__rewrite_four_guardian_shop_conditions()
+        // self.__rewrite_mekuri_door()
+        // self.__rewrite_stray_fairy_events()
+        // self.__rewrite_fishman_alt_shop()
+        // self.__rewrite_boss_ankhs()
+        // self.__rewrite_anubis_seen()
+
+        // self.__add_dimensional_orb_ladder()
+        // self.__add_true_shrine_doors()
+        // self.__add_moonlight_to_twin_lockout_fix()
+        // self.__add_chain_whip_lockout_fix()
+        // self.__add_flail_whip_lockout_fix()
+        // self.__add_angel_shield_lockout_fix()
+        // self.__add_sun_map_lockout_fix()
+        // self.__add_hardmode_toggle()
+        // self.__add_sacred_orb_timers()
+        // self.__add_new_game_kill_timer()
+
+        // self.__clean_up_operations()
+
+        // if self.options.AutoScanGrailTablets:
+        //     self.__create_grail_autoscans()
+
+        // if self.options.AncientLaMulaneseLearned:
+        //     self.__create_ancient_lamulanese_timer()
+
+        // if self.options.AlternateMotherAnkh:
+        //     self.__create_alternate_mother_ankh()
+
+        Ok(())
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
         let mut writer = Cursor::new(Vec::new());
         self.rcd_file.write_be(&mut writer).map_err(|_| FileGenerationError::RcdFileWriteFailure)?;
         Ok(writer.into_inner())
+    }
+
+    fn rewrite_diary_events(&mut self) {
+        {
+            // Remove Diary conversation door from Xelpud conversations
+            let xelpud_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
+            _ = xelpud_screen.objects_with_position.extract_if(.., |object| {
+                object.id == RCD_OBJECTS["language_conversation"] && object.parameters[4] == 913
+            }).collect::<Vec<_>>();
+
+            // Add new Talisman Xelpud Timer
+            let talisman_flag_timer = ObjectWithoutPosition {
+                id: RCD_OBJECTS["flag_timer"],
+                header: ObjectHeader::from_bytes([0b00110001]),
+                test_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["talisman_found"],
+                        op_value: 2,
+                        operation: TEST_OPERATIONS["eq"]
+                    },
+                    Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_talisman_found"],
+                        op_value: 0,
+                        operation: TEST_OPERATIONS["eq"]
+                    },
+                    Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_general"],
+                        op_value: 1,
+                        operation: TEST_OPERATIONS["gteq"]
+                    }
+                ],
+                write_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_talisman_found"],
+                        op_value: 1,
+                        operation: WRITE_OPERATIONS["assign"]
+                    }
+                ],
+                parameters: vec![0,0]
+            };
+            xelpud_screen.objects_without_position.push(talisman_flag_timer);
+
+            // Add new Talisman Diary Timer
+            let talisman_flag_timer = ObjectWithoutPosition {
+                id: RCD_OBJECTS["flag_timer"],
+                header: ObjectHeader::from_bytes([0b00110001]),
+                test_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["diary_found"],
+                        op_value: 2,
+                        operation: TEST_OPERATIONS["eq"]
+                    },
+                    Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_diary_found"],
+                        op_value: 0,
+                        operation: TEST_OPERATIONS["eq"]
+                    },
+                    Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_general"],
+                        op_value: 1,
+                        operation: TEST_OPERATIONS["gteq"]
+                    }
+                ],
+                write_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_diary_found"],
+                        op_value: 1,
+                        operation: WRITE_OPERATIONS["assign"]
+                    }
+                ],
+                parameters: vec![0,0]
+            };
+            xelpud_screen.objects_without_position.push(talisman_flag_timer);
+        }
+
+        {
+            // Update Diary Chest flags
+            let diary_screen = &mut self.rcd_file.zones[9].rooms[2].screens[1];
+            for screen_object in diary_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["chest"] && screen_object.write_operations.iter().any(|op| { op.id == GLOBAL_FLAGS["diary_chest_puzzle"] }) {
+                    Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["shrine_shawn"], GLOBAL_FLAGS["shrine_dragon_bone"], None, None, None, None);
+                    screen_object.test_operations.push(Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_talisman_found"],
+                        op_value: 2,
+                        operation: TEST_OPERATIONS["gteq"]
+                    });
+                }
+            }
+        }
+
+        {
+            let diary_puzzle_screen = &mut self.rcd_file.zones[9].rooms[2].screens[0];
+
+            // Remove old Diary Puzzle Timer
+            _ = diary_puzzle_screen.objects_without_position.extract_if(.., |object| {
+                object.id == RCD_OBJECTS["flag_timer"] && object.write_operations.iter().any(|op| op.id == GLOBAL_FLAGS["diary_chest_puzzle"])
+            }).collect::<Vec<_>>();
+
+            let diary_puzzle_flag_timer = ObjectWithoutPosition {
+                id: RCD_OBJECTS["flag_timer"],
+                header: ObjectHeader::from_bytes([0b00100001]),
+                test_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["xelpud_conversation_talisman_found"],
+                        op_value: 3,
+                        operation: TEST_OPERATIONS["gteq"]
+                    },
+                    Operation {
+                        id: GLOBAL_FLAGS["shrine_dragon_bone"],
+                        op_value: 1,
+                        operation: TEST_OPERATIONS["gteq"]
+                    }
+                ],
+                write_operations: vec![
+                    Operation {
+                        id: GLOBAL_FLAGS["shrine_diary_chest"],
+                        op_value: 2,
+                        operation: WRITE_OPERATIONS["assign"]
+                    }
+                ],
+                parameters: vec![0,0]
+            };
+            diary_puzzle_screen.objects_without_position.push(diary_puzzle_flag_timer);
+        }
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
