@@ -344,7 +344,7 @@ impl Rcd {
 
     pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
         self.rewrite_diary_events();
-        // self.__rewrite_mulbruk_doors()
+        self.rewrite_mulbruk_doors();
         // self.__rewrite_slushfund_conversation_conditions()
         // self.__rewrite_four_guardian_shop_conditions()
         // self.__rewrite_mekuri_door()
@@ -505,6 +505,27 @@ impl Rcd {
                 parameters: vec![0,0]
             };
             diary_puzzle_screen.objects_without_position.push(diary_puzzle_flag_timer);
+        }
+    }
+
+    fn rewrite_mulbruk_doors(&mut self) {
+        let mulbruk_screen = &mut self.rcd_file.zones[3].rooms[3].screens[0];
+
+        _ = mulbruk_screen.objects_with_position.extract_if(.., |object| {
+            object.id == RCD_OBJECTS["language_conversation"] && (
+                [926, 1014].contains(&object.parameters[4]) ||
+                object.test_operations.iter().any(|op| op.id == GLOBAL_FLAGS["score"] && op.op_value == 55 && op.operation == TEST_OPERATIONS["lteq"])
+            )
+        }).collect::<Vec<_>>();
+
+        for screen_object in mulbruk_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["language_conversation"] && screen_object.test_operations.iter().any(|op| { op.id == GLOBAL_FLAGS["swimsuit_found"] }) {
+                screen_object.test_operations.push(Operation {
+                    id: GLOBAL_FLAGS["mulbruk_father"],
+                    op_value: 9,
+                    operation: TEST_OPERATIONS["neq"]
+                });
+            }
         }
     }
 
