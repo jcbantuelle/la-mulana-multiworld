@@ -382,7 +382,7 @@ impl Rcd {
         self.rewrite_boss_ankhs(options);
         self.rewrite_anubis_seen();
 
-        // self.__add_dimensional_orb_ladder()
+        self.add_dimensional_orb_ladder();
         // self.__add_true_shrine_doors()
         // self.__add_moonlight_to_twin_lockout_fix()
         // self.__add_chain_whip_lockout_fix()
@@ -998,6 +998,21 @@ impl Rcd {
                 Self::update_operations(&mut screen_object.write_operations, GLOBAL_FLAGS["mulbruk_book_of_the_dead"], GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], None, None, None, None);
             }
         }
+    }
+
+    fn add_dimensional_orb_ladder(&mut self) {
+        let ushumgallu_screen = &mut self.rcd_file.zones[17].rooms[10].screens[1];
+
+        let ladder = ObjectWithPosition {
+            id: RCD_OBJECTS["ladder"],
+            header: ObjectHeader::from_bytes([0b00010000]),
+            x_pos: 28,
+            y_pos: 31,
+            test_operations: vec![Operation { id: GLOBAL_FLAGS["ushumgallu_state"], op_value: 2, operation: TEST_OPERATIONS["eq"] }],
+            write_operations: vec![],
+            parameters: vec![0, 8, 2, 0, 660, 0, 0, 1]
+        };
+        ushumgallu_screen.objects_with_position.push(ladder);
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
