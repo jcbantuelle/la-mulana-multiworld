@@ -432,7 +432,7 @@ pub struct SlotData {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Location {
     pub address: Option<i64>,
-    pub cards: Option<Vec<usize>>,
+    pub cards: Option<Vec<i16>>,
     pub item: Option<Item>,
     pub item_id: Option<i16>,
     pub name: String,
