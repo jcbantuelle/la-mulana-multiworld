@@ -10,6 +10,7 @@ use crate::archipelago::api::{ItemData, Location};
 use crate::consts::SOURCE_DAT_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::{FONT, ITEM_CODES, STARTING_WEAPONS, SUBWEAPON_AMMO};
+use crate::file_gen::rcd::Rcd;
 use crate::file_utils;
 
 use super::lm_consts::{CARDS, GLOBAL_FLAGS, HEADERS};
@@ -210,7 +211,7 @@ impl Dat {
         Ok(())
     }
 
-    pub fn place_shop_item(&mut self, location: &Location, item_id: i16, item_flag: i16, slot: usize, mut item: ItemData, options: &HashMap<String, u64>) -> Result<(), FileGenerationError> {
+    pub fn place_shop_item(&mut self, rcd_file: &mut Rcd, location: &Location, item_id: i16, item_flag: i16, slot: usize, mut item: ItemData, options: &HashMap<String, u64>) -> Result<(), FileGenerationError> {
         let cards = location.cards.clone().ok_or_else(|| {
             debug!("Cards were not set for Dat Location: {:?}", location);
             FileGenerationError::MalformedSlotData
@@ -299,7 +300,12 @@ impl Dat {
             entries.drain(item_name_start_index..color_indices[1]);
 
             // Add the new item name
-            entries.splice(item_name_start_index..item_name_start_index, item_name_entries.into_iter()); 
+            entries.splice(item_name_start_index..item_name_start_index, item_name_entries.into_iter());
+
+            // Nebur's 4 boss item requires an RCD mod to her door
+            if card_index == 490 {
+                rcd_file.rewrite_four_guardian_shop_conditions(item_flag);
+            }
         }
 
         Ok(())

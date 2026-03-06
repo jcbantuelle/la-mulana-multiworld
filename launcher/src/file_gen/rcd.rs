@@ -342,11 +342,32 @@ impl Rcd {
         Ok(())
     }
 
+    pub fn rewrite_four_guardian_shop_conditions(&mut self, four_guardian_item_flag: i16) {
+        let nebur_screen = &mut self.rcd_file.zones[1].rooms[2].screens[0];
+        for screen_object in nebur_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["language_conversation"] {
+                for op in screen_object.test_operations.iter_mut() {
+                    if op.id == GLOBAL_FLAGS["msx2_found"] {
+                        op.id = four_guardian_item_flag;
+                    } else if op.id == GLOBAL_FLAGS["xelpud_msx2"] {
+                        if op.op_value == 0 {
+                            op.id = GLOBAL_FLAGS["guardians_killed"];
+                            op.op_value = 3;
+                            op.operation = TEST_OPERATIONS["lteq"];
+                        } else if op.op_value == 1 {
+                            op.id = GLOBAL_FLAGS["guardians_killed"];
+                            op.op_value = 4;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();
         self.rewrite_slushfund_conversation_conditions();
-        // self.__rewrite_four_guardian_shop_conditions()
         // self.__rewrite_mekuri_door()
         // self.__rewrite_stray_fairy_events()
         // self.__rewrite_fishman_alt_shop()
