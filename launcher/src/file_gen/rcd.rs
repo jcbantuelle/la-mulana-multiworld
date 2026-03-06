@@ -379,7 +379,7 @@ impl Rcd {
         self.rewrite_slushfund_conversation_conditions();
         self.rewrite_stray_fairy_events();
         self.rewrite_fishman_alt_shop();
-        // self.__rewrite_boss_ankhs()
+        self.rewrite_boss_ankhs(options);
         // self.__rewrite_anubis_seen()
 
         // self.__add_dimensional_orb_ladder()
@@ -673,6 +673,321 @@ impl Rcd {
             parameters: vec![-1, 0, 260, 0, 40, 40, 0, 1, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0]
         };
         fishman_screen.objects_with_position.push(fishman_alt_door);
+    }
+
+    fn rewrite_boss_ankhs(&mut self, options: HashMap<String, u64>) {
+        let boss_checkpoints = options.get("BossCheckpoints").is_some_and(|option| *option > 0);
+        let guardian_specific_ankh_jewels = options.get("GuardianSpecificAnkhJewels").is_some_and(|option| *option > 0);
+        let alternate_mother_ankh = options.get("AlternateMotherAnkh").is_some_and(|option| *option > 0);
+
+        // Amphisbaena
+        {
+            let amphisbaena_screen = &mut self.rcd_file.zones[0].rooms[8].screens[1];
+            if boss_checkpoints {
+                let amphisbaena_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01000001]),
+                    x_pos: 15,
+                    y_pos: 44,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["amphisbaena_ankh_puzzle"], op_value: 5, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["amphisbaena_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![41, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                amphisbaena_screen.objects_with_position.push(amphisbaena_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in amphisbaena_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["amphisbaena_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Sakit
+        {
+            let sakit_screen = &mut self.rcd_file.zones[2].rooms[8].screens[1];
+            if boss_checkpoints {
+                let sakit_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01000001]),
+                    x_pos: 45,
+                    y_pos: 6,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["sakit_ankh_puzzle"], op_value: 1, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["sakit_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![75, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                sakit_screen.objects_with_position.push(sakit_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in sakit_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["sakit_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Ellmac
+        {
+            let ellmac_screen = &mut self.rcd_file.zones[3].rooms[8].screens[0];
+            if boss_checkpoints {
+                let ellmac_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01000001]),
+                    x_pos: 20,
+                    y_pos: 16,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["ellmac_ankh_puzzle"], op_value: 5, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["ellmac_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![104, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                ellmac_screen.objects_with_position.push(ellmac_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in ellmac_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["ellmac_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Bahamut
+        {
+            let bahamut_screen = &mut self.rcd_file.zones[4].rooms[4].screens[0];
+            if boss_checkpoints {
+                let bahamut_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01010001]),
+                    x_pos: 19,
+                    y_pos: 17,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["bahamut_ankh_puzzle"], op_value: 1, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["bahamut_room_flooded"], op_value: 1, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["bahamut_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![136, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                bahamut_screen.objects_with_position.push(bahamut_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in bahamut_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["bahamut_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Viy
+        {
+            let viy_screen = &mut self.rcd_file.zones[5].rooms[8].screens[1];
+            if boss_checkpoints {
+                let viy_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01000001]),
+                    x_pos: 23,
+                    y_pos: 28,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["viy_ankh_puzzle"], op_value: 4, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["viy_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![149, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                viy_screen.objects_with_position.push(viy_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in viy_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["viy_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Palenque
+        {
+            let palenque_screen = &mut self.rcd_file.zones[6].rooms[9].screens[1];
+            if boss_checkpoints {
+                let palenque_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01010001]),
+                    x_pos: 47,
+                    y_pos: 20,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["palenque_ankh_puzzle"], op_value: 3, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["palenque_screen_mural"], op_value: 3, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["palenque_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![170, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                palenque_screen.objects_with_position.push(palenque_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in palenque_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["palenque_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Baphomet
+        {
+            let baphomet_screen = &mut self.rcd_file.zones[7].rooms[4].screens[1];
+            if boss_checkpoints {
+                let baphomet_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01000001]),
+                    x_pos: 47,
+                    y_pos: 4,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["baphomet_ankh_puzzle"], op_value: 2, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["baphomet_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![188, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                baphomet_screen.objects_with_position.push(baphomet_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in baphomet_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["baphomet_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Tiamat
+        {
+            let tiamat_screen = &mut self.rcd_file.zones[17].rooms[9].screens[0];
+            if boss_checkpoints {
+                let tiamat_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01000001]),
+                    x_pos: 15,
+                    y_pos: 4,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["tiamat_ankh_puzzle"], op_value: 1, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["tiamat_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![368, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                tiamat_screen.objects_with_position.push(tiamat_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels {
+                for screen_object in tiamat_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["tiamat_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
+
+        // Mother
+        {
+            if boss_checkpoints {
+                let mother_entrance_screen = &mut self.rcd_file.zones[18].rooms[3].screens[1];
+                let mother_grail_point = ObjectWithPosition {
+                    id: RCD_OBJECTS["grail_point"],
+                    header: ObjectHeader::from_bytes([0b01000001]),
+                    x_pos: 33,
+                    y_pos: 20,
+                    test_operations: vec![
+                        Operation { id: GLOBAL_FLAGS["mother_ankh_puzzle"], op_value: 1, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["mother_state"], op_value: 2, operation: TEST_OPERATIONS["lt"] },
+                        Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                        Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] }
+                    ],
+                    write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_02"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                    parameters: vec![231, 0, 0, 1, 1, 1, 1, 506, 280]
+                };
+                mother_entrance_screen.objects_with_position.push(mother_grail_point);
+            }
+
+            if guardian_specific_ankh_jewels && alternate_mother_ankh {
+                let mother_screen = &mut self.rcd_file.zones[18].rooms[3].screens[0];
+                for screen_object in mother_screen.objects_with_position.iter_mut() {
+                    if screen_object.id == RCD_OBJECTS["ankh"] {
+                        screen_object.test_operations.push(Operation {
+                            id: GLOBAL_FLAGS["mother_ankh_jewel_found"],
+                            op_value: 1,
+                            operation: TEST_OPERATIONS["gteq"]
+                        });
+                    }
+                }
+            }
+        }
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
