@@ -378,7 +378,7 @@ impl Rcd {
         self.rewrite_mulbruk_doors();
         self.rewrite_slushfund_conversation_conditions();
         self.rewrite_stray_fairy_events();
-        // self.__rewrite_fishman_alt_shop()
+        self.rewrite_fishman_alt_shop();
         // self.__rewrite_boss_ankhs()
         // self.__rewrite_anubis_seen()
 
@@ -617,6 +617,62 @@ impl Rcd {
                 }
             }
         }
+    }
+
+    fn rewrite_fishman_alt_shop(&mut self) {
+        let fishman_screen = &mut self.rcd_file.zones[4].rooms[3].screens[3];
+
+        for screen_object in fishman_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["language_conversation"] {
+                // Persist Main Shop after Alt is Opened
+                Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["fishman_shop_puzzle"], GLOBAL_FLAGS["fishman_shop_puzzle"], None, Some(TEST_OPERATIONS["gteq"]), Some(2), None);
+
+                // Relocate Alt Shop
+                if screen_object.test_operations.iter().any(|op| op.id == GLOBAL_FLAGS["fishman_shop_puzzle"] && op.op_value == 3) {
+                    screen_object.x_pos = 9;
+                    screen_object.y_pos = 76;
+                }
+            }
+
+            // Relocate Fairy Keyspot trigger
+            if screen_object.id == RCD_OBJECTS["fairy_keyspot"] {
+                if screen_object.test_operations.iter().any(|op| op.id == GLOBAL_FLAGS["fishman_shop_puzzle"]) {
+                    screen_object.x_pos = 9;
+                    screen_object.y_pos = 74;
+                }
+            }
+
+            // Relocate Alt Shop Explosion
+            if screen_object.id == RCD_OBJECTS["explosion"] {
+                if screen_object.test_operations.iter().any(|op| op.id == GLOBAL_FLAGS["screen_flag_0d"]) {
+                    screen_object.x_pos = 7;
+                    screen_object.y_pos = 76;
+                }
+            }
+        }
+
+        // Add Alt Shop Door Graphic
+        let fishman_alt_door = ObjectWithPosition {
+            id: RCD_OBJECTS["texture_draw_animation"],
+            header: ObjectHeader::from_bytes([0b00100000]),
+            x_pos: 9,
+            y_pos: 76,
+            test_operations: vec![
+                Operation {
+                    id: GLOBAL_FLAGS["mother_state"],
+                    op_value: 3,
+                    operation: TEST_OPERATIONS["neq"]
+                },
+                Operation {
+                    id: GLOBAL_FLAGS["fishman_shop_puzzle"],
+                    op_value: 3,
+                    operation: TEST_OPERATIONS["eq"]
+                }
+            ],
+            write_operations: vec![],
+            parameters: vec![-1, 0, 260, 0, 40, 40, 0, 1, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0]
+        };
+        fishman_screen.objects_with_position.push(fishman_alt_door);
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
