@@ -377,8 +377,7 @@ impl Rcd {
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();
         self.rewrite_slushfund_conversation_conditions();
-        // self.__rewrite_mekuri_door()
-        // self.__rewrite_stray_fairy_events()
+        self.rewrite_stray_fairy_events();
         // self.__rewrite_fishman_alt_shop()
         // self.__rewrite_boss_ankhs()
         // self.__rewrite_anubis_seen()
@@ -565,6 +564,57 @@ impl Rcd {
         for screen_object in slushfund_screen.objects_with_position.iter_mut()  {
             if screen_object.id == RCD_OBJECTS["language_conversation"] {
                 Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["slushfund_conversation"], GLOBAL_FLAGS["replacement_slushfund_conversation"], None, None, None, None);
+            }
+        }
+    }
+
+    fn rewrite_stray_fairy_events(&mut self) {
+        // Stray Fairy Screen Modifications
+        {
+            let stray_fairy_screen = &mut self.rcd_file.zones[10].rooms[0].screens[1];
+
+            for screen_object in stray_fairy_screen.objects_with_position.iter_mut() {
+                // Update Fairy Door to Use Custom Cog Puzzle Flag
+                if screen_object.id == RCD_OBJECTS["room_spawner"] {
+                    Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["cog_puzzle"], GLOBAL_FLAGS["replacement_cog_puzzle"], Some(TEST_OPERATIONS["lteq"]), None, Some(2), None);
+                }
+
+                // Update Test and Write Operations for the Chest and Stray Fairy Conversations to use Custom Cog Puzzle Flag
+                if screen_object.id == RCD_OBJECTS["chest"] || screen_object.id == RCD_OBJECTS["language_conversation"] {
+                    Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["cog_puzzle"], GLOBAL_FLAGS["replacement_cog_puzzle"], None, None, None, None);
+                    Self::update_operations(&mut screen_object.write_operations, GLOBAL_FLAGS["cog_puzzle"], GLOBAL_FLAGS["replacement_cog_puzzle"], None, None, None, None);
+                }
+
+                if [RCD_OBJECTS["room_spawner"], RCD_OBJECTS["use_item"], RCD_OBJECTS["scannable"], RCD_OBJECTS["texture_draw_animation"]].contains(&screen_object.id) {
+                    if screen_object.test_operations.iter().any(|op| op.id == GLOBAL_FLAGS["cog_puzzle"] && op.op_value == 3 && op.operation == TEST_OPERATIONS["eq"]) {
+                        screen_object.x_pos -= 3;
+                        screen_object.test_operations[0].operation = TEST_OPERATIONS["lteq"];
+                    }
+                }
+            }
+
+            for screen_object in stray_fairy_screen.objects_without_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["flag_timer"] {
+                    Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["cog_puzzle"], GLOBAL_FLAGS["replacement_cog_puzzle"], None, None, None, None);
+                    Self::update_operations(&mut screen_object.write_operations, GLOBAL_FLAGS["cog_puzzle"], GLOBAL_FLAGS["replacement_cog_puzzle"], None, None, None, None);
+                }
+            }
+        }
+
+        // Cog Puzzle Tablets Screen Modifications
+        {
+            let cog_tablets_screen = &mut self.rcd_file.zones[10].rooms[1].screens[0];
+
+            for screen_object in cog_tablets_screen.objects_without_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["flag_timer"] {
+                    Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["cog_puzzle"], GLOBAL_FLAGS["replacement_cog_puzzle"], None, None, None, None);
+                }
+            }
+
+            for screen_object in cog_tablets_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["texture_draw_animation"] || screen_object.id == RCD_OBJECTS["scannable"] {
+                    Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["cog_puzzle"], GLOBAL_FLAGS["replacement_cog_puzzle"], None, None, None, None);
+                }
             }
         }
     }
