@@ -380,7 +380,7 @@ impl Rcd {
         self.rewrite_stray_fairy_events();
         self.rewrite_fishman_alt_shop();
         self.rewrite_boss_ankhs(options);
-        // self.__rewrite_anubis_seen()
+        self.rewrite_anubis_seen();
 
         // self.__add_dimensional_orb_ladder()
         // self.__add_true_shrine_doors()
@@ -986,6 +986,16 @@ impl Rcd {
                         });
                     }
                 }
+            }
+        }
+    }
+
+    fn rewrite_anubis_seen(&mut self) {
+        let anubis_screen = &mut self.rcd_file.zones[12].rooms[10].screens[0];
+        for screen_object in anubis_screen.objects_without_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["flag_timer"] {
+                Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["mulbruk_book_of_the_dead"], GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], None, None, None, None);
+                Self::update_operations(&mut screen_object.write_operations, GLOBAL_FLAGS["mulbruk_book_of_the_dead"], GLOBAL_FLAGS["replacement_mulbruk_book_of_the_dead"], None, None, None, None);
             }
         }
     }
