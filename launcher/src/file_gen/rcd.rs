@@ -345,7 +345,7 @@ impl Rcd {
     pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();
-        // self.__rewrite_slushfund_conversation_conditions()
+        self.rewrite_slushfund_conversation_conditions();
         // self.__rewrite_four_guardian_shop_conditions()
         // self.__rewrite_mekuri_door()
         // self.__rewrite_stray_fairy_events()
@@ -525,6 +525,16 @@ impl Rcd {
                     op_value: 9,
                     operation: TEST_OPERATIONS["neq"]
                 });
+            }
+        }
+    }
+
+    fn rewrite_slushfund_conversation_conditions(&mut self) {
+        let slushfund_screen = &mut self.rcd_file.zones[10].rooms[8].screens[0];
+
+        for screen_object in slushfund_screen.objects_with_position.iter_mut()  {
+            if screen_object.id == RCD_OBJECTS["language_conversation"] {
+                Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["slushfund_conversation"], GLOBAL_FLAGS["replacement_slushfund_conversation"], None, None, None, None);
             }
         }
     }
