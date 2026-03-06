@@ -204,6 +204,7 @@ impl Dat {
                 self.update_xelpud_xmailer_flag(new_flag);
             }
 
+            // Mekuri Master's item requires an RCD mod to the door
             if card_index == CARDS["mekuri_conversation"] {
                 rcd_file.rewrite_mekuri_door(new_flag);
             }
