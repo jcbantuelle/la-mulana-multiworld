@@ -364,6 +364,15 @@ impl Rcd {
         }
     }
 
+    pub fn rewrite_mekuri_door(&mut self, mekuri_flag: i16) {
+        let mekuri_screen = &mut self.rcd_file.zones[1].rooms[7].screens[0];
+        for screen_object in mekuri_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["language_conversation"] || screen_object.id == RCD_OBJECTS["texture_draw_animation"] {
+                Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["mekuri"], mekuri_flag, None, None, None, None);
+            }
+        }
+    }
+
     pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();

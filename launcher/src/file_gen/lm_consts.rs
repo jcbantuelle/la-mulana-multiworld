@@ -184,6 +184,7 @@ pub const HEADERS: LazyLock<HashMap<&'static str, u16>> = LazyLock::new(|| {
 
 pub const CARDS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
     HashMap::from([
+        ("mekuri_conversation", 37),
         ("little_brother_shop", 185),
         ("slushfund_give_pepper", 245),
         ("slushfund_give_anchor", 247),

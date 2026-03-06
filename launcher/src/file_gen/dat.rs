@@ -163,7 +163,7 @@ impl Dat {
         Ok(())
     }
 
-    pub fn place_conversation_item(&mut self, location: &Location, new_item_id: i16, new_flag: i16) -> Result<(), FileGenerationError> {
+    pub fn place_conversation_item(&mut self, rcd_file: &mut Rcd, location: &Location, new_item_id: i16, new_flag: i16) -> Result<(), FileGenerationError> {
         let cards = location.cards.clone().ok_or_else(|| {
             debug!("Cards were not set for Dat Location: {:?}", location);
             FileGenerationError::MalformedSlotData
@@ -202,6 +202,10 @@ impl Dat {
 
             if card_index == CARDS["xelpud_xmailer"] {
                 self.update_xelpud_xmailer_flag(new_flag);
+            }
+
+            if card_index == CARDS["mekuri_conversation"] {
+                rcd_file.rewrite_mekuri_door(new_flag);
             }
         }
 
