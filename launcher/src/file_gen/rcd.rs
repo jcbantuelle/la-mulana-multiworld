@@ -383,7 +383,7 @@ impl Rcd {
         self.rewrite_anubis_seen();
 
         self.add_dimensional_orb_ladder();
-        // self.__add_true_shrine_doors()
+        self.add_true_shrine_doors();
         // self.__add_moonlight_to_twin_lockout_fix()
         // self.__add_chain_whip_lockout_fix()
         // self.__add_flail_whip_lockout_fix()
@@ -1013,6 +1013,41 @@ impl Rcd {
             parameters: vec![0, 8, 2, 0, 660, 0, 0, 1]
         };
         ushumgallu_screen.objects_with_position.push(ladder);
+    }
+
+    fn add_true_shrine_doors(&mut self) {
+        let doors: Vec<HashMap<&str, i16>> = vec![
+            HashMap::from([("room", 0), ("screen", 0), ("x", 17), ("y", 4), ("dest_x", 340), ("dest_y", 92)]), // Upper Entrance
+            HashMap::from([("room", 8), ("screen", 1), ("x", 13), ("y", 40), ("dest_x", 300), ("dest_y", 320)]), // Lower Entrance
+            HashMap::from([("room", 7), ("screen", 0), ("x", 25), ("y", 4), ("dest_x", 500), ("dest_y", 80)]), // Grail Point
+            HashMap::from([("room", 9), ("screen", 0), ("x", 25), ("y", 20), ("dest_x", 300), ("dest_y", 332)]) // Treasury
+        ];
+
+        for door in doors {
+            let true_shrine_screen = &mut self.rcd_file.zones[18].rooms[door["room"] as usize].screens[door["screen"] as usize];
+            let warp_door = ObjectWithPosition {
+                id: RCD_OBJECTS["warp_door"],
+                header: ObjectHeader::from_bytes([0b00000000]),
+                x_pos: door["x"],
+                y_pos: door["y"],
+                test_operations: vec![],
+                write_operations: vec![],
+                parameters: vec![0, 9, door["room"], door["screen"], door["dest_x"], door["dest_y"]]
+            };
+            true_shrine_screen.objects_with_position.push(warp_door);
+
+            let door_graphic = ObjectWithPosition {
+                id: RCD_OBJECTS["texture_draw_animation"],
+                header: ObjectHeader::from_bytes([0b00000000]),
+                x_pos: door["x"]-1,
+                y_pos: door["y"]-2,
+                test_operations: vec![],
+                write_operations: vec![],
+                // repeat=0, hit_tile=0, entry_effect=0, exit_effect=0, cycle_colors=0, alpha=0, max_alpha=0, red=0, max_red=0, green=0, max_green=0, blue=0, max_blue=0, blend=0, unknown=0):
+                parameters: vec![-1, -1, 0, 512, 80, 80, 0, 0, 1, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0]
+            };
+            true_shrine_screen.objects_with_position.push(door_graphic);
+        }
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
