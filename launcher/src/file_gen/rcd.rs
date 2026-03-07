@@ -391,7 +391,7 @@ impl Rcd {
         self.add_sun_map_lockout_fix();
         self.add_hardmode_toggle();
         self.add_sacred_orb_timers();
-        // self.__add_new_game_kill_timer()
+        self.add_new_game_kill_timer();
 
         // self.__clean_up_operations()
 
@@ -1193,6 +1193,19 @@ impl Rcd {
             };
             sacred_orb_screen.objects_without_position.push(orb_timer);
         }
+    }
+
+    fn add_new_game_kill_timer(&mut self) {
+        let new_game_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
+
+        let kill_timer = ObjectWithoutPosition {
+            id: RCD_OBJECTS["flag_timer"],
+            header: ObjectHeader::from_bytes([0b00010001]),
+            test_operations: vec![Operation { id: GLOBAL_FLAGS["randomizer_save_loaded"], op_value: 1, operation: TEST_OPERATIONS["neq"] }],
+            write_operations: vec![Operation { id: GLOBAL_FLAGS["kill_flag"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+            parameters: vec![0, 0]
+        };
+        new_game_screen.objects_without_position.push(kill_timer);
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
