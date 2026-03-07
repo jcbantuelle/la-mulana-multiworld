@@ -8,7 +8,7 @@ use std::io::Cursor;
 use crate::archipelago::api::{ItemData, Location};
 use crate::consts::SOURCE_RCD_PATH;
 use crate::file_gen::generator::FileGenerationError;
-use crate::file_gen::lm_consts::{GLOBAL_FLAGS, ITEM_CODES, RCD_OBJECT_PARAMS, RCD_OBJECTS, STARTING_WEAPONS, TEST_OPERATIONS, WRITE_OPERATIONS, ZONES};
+use crate::file_gen::lm_consts::{GLOBAL_FLAGS, grail_flag_by_zone, ITEM_CODES, RCD_OBJECT_PARAMS, RCD_OBJECTS, STARTING_WEAPONS, TEST_OPERATIONS, WRITE_OPERATIONS, ZONES};
 use crate::file_utils;
 
 #[derive(Debug, BinRead, BinWrite)]
@@ -379,7 +379,7 @@ impl Rcd {
         self.rewrite_slushfund_conversation_conditions();
         self.rewrite_stray_fairy_events();
         self.rewrite_fishman_alt_shop();
-        self.rewrite_boss_ankhs(options);
+        self.rewrite_boss_ankhs(&options);
         self.rewrite_anubis_seen();
 
         self.add_dimensional_orb_ladder();
@@ -395,8 +395,9 @@ impl Rcd {
 
         self.clean_up_operations();
 
-        // if self.options.AutoScanGrailTablets:
-        //     self.__create_grail_autoscans()
+        if options.get("AutoScanGrailTablets").is_some_and(|option| *option > 0) {
+            self.create_grail_autoscans();
+        }
 
         // if self.options.AncientLaMulaneseLearned:
         //     self.__create_ancient_lamulanese_timer()
@@ -675,7 +676,7 @@ impl Rcd {
         fishman_screen.objects_with_position.push(fishman_alt_door);
     }
 
-    fn rewrite_boss_ankhs(&mut self, options: HashMap<String, u64>) {
+    fn rewrite_boss_ankhs(&mut self, options: &HashMap<String, u64>) {
         let boss_checkpoints = options.get("BossCheckpoints").is_some_and(|option| *option > 0);
         let guardian_specific_ankh_jewels = options.get("GuardianSpecificAnkhJewels").is_some_and(|option| *option > 0);
         let alternate_mother_ankh = options.get("AlternateMotherAnkh").is_some_and(|option| *option > 0);
@@ -1304,6 +1305,40 @@ impl Rcd {
             for screen_object in sun_ankh_jewel_screen.objects_with_position.iter_mut() {
                 if screen_object.id == RCD_OBJECTS["trigger_dais"] {
                     let _ = screen_object.write_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["ankh_jewel_sun"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+    }
+
+    fn create_grail_autoscans(&mut self) {
+        for (zone_index, zone) in self.rcd_file.zones.iter_mut().enumerate() {
+            for room in zone.rooms.iter_mut() {
+                for screen in room.screens.iter_mut() {
+                    let mut lemeza_detector = None;
+                    for screen_object in screen.objects_with_position.iter_mut() {
+                        if screen_object.id == RCD_OBJECTS["scannable"] {
+                            let language_block = screen_object.parameters[0];
+                            let frontside = language_block == 41 || language_block == 75 || language_block == 104 || language_block == 136 || language_block == 149 || language_block == 170 || language_block == 188 || language_block == 221 || (language_block == 231 && zone_index == 9);
+                            let backside = language_block == 250 || language_block == 275 || language_block == 291 || language_block == 305 || language_block == 323 || language_block == 339 || language_block == 206 || language_block == 358 || (language_block == 231 && zone_index != 9);
+
+                            if frontside || backside {
+                                let grail_flag = grail_flag_by_zone(zone_index, frontside);
+
+                                lemeza_detector = Some(ObjectWithPosition {
+                                    id: RCD_OBJECTS["lemeza_detector"],
+                                    header: ObjectHeader::from_bytes([0b00010001]),
+                                    x_pos: screen_object.x_pos,
+                                    y_pos: screen_object.y_pos-1,
+                                    test_operations: vec![Operation {id: grail_flag, op_value: 0, operation: TEST_OPERATIONS["eq"]}],
+                                    write_operations: vec![Operation {id: grail_flag, op_value: 1, operation: WRITE_OPERATIONS["assign"]}],
+                                    parameters: vec![0, 0, 0, 0, 2, 3]
+                                });
+                            }
+                        }
+                    }
+                    if let Some(autoscan) = lemeza_detector {
+                        screen.objects_with_position.push(autoscan);
+                    }
                 }
             }
         }
