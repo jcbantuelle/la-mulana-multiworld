@@ -388,7 +388,7 @@ impl Rcd {
         self.add_chain_whip_lockout_fix();
         self.add_flail_whip_lockout_fix();
         self.add_angel_shield_lockout_fix();
-        // self.__add_sun_map_lockout_fix()
+        self.add_sun_map_lockout_fix();
         // self.__add_hardmode_toggle()
         // self.__add_sacred_orb_timers()
         // self.__add_new_game_kill_timer()
@@ -1123,6 +1123,32 @@ impl Rcd {
             parameters: vec![0, 30]
         };
         angel_shield_screen.objects_without_position.push(right_dais_timer);
+    }
+
+    fn add_sun_map_lockout_fix(&mut self) {
+        let sun_map_screen = &mut self.rcd_file.zones[3].rooms[0].screens[1];
+
+        for screen_object in sun_map_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["lemeza_detector"] {
+                let _ = screen_object.write_operations.extract_if(.., |op| { op.id == GLOBAL_FLAGS["sun_map_chest_ladder_despawned"] }).collect::<Vec<_>>();
+
+                if screen_object.write_operations.iter().any(|op| { op.id == GLOBAL_FLAGS["sun_map_chest_ladder_restored"] }) {
+                    screen_object.write_operations.push(Operation {
+                        id: GLOBAL_FLAGS["sun_map_chest_ladder_despawned"],
+                        op_value: 1,
+                        operation: WRITE_OPERATIONS["assign"]
+                    });
+                }
+            } else if screen_object.id == RCD_OBJECTS["room_spawner"] {
+                if screen_object.test_operations.iter().any(|op| { op.id == GLOBAL_FLAGS["sun_map_chest_ladder_despawned"] }) {
+                    screen_object.test_operations.push(Operation {
+                        id: GLOBAL_FLAGS["screen_flag_0c"],
+                        op_value: 0,
+                        operation: TEST_OPERATIONS["eq"]
+                    });
+                }
+            }
+        }
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
