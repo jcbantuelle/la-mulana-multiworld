@@ -403,8 +403,9 @@ impl Rcd {
             self.create_ancient_lamulanese_timer();
         }
 
-        // if self.options.AlternateMotherAnkh:
-        //     self.__create_alternate_mother_ankh()
+        if options.get("AlternateMotherAnkh").is_some_and(|option| *option > 0) {
+            self.create_alternate_mother_ankh();
+        }
 
         Ok(())
     }
@@ -1359,6 +1360,60 @@ impl Rcd {
             parameters: vec![0, 0]
         };
         start_screen.objects_without_position.push(lamulanese_timer);
+    }
+
+    fn create_alternate_mother_ankh(&mut self) {
+        {
+            let mother_screen = &mut self.rcd_file.zones[18].rooms[3].screens[0];
+
+            // Remove Mother Animations
+            let _ = mother_screen.objects_with_position.extract_if(.., |screen_object| {
+                screen_object.id == RCD_OBJECTS["animation"]
+            }).collect::<Vec<_>>();
+
+            // Modify Mother Ankh
+            for screen_object in mother_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["mother_ankh"] {
+                    screen_object.id = RCD_OBJECTS["ankh"];
+                    screen_object.parameters[0] = 8;
+                    screen_object.write_operations[0].op_value = 1;
+                    screen_object.write_operations[1].op_value = 2;
+                    screen_object.y_pos += 3;
+                }
+            }
+        }
+
+        // Return Ankh Jewel if warped out of fight
+        {
+            let surface_screen = &mut self.rcd_file.zones[1].rooms[11].screens[0];
+
+            let instant_item = ObjectWithPosition {
+                id: RCD_OBJECTS["instant_item"],
+                header: ObjectHeader::from_bytes([0b00010010]),
+                x_pos: 5,
+                y_pos: 3,
+                test_operations: vec![Operation { id: GLOBAL_FLAGS["mother_ankh_jewel_recovery"], op_value: 1, operation: TEST_OPERATIONS["eq"] }],
+                write_operations: vec![
+                    Operation { id: GLOBAL_FLAGS["mother_ankh_jewel_recovery"], op_value: 0, operation: WRITE_OPERATIONS["assign"] },
+                    Operation { id: GLOBAL_FLAGS["mother_state"], op_value: 1, operation: WRITE_OPERATIONS["assign"] },
+                ],
+                parameters: vec![19, 12, 16, 39]
+            };
+            surface_screen.objects_with_position.push(instant_item);
+
+            let flag_timer = ObjectWithoutPosition {
+                id: RCD_OBJECTS["flag_timer"],
+                header: ObjectHeader::from_bytes([0b00110001]),
+                test_operations: vec![
+                    Operation { id: GLOBAL_FLAGS["mother_state"], op_value: 2, operation: TEST_OPERATIONS["eq"] },
+                    Operation { id: GLOBAL_FLAGS["escape"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                    Operation { id: GLOBAL_FLAGS["mother_ankh_jewel_recovery"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                ],
+                write_operations: vec![Operation { id: GLOBAL_FLAGS["mother_ankh_jewel_recovery"], op_value: 1, operation: WRITE_OPERATIONS["assign"]}],
+                parameters: vec![0, 0]
+            };
+            surface_screen.objects_without_position.push(flag_timer);
+        }
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
