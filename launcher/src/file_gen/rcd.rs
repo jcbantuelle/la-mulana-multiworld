@@ -399,8 +399,9 @@ impl Rcd {
             self.create_grail_autoscans();
         }
 
-        // if self.options.AncientLaMulaneseLearned:
-        //     self.__create_ancient_lamulanese_timer()
+        if options.get("AncientLaMulaneseLearned").is_some_and(|option| *option > 0) {
+            self.create_ancient_lamulanese_timer();
+        }
 
         // if self.options.AlternateMotherAnkh:
         //     self.__create_alternate_mother_ankh()
@@ -1342,6 +1343,22 @@ impl Rcd {
                 }
             }
         }
+    }
+
+    fn create_ancient_lamulanese_timer(&mut self) {
+        let start_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
+
+        let lamulanese_timer = ObjectWithoutPosition {
+            id: RCD_OBJECTS["flag_timer"],
+            header: ObjectHeader::from_bytes([0b00010010]),
+            test_operations: vec![Operation {id: GLOBAL_FLAGS["ancient_lamulanese_learned"], op_value: 0, operation: TEST_OPERATIONS["eq"]}],
+            write_operations: vec![
+                Operation { id: GLOBAL_FLAGS["translation_tablets_read"], op_value: 3, operation: WRITE_OPERATIONS["assign"] },
+                Operation { id: GLOBAL_FLAGS["ancient_lamulanese_learned"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }
+            ],
+            parameters: vec![0, 0]
+        };
+        start_screen.objects_without_position.push(lamulanese_timer);
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
