@@ -384,7 +384,7 @@ impl Rcd {
 
         self.add_dimensional_orb_ladder();
         self.add_true_shrine_doors();
-        // self.__add_moonlight_to_twin_lockout_fix()
+        self.add_moonlight_to_twin_lockout_fix();
         // self.__add_chain_whip_lockout_fix()
         // self.__add_flail_whip_lockout_fix()
         // self.__add_angel_shield_lockout_fix()
@@ -1043,11 +1043,23 @@ impl Rcd {
                 y_pos: door["y"]-2,
                 test_operations: vec![],
                 write_operations: vec![],
-                // repeat=0, hit_tile=0, entry_effect=0, exit_effect=0, cycle_colors=0, alpha=0, max_alpha=0, red=0, max_red=0, green=0, max_green=0, blue=0, max_blue=0, blend=0, unknown=0):
                 parameters: vec![-1, -1, 0, 512, 80, 80, 0, 0, 1, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0]
             };
             true_shrine_screen.objects_with_position.push(door_graphic);
         }
+    }
+
+    fn add_moonlight_to_twin_lockout_fix(&mut self) {
+        let moonlight_screen = &mut self.rcd_file.zones[12].rooms[2].screens[0];
+
+        let undo_breakable_floor_timer = ObjectWithoutPosition {
+            id: RCD_OBJECTS["flag_timer"],
+            header: ObjectHeader::from_bytes([0b00010001]),
+            test_operations: vec![Operation { id: GLOBAL_FLAGS["moonlight_to_twin_breakable_floor"], op_value: 1, operation: TEST_OPERATIONS["eq"] }],
+            write_operations: vec![Operation { id: GLOBAL_FLAGS["moonlight_to_twin_breakable_floor"], op_value: 0, operation: WRITE_OPERATIONS["assign"] }],
+            parameters: vec![0, 0]
+        };
+        moonlight_screen.objects_without_position.push(undo_breakable_floor_timer);
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
