@@ -386,7 +386,7 @@ impl Rcd {
         self.add_true_shrine_doors();
         self.add_moonlight_to_twin_lockout_fix();
         self.add_chain_whip_lockout_fix();
-        // self.__add_flail_whip_lockout_fix()
+        self.add_flail_whip_lockout_fix();
         // self.__add_angel_shield_lockout_fix()
         // self.__add_sun_map_lockout_fix()
         // self.__add_hardmode_toggle()
@@ -1074,6 +1074,26 @@ impl Rcd {
                 Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["chain_whip_dais_right"], GLOBAL_FLAGS["screen_flag_2f"], None, None, None, None);
                 Self::update_operations(&mut screen_object.write_operations, GLOBAL_FLAGS["chain_whip_dais_right"], GLOBAL_FLAGS["screen_flag_2f"], None, None, None, None);
             }
+        }
+    }
+
+    fn add_flail_whip_lockout_fix(&mut self) {
+        let locations = vec![
+            HashMap::from([("room", 5), ("screen", 1)]),
+            HashMap::from([("room", 6), ("screen", 2)])
+        ];
+
+        for location in locations {
+            let flail_whip_screen = &mut self.rcd_file.zones[13].rooms[location["room"]].screens[location["screen"]];
+
+            let flail_whip_lockout_timer = ObjectWithoutPosition {
+                id: RCD_OBJECTS["flag_timer"],
+                header: ObjectHeader::from_bytes([0b00010001]),
+                test_operations: vec![Operation { id: GLOBAL_FLAGS["flail_whip_puzzle"], op_value: 1, operation: TEST_OPERATIONS["eq"] }],
+                write_operations: vec![Operation { id: GLOBAL_FLAGS["flail_whip_puzzle"], op_value: 0, operation: WRITE_OPERATIONS["assign"] }],
+                parameters: vec![0, 0]
+            };
+            flail_whip_screen.objects_without_position.push(flail_whip_lockout_timer);
         }
     }
 
