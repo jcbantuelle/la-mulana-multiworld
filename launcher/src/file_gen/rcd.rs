@@ -387,7 +387,7 @@ impl Rcd {
         self.add_moonlight_to_twin_lockout_fix();
         self.add_chain_whip_lockout_fix();
         self.add_flail_whip_lockout_fix();
-        // self.__add_angel_shield_lockout_fix()
+        self.add_angel_shield_lockout_fix();
         // self.__add_sun_map_lockout_fix()
         // self.__add_hardmode_toggle()
         // self.__add_sacred_orb_timers()
@@ -1095,6 +1095,34 @@ impl Rcd {
             };
             flail_whip_screen.objects_without_position.push(flail_whip_lockout_timer);
         }
+    }
+
+    fn add_angel_shield_lockout_fix(&mut self) {
+        let angel_shield_screen = &mut self.rcd_file.zones[17].rooms[8].screens[0];
+
+        let left_dais_timer = ObjectWithoutPosition {
+            id: RCD_OBJECTS["flag_timer"],
+            header: ObjectHeader::from_bytes([0b00100001]),
+            test_operations: vec![
+                Operation { id: GLOBAL_FLAGS["dimensional_angel_shield_dais_left"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                Operation { id: GLOBAL_FLAGS["dimensional_children_dead"], op_value: 11, operation: TEST_OPERATIONS["gteq"] },
+            ],
+            write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_00"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+            parameters: vec![0, 30]
+        };
+        angel_shield_screen.objects_without_position.push(left_dais_timer);
+
+        let right_dais_timer = ObjectWithoutPosition {
+            id: RCD_OBJECTS["flag_timer"],
+            header: ObjectHeader::from_bytes([0b00100001]),
+            test_operations: vec![
+                Operation { id: GLOBAL_FLAGS["dimensional_angel_shield_dais_right"], op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                Operation { id: GLOBAL_FLAGS["dimensional_children_dead"], op_value: 11, operation: TEST_OPERATIONS["gteq"] },
+            ],
+            write_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_01"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+            parameters: vec![0, 30]
+        };
+        angel_shield_screen.objects_without_position.push(right_dais_timer);
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
