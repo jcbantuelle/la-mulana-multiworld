@@ -389,7 +389,7 @@ impl Rcd {
         self.add_flail_whip_lockout_fix();
         self.add_angel_shield_lockout_fix();
         self.add_sun_map_lockout_fix();
-        // self.__add_hardmode_toggle()
+        self.add_hardmode_toggle();
         // self.__add_sacred_orb_timers()
         // self.__add_new_game_kill_timer()
 
@@ -1148,6 +1148,29 @@ impl Rcd {
                     });
                 }
             }
+        }
+    }
+
+    fn add_hardmode_toggle(&mut self) {
+        let hardmode_screen = &mut self.rcd_file.zones[2].rooms[2].screens[0];
+
+        struct HardmodeOp { test_op: String, write_val: i8 }
+
+        let ops = [
+            HardmodeOp { test_op: "eq".to_string(), write_val: 0 },
+            HardmodeOp { test_op: "lt".to_string(), write_val: 2 }
+        ];
+        for op in ops {
+            let dais = ObjectWithPosition {
+                id: RCD_OBJECTS["trigger_dais"],
+                header: ObjectHeader::from_bytes([0b00010001]),
+                x_pos: 28,
+                y_pos: 5,
+                test_operations: vec![Operation { id: GLOBAL_FLAGS["hardmode"], op_value: 2, operation: TEST_OPERATIONS[op.test_op.as_str()] }],
+                write_operations: vec![Operation { id: GLOBAL_FLAGS["hardmode"], op_value: op.write_val, operation: WRITE_OPERATIONS["assign"] }],
+                parameters: vec![0, 60, -1, 2, 0, 860, 60, 1, 10, 60]
+            };
+            hardmode_screen.objects_with_position.push(dais);
         }
     }
 
