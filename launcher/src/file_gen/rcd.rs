@@ -393,7 +393,7 @@ impl Rcd {
         self.add_sacred_orb_timers();
         self.add_new_game_kill_timer();
 
-        // self.__clean_up_operations()
+        self.clean_up_operations();
 
         // if self.options.AutoScanGrailTablets:
         //     self.__create_grail_autoscans()
@@ -1206,6 +1206,107 @@ impl Rcd {
             parameters: vec![0, 0]
         };
         new_game_screen.objects_without_position.push(kill_timer);
+    }
+
+    fn  clean_up_operations(&mut self) {
+        // Remove Fairy Conversation Requirement from Buer Room Ladder
+        {
+            let buer_screen = &mut self.rcd_file.zones[3].rooms[2].screens[1];
+            for screen_object in buer_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["hitbox_generator"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["endless_fairyqueen"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+
+        // Remove Slushfund Conversation Requirement from Pepper Puzzle
+        {
+            let pepper_puzzle_screen = &mut self.rcd_file.zones[0].rooms[0].screens[0];
+            for screen_object in pepper_puzzle_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["use_item"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["slushfund_conversation"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+
+        // Remove Crucifix Check from Crucifix Puzzle Torches
+        {
+            let crucifix_puzzle_screen = &mut self.rcd_file.zones[0].rooms[1].screens[1];
+            for screen_object in crucifix_puzzle_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["texture_draw_animation"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["crucifix_found"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+
+        // Remove Plane Missing Requirement from Plane Puzzle
+        {
+            let plane_platform_left_screen = &mut self.rcd_file.zones[13].rooms[7].screens[0];
+            for screen_object in plane_platform_left_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["counterweight_platform"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["plane_found"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+        {
+            let plane_platform_right_screen = &mut self.rcd_file.zones[13].rooms[7].screens[2];
+            for screen_object in plane_platform_right_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["counterweight_platform"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["plane_found"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+
+        // Remove Dracuet Check From Guidance Elevator Block
+        {
+            let guidance_elevator_screen = &mut self.rcd_file.zones[0].rooms[6].screens[0];
+            for screen_object in guidance_elevator_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["hitbox_generator"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["mulbruk_father"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+
+        // Remove Shrine Chest Check from Xelpud Conversations
+        {
+            let xelpud_conversation_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
+            for screen_object in xelpud_conversation_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["language_conversation"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["shrine_diary_chest"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+
+        // Remove Unknown Test from Mulbruk Conversations
+        {
+            let mulbruk_conversation_screen = &mut self.rcd_file.zones[3].rooms[3].screens[0];
+            for screen_object in mulbruk_conversation_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["language_conversation"] {
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["mulbruk_conversation_unknown"] }).collect::<Vec<_>>();
+                    Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["score"], GLOBAL_FLAGS["score"], Some(TEST_OPERATIONS["gteq"]), None, Some(56), Some(0));
+                }
+            }
+        }
+
+        // Remove Book of the Dead Write Flag from Anubis Kill
+        {
+            let anubis_screen = &mut self.rcd_file.zones[12].rooms[10].screens[0];
+            for screen_object in anubis_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["big_anubis"] {
+                    let _ = screen_object.write_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["mulbruk_book_of_the_dead"] }).collect::<Vec<_>>();
+                }
+            }
+        }
+
+        // Remove Ankh Jewel Check From Temple of the Sun Ankh Jewel Chest Puzzle
+        {
+            let sun_ankh_jewel_screen = &mut self.rcd_file.zones[3].rooms[7].screens[0];
+            for screen_object in sun_ankh_jewel_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["trigger_dais"] {
+                    let _ = screen_object.write_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["ankh_jewel_sun"] }).collect::<Vec<_>>();
+                }
+            }
+        }
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
