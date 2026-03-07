@@ -385,7 +385,7 @@ impl Rcd {
         self.add_dimensional_orb_ladder();
         self.add_true_shrine_doors();
         self.add_moonlight_to_twin_lockout_fix();
-        // self.__add_chain_whip_lockout_fix()
+        self.add_chain_whip_lockout_fix();
         // self.__add_flail_whip_lockout_fix()
         // self.__add_angel_shield_lockout_fix()
         // self.__add_sun_map_lockout_fix()
@@ -1060,6 +1060,21 @@ impl Rcd {
             parameters: vec![0, 0]
         };
         moonlight_screen.objects_without_position.push(undo_breakable_floor_timer);
+    }
+
+    fn add_chain_whip_lockout_fix(&mut self) {
+        let chain_whip_screen = &mut self.rcd_file.zones[5].rooms[3].screens[0];
+
+        // Swap permanent puzzle flags to screen flags so puzzle resets on lockout
+        for screen_object in chain_whip_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["trigger_dais"] || screen_object.id == RCD_OBJECTS["crusher"] {
+                Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["chain_whip_dais_left"], GLOBAL_FLAGS["screen_flag_2e"], None, None, None, None);
+                Self::update_operations(&mut screen_object.write_operations, GLOBAL_FLAGS["chain_whip_dais_left"], GLOBAL_FLAGS["screen_flag_2e"], None, None, None, None);
+
+                Self::update_operations(&mut screen_object.test_operations, GLOBAL_FLAGS["chain_whip_dais_right"], GLOBAL_FLAGS["screen_flag_2f"], None, None, None, None);
+                Self::update_operations(&mut screen_object.write_operations, GLOBAL_FLAGS["chain_whip_dais_right"], GLOBAL_FLAGS["screen_flag_2f"], None, None, None, None);
+            }
+        }
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
