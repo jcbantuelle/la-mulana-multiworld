@@ -390,7 +390,7 @@ impl Rcd {
         self.add_angel_shield_lockout_fix();
         self.add_sun_map_lockout_fix();
         self.add_hardmode_toggle();
-        // self.__add_sacred_orb_timers()
+        self.add_sacred_orb_timers();
         // self.__add_new_game_kill_timer()
 
         // self.__clean_up_operations()
@@ -1171,6 +1171,27 @@ impl Rcd {
                 parameters: vec![0, 60, -1, 2, 0, 860, 60, 1, 10, 60]
             };
             hardmode_screen.objects_with_position.push(dais);
+        }
+    }
+
+    fn add_sacred_orb_timers(&mut self) {
+        let sacred_orb_screen = &mut self.rcd_file.zones[1].rooms[1].screens[1];
+
+        for i in 0..10 {
+            let orb_timer = ObjectWithoutPosition {
+                id: RCD_OBJECTS["flag_timer"],
+                header: ObjectHeader::from_bytes([0b00100010]),
+                test_operations: vec![
+                    Operation { id: GLOBAL_FLAGS["orb_count_incremented_guidance"]+i, op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                    Operation { id: GLOBAL_FLAGS["guidance_orb_found"]+i, op_value: 2, operation: TEST_OPERATIONS["eq"] }
+                ],
+                write_operations: vec![
+                    Operation { id: GLOBAL_FLAGS["orb_count_incremented_guidance"]+i, op_value: 1, operation: WRITE_OPERATIONS["assign"] },
+                    Operation { id: GLOBAL_FLAGS["sacred_orb_count"], op_value: 1, operation: WRITE_OPERATIONS["add"] }
+                ],
+                parameters: vec![0, 0]
+            };
+            sacred_orb_screen.objects_without_position.push(orb_timer);
         }
     }
 
