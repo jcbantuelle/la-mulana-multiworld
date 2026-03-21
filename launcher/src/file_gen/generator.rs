@@ -47,7 +47,11 @@ pub enum FileGenerationError {
     #[error("Failed to copy 01effect.png")]
     EffectsFileCopyFailure,
     #[error("Failed to write 01effect.png")]
-    EffectsFileWriteFailure
+    EffectsFileWriteFailure,
+    #[error("Failed to serialize lamulana-config.toml")]
+    AppConfigSerializeFailure,
+    #[error("Failed to write lamulana-config.toml")]
+    AppConfigWriteFailure
 }
 
 impl Default for ItemData {
@@ -135,17 +139,23 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData) -> Result<
     let new_seed_path = format!("{}{}", AP_PATH, slot_data.seed);
     file_utils::create_dir(&new_seed_path).map_err(|_| FileGenerationError::SeedDirWriteFailure)?;
 
+    let save_file_dir = format!("{}/save", new_seed_path);
+    file_utils::create_dir(&save_file_dir).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
+
     let rcd_file_path = format!("{}/{}", new_seed_path, "script.rcd");
     file_utils::write_file(&rcd_file_path, rcd_file.to_bytes()?).map_err(|_| FileGenerationError::RcdFileWriteFailure)?;
 
     let dat_file_path = format!("{}/{}", new_seed_path, "script_code.dat");
     file_utils::write_file(&dat_file_path, dat_file.to_bytes()?).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
 
-    let save_file_path = format!("{}/{}", new_seed_path, "lm00.sav");
+    let save_file_path = format!("{}/{}", save_file_dir, "lm00.sav");
     file_utils::write_file(&save_file_path, sav_file.to_bytes()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
 
     let effects_file_path = format!("{}/{}", new_seed_path, "01effect.png");
     file_utils::write_file(&effects_file_path, effect_bytes).map_err(|_| FileGenerationError::EffectsFileWriteFailure)?;
+
+    let app_config_file_path = format!("{}/{}", new_seed_path, "lamulana-config.toml");
+    file_utils::write_file(&app_config_file_path, app_config.to_bytes()?).map_err(|_| FileGenerationError::AppConfigWriteFailure)?;
 
     Ok(())
 }

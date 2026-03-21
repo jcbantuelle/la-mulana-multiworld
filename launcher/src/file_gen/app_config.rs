@@ -7,14 +7,14 @@ use crate::file_gen::lm_consts::{GLOBAL_FLAGS, ITEM_CODES};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
+    next_filler_flag: i16,
     pub server_url: String,
     pub password: String,
     pub log_file_name: String,
     pub local_player_id: i64,
     pub log_level: String,
     pub players: Vec<ArchipelagoPlayer>,
-    pub item_mapping: Vec<ArchipelagoItem>,
-    next_filler_flag: i16
+    pub item_mapping: Vec<ArchipelagoItem>
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
@@ -71,6 +71,14 @@ impl AppConfig {
         self.item_mapping.push(ap_item);
 
         Ok(flag)
+    }
+
+    pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
+        let app_config = toml::to_vec(&self).map_err(|e| {
+            debug!("Serilization Failure with error: {}", e);
+            FileGenerationError::AppConfigSerializeFailure
+        })?;
+        Ok(app_config)
     }
 
     fn filler_flag(&mut self) -> i16 {

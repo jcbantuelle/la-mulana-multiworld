@@ -19,7 +19,7 @@ use std::process;
 use thiserror::Error;
 
 use crate::ap_connection::APConnection;
-use crate::ap_data::APData;
+use crate::ap_data::{APData, Game, Player};
 use crate::archipelago::api::*;
 use crate::consts::*;
 use crate::file_gen::generator;
@@ -53,6 +53,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match verifier::verify_install() {
         Ok(lm_config) => {
             let ap_data = APData::new(lm_config)?;
+            match AP_DATA.lock() {
+                Ok(mut ap_data_lock) => {
+                    *ap_data_lock = Some(ap_data.clone());
+                },
+                Err(e) => {
+                    let generate_ap_data_error_message = "Failed To Acquire AP Lock".to_string();
+                    debug!("{}: {:?}", generate_ap_data_error_message, e);
+                }
+            }
             let launcher = Launcher::new().unwrap();
             let seed_selector = SeedSelector::new().unwrap();
 
@@ -129,10 +138,11 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
 
 async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>, launcher_handle: Weak<Launcher>) {
     let seed_selector = seed_selector_handle.clone().unwrap();
-    let launcher = launcher_handle.unwrap();
+    let launcher = launcher_handle.clone().unwrap();
 
     let seed_selector_close_handle = seed_selector_handle.clone();
     let seed_selector_add_seed_handle = seed_selector_handle.clone();
+    let launcher_add_seed_handle = launcher_handle.clone();
 
     seed_selector.on_close(move || {
         let _ = launcher.show();
@@ -143,7 +153,6 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
 
     seed_selector.on_add_seed(move || {
         let seed_selector = seed_selector_add_seed_handle.clone().unwrap();
-        seed_selector.set_add_seed_error("Connecting...".into());
 
         let server_url = seed_selector.get_server_url().to_string();
         let password = seed_selector.get_password().to_string();
@@ -151,35 +160,74 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
         let player_name = seed_selector.get_player_name().to_string();
 
         let seed_selector_text_handle = seed_selector_add_seed_handle.clone();
+        let seed_selector_close_handle = seed_selector_add_seed_handle.clone();
+        let launcher_open_handle = launcher_add_seed_handle.clone();
 
         let _ = slint::spawn_local(async move {
             let _ = tokio::spawn(async move {
+                let mut seed_error_message = "".to_string();
                 match verify_new_seed(server_url.clone(), password.clone(), player_id_text.clone(), player_name.clone()).await {
                     Ok(slot_data) => {
-                        debug!("{:?}", slot_data);
-                        let app_config = AppConfig::new(server_url, password, slot_data.player_id.clone(), slot_data.players.clone());
-                        match generator::generate_files(app_config, slot_data) {
+                        let app_config = AppConfig::new(server_url.clone(), password.clone(), slot_data.player_id.clone(), slot_data.players.clone());
+                        match generator::generate_files(app_config, slot_data.clone()) {
                             Ok(_) => {
-                                let _ = seed_selector_text_handle.upgrade_in_event_loop(move |seed_selector| {
-                                    seed_selector.set_add_seed_error("Success".into());
-                                }).unwrap();
+                                let game = Game {
+                                    seed: slot_data.seed.clone(),
+                                    server_url: server_url.clone(),
+                                    you: Player { id: slot_data.player_id.clone(), name: player_name.clone() },
+                                    password: password.clone()
+                                };
+
                                 // Set Current Seed, switch back to launcher window
+                                match AP_DATA.lock() {
+                                    Ok(mut ap_data_lock) => {
+                                        match ap_data_lock.as_mut() {
+                                            Some(ap_data) => {
+                                                let _ = ap_data.add_new_game(game).inspect_err(|e| {
+                                                    seed_error_message = "Failed to Configure Files for New Game".to_string();
+                                                    debug!("{}: {:?}", seed_error_message, e);
+                                                });
+
+                                                let seed_selected = ap_data.seed_selected();
+                                                let current_seed = ap_data.seed_name().clone();
+
+                                                let _ = launcher_open_handle.upgrade_in_event_loop(move |launcher| {
+                                                    launcher.set_seed_selected(seed_selected);
+                                                    launcher.set_current_seed(current_seed.into());
+                                                    let _ = launcher.show();
+                                                }).unwrap();
+
+                                                let _ = seed_selector_close_handle.upgrade_in_event_loop(move |seed_selector| {
+                                                    let _ = seed_selector.hide();
+                                                }).unwrap();
+                                            },
+                                            None => {
+                                                seed_error_message = "AP Data doesn't exist".to_string();
+                                                debug!("{}", seed_error_message);
+                                            }
+                                        }
+                                    },
+                                    Err(e) => {
+                                        seed_error_message = "Failed To Acquire AP Lock".to_string();
+                                        debug!("{}: {:?}", seed_error_message, e);
+                                    }
+                                }
                             },
                             Err(e) => {
-                                debug!("Files failed to Generate with Error: {}", e);
-                                let _ = seed_selector_text_handle.upgrade_in_event_loop(move |seed_selector| {
-                                    seed_selector.set_add_seed_error(e.to_string().into());
-                                }).unwrap();
+                                seed_error_message = "Files failed to Generate".to_string();
+                                debug!("{}: {:?}", seed_error_message, e);
                             }
                         }
                     },
                     Err(e) => {
-                        debug!("Seed Failed to Validate with Error: {}", e);
-                        let _ = seed_selector_text_handle.upgrade_in_event_loop(move |seed_selector| {
-                            seed_selector.set_add_seed_error(e.to_string().into());
-                        }).unwrap();
+                        seed_error_message = "Seed Failed to Validate".to_string();
+                        debug!("{}: {:?}", seed_error_message, e);
                     }
                 }
+
+                let _ = seed_selector_text_handle.upgrade_in_event_loop(move |seed_selector| {
+                    seed_selector.set_add_seed_error(seed_error_message.into());
+                }).unwrap();
             }).await.unwrap();
         });
     });

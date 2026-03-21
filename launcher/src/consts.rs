@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 pub static AP_PATH: &str = "ap/";
+pub static AP_DATA_PATH: LazyLock<String> = LazyLock::new(|| { format!("{}ap_data.json", AP_PATH) });
 
 pub static LAMULANA_EXECUTABLE_NAME: &str = "LaMulanaWin";
 pub static LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION: LazyLock<String> = LazyLock::new(|| { format!("{}.exe", LAMULANA_EXECUTABLE_NAME) });

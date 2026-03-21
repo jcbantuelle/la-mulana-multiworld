@@ -86,26 +86,7 @@ fn verify_game_files(lm_config: LaMulanaConfig) -> Result<(), String> {
         let _ = file_utils::copy_file(ORIGINAL_EFFECTS_PATH, &SOURCE_EFFECTS_PATH)?;
 
         let save_destination = format!("{}save/", SOURCE_FILES_PATH.to_string());
-        let _ = file_utils::create_dir(&save_destination)?;
-        let save_dir = file_utils::read_dir(&lm_config.save_path)?;
-        let save_files = save_dir.filter_map(|save_file| {
-            match save_file {
-                Ok(f) => {
-                    if f.path().is_file() {
-                        let file_name = f.path().file_name().unwrap().to_str().unwrap().to_string();
-                        let file_path = f.path().as_os_str().to_str().unwrap().to_string();
-                        Some((file_name, file_path))
-                    } else {
-                        None
-                    }
-                },
-                Err(_) => None
-            }
-        });
-        for (save_file_name, save_file_path) in save_files {
-            let save_dest = format!("{}{}", save_destination, save_file_name);
-            let _ = file_utils::copy_file(&save_file_path, &save_dest);
-        }
+        file_utils::move_saves(lm_config.save_path, save_destination)?;
     }
 
     Ok(())

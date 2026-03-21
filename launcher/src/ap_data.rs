@@ -1,7 +1,7 @@
 use log::debug;
 use serde::{Serialize, Deserialize};
 
-use crate::consts::{AP_PATH};
+use crate::consts::{AP_DATA_PATH, AP_PATH};
 use crate::file_utils;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -16,24 +16,15 @@ pub struct LaMulanaConfig {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Game {
     pub seed: String,
+    pub server_url: String,
     pub you: Player,
-    pub password: String,
-    pub players: Vec<Player>,
-    pub items: Vec<Item>
+    pub password: String
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
     pub id: i64,
     pub name: String
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Item {
-    pub flag: u16,
-    pub location_id: i64,
-    pub player_id: i64,
-    pub obtain_value: u8
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -45,11 +36,10 @@ pub struct APData {
 
 impl APData {
     pub fn new(lm_config: LaMulanaConfig) -> Result<APData, String> {
-        let data_path = format!("{}ap_data.json", AP_PATH);
-        let ap_data_found = file_utils::path_exists(&data_path, false)?;
+        let ap_data_found = file_utils::path_exists(&AP_DATA_PATH, false)?;
 
         if ap_data_found {
-            let serialized_ap_data = file_utils::read_file_as_string(&data_path)?;
+            let serialized_ap_data = file_utils::read_file_as_string(&AP_DATA_PATH)?;
             match serde_json::from_str::<APData>(&serialized_ap_data) {
                 Ok(mut ap_data) => {
                     ap_data.config = lm_config;
@@ -62,10 +52,8 @@ impl APData {
         }
 
         let ap_data = APData { config: lm_config, games: Vec::new(), active_game: None };
-        let serialized_ap_data = serde_json::to_string::<APData>(&ap_data).map_err(|e| {
-            format!("Error {} while attempting to serialize AP Data.", e)
-        })?;
-        file_utils::write_file(&data_path, &serialized_ap_data)?;
+        ap_data.serialize_data()?;
+
         Ok(ap_data)
     }
 
@@ -82,5 +70,27 @@ impl APData {
                 "No Seed Selected".to_string()
             }
         }
+    }
+
+    pub fn add_new_game(&mut self, game: Game) -> Result<(), String> {
+        if let Some(active_game) = &self.active_game {
+            let save_destination = format!("{}{}/save/", AP_PATH, active_game.seed);
+            file_utils::move_saves(self.config.save_path.clone(), save_destination)?;
+        }
+
+        self.active_game = Some(game.clone());
+        self.games.push(game.clone());
+
+        self.serialize_data()?;
+        file_utils::update_game_files(game.seed, self.config.save_path.clone())?;
+
+        Ok(())
+    }
+
+    fn serialize_data(&self) -> Result<(), String> {
+        let serialized_ap_data = serde_json::to_string::<APData>(&self).map_err(|e| {
+            format!("Error {} while attempting to serialize AP Data.", e)
+        })?;
+        file_utils::write_file(&AP_DATA_PATH, &serialized_ap_data)
     }
 }

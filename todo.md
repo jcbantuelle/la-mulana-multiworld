@@ -1,12 +1,5 @@
 # Launcher
 
-## Implement Add New Seed
-* Gen files
-* Refactor file backup/restore into file_utils function
-* Place files
-* Set seed on ap data
-* Close window
-
 ## Make seed selection dynamic
 * Auto-populate with selected seed
 * Wire up load button
@@ -19,20 +12,20 @@
 ## Implement connect to AP window to display updates
 * Wire up button
 * Create new layout
-* Connec to AP
+* Connect to AP
 * Write data to text window
 * Live update on message received
 
 ## File Gen Mods
 * Add Inactive Ankh Graphic to boss rooms
-- Shuffle coin chests into item pool
-- Shuffle traps into item pool
-- Allow Mantras to complete in any order
-- Transition Rando
-- Door Rando
-- Start Rando
-- Seal Rando
-- NPC Rando
+* Shuffle coin chests into item pool
+* Shuffle traps into item pool
+* Allow Mantras to complete in any order
+* Transition Rando
+* Door Rando
+* Start Rando
+* Seal Rando
+* NPC Rando
 
 # DLL
 
