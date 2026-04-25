@@ -27,7 +27,7 @@ impl APClient {
                 &url[..port_index]
             }
         };
-        
+
         let connection_details = match tls_connector.connect(domain, tcp_stream_for_tls).await {
             Ok(tls_stream) => APConnectionDetails{protocol: "wss".to_string(), stream: Box::new(tls_stream)},
             Err(e) => {

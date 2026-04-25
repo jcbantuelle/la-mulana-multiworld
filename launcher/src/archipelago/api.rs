@@ -258,10 +258,10 @@ pub struct DataPackage {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Bounced {
-    pub games: Vec<String>,
-    pub slots: Vec<i64>,
-    pub tags: Vec<String>,
-    pub data: HashMap<String, String>
+    pub games: Option<Vec<String>>,
+    pub slots: Option<Vec<i64>>,
+    pub tags: Option<Vec<String>>,
+    pub data: Option<HashMap<String, String>>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
