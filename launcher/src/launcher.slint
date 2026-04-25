@@ -33,7 +33,7 @@ export component ErrorMessage inherits Window {
 
 export component SeedSelector inherits Window {
     in-out property <[string]> seeds;
-    // in-out property <string> current-seed;
+    in-out property <string> current-seed;
     in-out property <string> server-url;
     in-out property <string> password;
     in-out property <string> player-name;
@@ -41,7 +41,7 @@ export component SeedSelector inherits Window {
     in-out property <string> add-seed-error;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
-    height: 320px;
+    height: 420px;
     width: 460px;
     callback close();
     callback add-seed();
@@ -53,10 +53,8 @@ export component SeedSelector inherits Window {
                 font-weight: 600;
             }
             ComboBox {
-                // model: seeds;
-                // current-value: current-seed;
-                model: ["a","b","c"];
-                current-value: "b";
+                model: seeds;
+                current-value: current-seed;
             }
             Button {
                 text: "Load";

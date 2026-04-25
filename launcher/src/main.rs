@@ -12,10 +12,11 @@ use dll_syringe::{process::OwnedProcess, Syringe};
 use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
-use slint::{ComponentHandle, Weak};
+use slint::{ComponentHandle, ModelRc, VecModel, Weak};
 use std::error::Error;
 use std::sync::Mutex;
 use std::process;
+use std::rc::Rc;
 use thiserror::Error;
 
 use crate::ap_connection::APConnection;
@@ -66,7 +67,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let seed_selector = SeedSelector::new().unwrap();
 
             configure_launcher_window(launcher.as_weak(), seed_selector.as_weak(), ap_data.clone()).await;
-            configure_seed_selector_window(seed_selector.as_weak(), launcher.as_weak()).await;
+            configure_seed_selector_window(seed_selector.as_weak(), launcher.as_weak(), ap_data.clone()).await;
 
             launcher.run()?;
         },
@@ -136,9 +137,13 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
     });
 }
 
-async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>, launcher_handle: Weak<Launcher>) {
+async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>, launcher_handle: Weak<Launcher>, ap_data: APData) {
     let seed_selector = seed_selector_handle.clone().unwrap();
     let launcher = launcher_handle.clone().unwrap();
+
+    let seeds = Rc::new(VecModel::from(ap_data.seeds()));
+    seed_selector.set_seeds(ModelRc::from(seeds));
+    seed_selector.set_current_seed(ap_data.seed_name().into());
 
     let seed_selector_close_handle = seed_selector_handle.clone();
     let seed_selector_add_seed_handle = seed_selector_handle.clone();
@@ -189,15 +194,20 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                                                 });
 
                                                 let seed_selected = ap_data.seed_selected();
-                                                let current_seed = ap_data.seed_name().clone();
+                                                let launcher_current_seed = ap_data.seed_name().clone();
+                                                let selector_current_seed = ap_data.seed_name().clone();
+                                                let seeds = ap_data.seeds().clone();
 
                                                 let _ = launcher_open_handle.upgrade_in_event_loop(move |launcher| {
                                                     launcher.set_seed_selected(seed_selected);
-                                                    launcher.set_current_seed(current_seed.into());
+                                                    launcher.set_current_seed(launcher_current_seed.into());
                                                     let _ = launcher.show();
                                                 }).unwrap();
 
                                                 let _ = seed_selector_close_handle.upgrade_in_event_loop(move |seed_selector| {
+                                                    seed_selector.set_current_seed(selector_current_seed.into());
+                                                    let seeds = Rc::new(VecModel::from(seeds));
+                                                    seed_selector.set_seeds(ModelRc::from(seeds));
                                                     let _ = seed_selector.hide();
                                                 }).unwrap();
                                             },

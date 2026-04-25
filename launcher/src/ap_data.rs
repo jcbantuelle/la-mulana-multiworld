@@ -1,5 +1,6 @@
 use log::debug;
 use serde::{Serialize, Deserialize};
+use slint::SharedString;
 
 use crate::consts::{AP_DATA_PATH, AP_PATH};
 use crate::file_utils;
@@ -70,6 +71,10 @@ impl APData {
                 "No Seed Selected".to_string()
             }
         }
+    }
+
+    pub fn seeds(&self) -> Vec<SharedString> {
+        self.games.iter().map(|game| game.seed.clone().into()).collect()
     }
 
     pub fn add_new_game(&mut self, game: Game) -> Result<(), String> {
