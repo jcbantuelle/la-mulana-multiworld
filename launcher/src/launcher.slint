@@ -39,14 +39,24 @@ export component SeedSelector inherits Window {
     in-out property <string> player-name;
     in-out property <string> player-id;
     in-out property <string> add-seed-error;
+    in-out property <string> load-seed-error;
+    out property <string> chosen-seed;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
     height: 420px;
-    width: 460px;
+    width: 540px;
     callback close();
+    callback load();
+    callback delete();
     callback add-seed();
     VerticalLayout {
         if seeds.length > 0: HorizontalBox {
+            if !load-seed-error.is-empty: VerticalBox {
+                Text {
+                    text: "\{root.load-seed-error}";
+                    color: red;
+                }
+            }
             Text {
                 text: "Choose Seed:";
                 vertical-alignment: center;
@@ -55,11 +65,25 @@ export component SeedSelector inherits Window {
             ComboBox {
                 model: seeds;
                 current-value: current-seed;
+                selected(current-value) => {
+                    root.chosen-seed = current-value;
+                }
             }
             Button {
                 text: "Load";
                 height: 30px;
                 width: 60px;
+                clicked => {
+                    root.load()
+                }
+            }
+            Button {
+                text: "Delete";
+                height: 30px;
+                width: 60px;
+                clicked => {
+                    root.delete()
+                }
             }
             Button {
                 text: "Cancel";
@@ -202,17 +226,17 @@ export component Launcher inherits Window {
             if seed-selected: Button {
                 height: 30px;
                 width: 100px;
-                text: "Connect to AP";
+                text: "Launch Game";
                 clicked => {
-                    root.connect-to-archipelago();
+                    root.launch-game();
                 }
             }
             if seed-selected: Button {
                 height: 30px;
                 width: 100px;
-                text: "Launch Game";
+                text: "Connect to AP";
                 clicked => {
-                    root.launch-game();
+                    root.connect-to-archipelago();
                 }
             }
             Button {

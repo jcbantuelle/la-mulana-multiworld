@@ -1,9 +1,7 @@
 # Launcher
 
 ## Make seed selection dynamic
-* Auto-populate with selected seed
-* Wire up load button
-* Swap files
+* Add Delete Seed Button
 
 ## Implement original file restore button on launcher
 * Wire up button

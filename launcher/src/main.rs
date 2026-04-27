@@ -139,21 +139,72 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
 
 async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>, launcher_handle: Weak<Launcher>, ap_data: APData) {
     let seed_selector = seed_selector_handle.clone().unwrap();
-    let launcher = launcher_handle.clone().unwrap();
 
     let seeds = Rc::new(VecModel::from(ap_data.seeds()));
     seed_selector.set_seeds(ModelRc::from(seeds));
     seed_selector.set_current_seed(ap_data.seed_name().into());
 
     let seed_selector_close_handle = seed_selector_handle.clone();
+    let seed_selector_load_handle = seed_selector_handle.clone();
     let seed_selector_add_seed_handle = seed_selector_handle.clone();
+
+    let launcher_close = launcher_handle.clone().unwrap();
+    let launcher_load = launcher_handle.clone().unwrap();
     let launcher_add_seed_handle = launcher_handle.clone();
 
     seed_selector.on_close(move || {
-        let _ = launcher.show();
+        let _ = launcher_close.show();
 
         let seed_selector = seed_selector_close_handle.unwrap();
         let _ = seed_selector.hide();
+    });
+
+    seed_selector.on_delete(move || {
+        // Remove currently selected seed from ap_data.games
+        // Unset ap_data.current_seed if it's the currently selected one
+
+        // Update Launcher if current seed was removed
+        // Update Seed Selector to newest set of games, and current seed if it was removed
+    });
+
+    seed_selector.on_load(move || {
+        let seed_selector = seed_selector_load_handle.clone().unwrap();
+
+        let mut seed_error_message = "".to_string();
+        let seed_to_load = seed_selector.get_chosen_seed().to_string();
+
+        match AP_DATA.lock() {
+            Ok(mut ap_data_lock) => {
+                match ap_data_lock.as_mut() {
+                    Some(ap_data) => {
+                        match ap_data.load_game(seed_to_load.clone()) {
+                            Ok(_) => {
+                                launcher_load.set_seed_selected(true);
+                                launcher_load.set_current_seed(seed_to_load.clone().into());
+                                let _ = launcher_load.show();
+
+                                seed_selector.set_current_seed(seed_to_load.clone().into());
+                                let _ = seed_selector.hide();
+                            },
+                            Err(e) => {
+                                seed_error_message = "Failed to Load Chosen Seed".to_string();
+                                debug!("{}: {:?}", seed_error_message, e);
+                            }
+                        }
+                    },
+                    None => {
+                        seed_error_message = "AP Data doesn't exist".to_string();
+                        debug!("{}", seed_error_message);
+                    }
+                }
+            },
+            Err(e) => {
+                seed_error_message = "Failed To Acquire AP Lock".to_string();
+                debug!("{}: {:?}", seed_error_message, e);
+            }
+        }
+
+        seed_selector.set_load_seed_error(seed_error_message.into());
     });
 
     seed_selector.on_add_seed(move || {
@@ -188,28 +239,31 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                                     Ok(mut ap_data_lock) => {
                                         match ap_data_lock.as_mut() {
                                             Some(ap_data) => {
-                                                let _ = ap_data.add_new_game(game).inspect_err(|e| {
-                                                    seed_error_message = "Failed to Configure Files for New Game".to_string();
-                                                    debug!("{}: {:?}", seed_error_message, e);
-                                                });
+                                                match ap_data.add_new_game(game) {
+                                                    Ok(_) => {
+                                                        let seed_selected = ap_data.seed_selected();
+                                                        let launcher_current_seed = ap_data.seed_name().clone();
+                                                        let selector_current_seed = ap_data.seed_name().clone();
+                                                        let seeds = ap_data.seeds().clone();
 
-                                                let seed_selected = ap_data.seed_selected();
-                                                let launcher_current_seed = ap_data.seed_name().clone();
-                                                let selector_current_seed = ap_data.seed_name().clone();
-                                                let seeds = ap_data.seeds().clone();
+                                                        let _ = launcher_open_handle.upgrade_in_event_loop(move |launcher| {
+                                                            launcher.set_seed_selected(seed_selected);
+                                                            launcher.set_current_seed(launcher_current_seed.into());
+                                                            let _ = launcher.show();
+                                                        }).unwrap();
 
-                                                let _ = launcher_open_handle.upgrade_in_event_loop(move |launcher| {
-                                                    launcher.set_seed_selected(seed_selected);
-                                                    launcher.set_current_seed(launcher_current_seed.into());
-                                                    let _ = launcher.show();
-                                                }).unwrap();
-
-                                                let _ = seed_selector_close_handle.upgrade_in_event_loop(move |seed_selector| {
-                                                    seed_selector.set_current_seed(selector_current_seed.into());
-                                                    let seeds = Rc::new(VecModel::from(seeds));
-                                                    seed_selector.set_seeds(ModelRc::from(seeds));
-                                                    let _ = seed_selector.hide();
-                                                }).unwrap();
+                                                        let _ = seed_selector_close_handle.upgrade_in_event_loop(move |seed_selector| {
+                                                            seed_selector.set_current_seed(selector_current_seed.into());
+                                                            let seeds = Rc::new(VecModel::from(seeds));
+                                                            seed_selector.set_seeds(ModelRc::from(seeds));
+                                                            let _ = seed_selector.hide();
+                                                        }).unwrap();
+                                                    },
+                                                    Err(e) => {
+                                                        seed_error_message = "Failed to Configure Files for New Game".to_string();
+                                                        debug!("{}: {:?}", seed_error_message, e);
+                                                    }
+                                                }
                                             },
                                             None => {
                                                 seed_error_message = "AP Data doesn't exist".to_string();

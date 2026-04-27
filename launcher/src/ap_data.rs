@@ -78,18 +78,34 @@ impl APData {
     }
 
     pub fn add_new_game(&mut self, game: Game) -> Result<(), String> {
+        self.rotate_files(game.seed.clone())?;
+        self.active_game = Some(game.clone());
+        self.games.push(game.clone());
+        self.serialize_data()?;
+        Ok(())
+    }
+
+    pub fn load_game(&mut self, seed: String) -> Result<(), String> {
+        match self.games.iter().find(|&game| game.seed == seed) {
+            Some(game) => {
+                self.rotate_files(seed)?;
+                self.active_game = Some(game.clone());
+                self.serialize_data()
+            },
+            None => {
+                let error_message = format!("Couldn't find Seed {} while attempting to load it.", seed);
+                debug!("{}", error_message);
+                Err(error_message)
+            }
+        }
+    }
+
+    fn rotate_files(&self, seed: String) -> Result<(), String> {
         if let Some(active_game) = &self.active_game {
             let save_destination = format!("{}{}/save/", AP_PATH, active_game.seed);
             file_utils::move_saves(self.config.save_path.clone(), save_destination)?;
         }
-
-        self.active_game = Some(game.clone());
-        self.games.push(game.clone());
-
-        self.serialize_data()?;
-        file_utils::update_game_files(game.seed, self.config.save_path.clone())?;
-
-        Ok(())
+        file_utils::update_game_files(seed, self.config.save_path.clone())
     }
 
     fn serialize_data(&self) -> Result<(), String> {
