@@ -100,6 +100,17 @@ impl APData {
         }
     }
 
+    pub fn delete_game(&mut self, seed: String) -> Result<(), String> {
+        self.games.retain(|game| game.seed != seed);
+        if let Some(active) = &self.active_game {
+            if active.seed == seed {
+                self.active_game = None;
+            }
+        }
+        file_utils::delete_seed(seed)?;
+        self.serialize_data()
+    }
+
     fn rotate_files(&self, seed: String) -> Result<(), String> {
         if let Some(active_game) = &self.active_game {
             let save_destination = format!("{}{}/save/", AP_PATH, active_game.seed);

@@ -93,6 +93,15 @@ pub fn move_saves(save_source: String, save_destination: String) -> Result<(), S
     Ok(())
 }
 
+pub fn delete_seed(seed: String) -> Result<(), String> {
+    let seed_file_path = format!("{}{}/", AP_PATH, seed);
+    fs::remove_dir_all(seed_file_path.clone()).or_else(|e| {
+        let error_message = format!("File system error {} attempting to delete {}, please correct and try again.", e, seed_file_path.clone());
+        debug!("{}", error_message);
+        Err(error_message)
+    })
+}
+
 pub fn update_game_files(seed: String, save_destination: String) -> Result<(), String> {
     let seed_file_path = format!("{}{}/", AP_PATH, seed);
 

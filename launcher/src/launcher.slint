@@ -4,7 +4,7 @@ export component ErrorMessage inherits Window {
     in-out property <string> error_message;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
-    height: 200px;
+    height: 300px;
     width: 430px;
     callback close();
     VerticalBox {
@@ -40,7 +40,7 @@ export component SeedSelector inherits Window {
     in-out property <string> player-id;
     in-out property <string> add-seed-error;
     in-out property <string> load-seed-error;
-    out property <string> chosen-seed;
+    in-out property <string> chosen-seed;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
     height: 420px;

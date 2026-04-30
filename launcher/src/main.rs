@@ -143,13 +143,16 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
     let seeds = Rc::new(VecModel::from(ap_data.seeds()));
     seed_selector.set_seeds(ModelRc::from(seeds));
     seed_selector.set_current_seed(ap_data.seed_name().into());
+    seed_selector.set_chosen_seed(ap_data.seed_name().into());
 
     let seed_selector_close_handle = seed_selector_handle.clone();
     let seed_selector_load_handle = seed_selector_handle.clone();
+    let seed_selector_delete_handle = seed_selector_handle.clone();
     let seed_selector_add_seed_handle = seed_selector_handle.clone();
 
     let launcher_close = launcher_handle.clone().unwrap();
     let launcher_load = launcher_handle.clone().unwrap();
+    let launcher_delete = launcher_handle.clone().unwrap();
     let launcher_add_seed_handle = launcher_handle.clone();
 
     seed_selector.on_close(move || {
@@ -160,11 +163,48 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
     });
 
     seed_selector.on_delete(move || {
-        // Remove currently selected seed from ap_data.games
-        // Unset ap_data.current_seed if it's the currently selected one
+        let seed_selector = seed_selector_delete_handle.clone().unwrap();
 
-        // Update Launcher if current seed was removed
-        // Update Seed Selector to newest set of games, and current seed if it was removed
+        let mut seed_error_message = "".to_string();
+        let seed_to_delete = seed_selector.get_chosen_seed().to_string();
+
+        match AP_DATA.lock() {
+            Ok(mut ap_data_lock) => {
+                match ap_data_lock.as_mut() {
+                    Some(ap_data) => {
+                        match ap_data.delete_game(seed_to_delete.clone()) {
+                            Ok(_) => {
+                                match ap_data.active_game {
+                                    None => {
+                                        launcher_delete.set_seed_selected(false);
+                                        launcher_delete.set_current_seed(ap_data.seed_name().into());
+
+                                        seed_selector.set_current_seed(ap_data.seed_name().into());
+                                    },
+                                    _ => ()
+                                }
+                                let seeds = Rc::new(VecModel::from(ap_data.seeds()));
+                                seed_selector.set_seeds(ModelRc::from(seeds));
+                            },
+                            Err(e) => {
+                                seed_error_message = "Failed to Delete Chosen Seed".to_string();
+                                debug!("{}: {:?}", seed_error_message, e);
+                            }
+                        }
+                    },
+                    None => {
+                        seed_error_message = "AP Data doesn't exist".to_string();
+                        debug!("{}", seed_error_message);
+                    }
+                }
+            },
+            Err(e) => {
+                seed_error_message = "Failed To Acquire AP Lock".to_string();
+                debug!("{}: {:?}", seed_error_message, e);
+            }
+        }
+
+        seed_selector.set_load_seed_error(seed_error_message.into());
     });
 
     seed_selector.on_load(move || {
@@ -253,7 +293,8 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                                                         }).unwrap();
 
                                                         let _ = seed_selector_close_handle.upgrade_in_event_loop(move |seed_selector| {
-                                                            seed_selector.set_current_seed(selector_current_seed.into());
+                                                            seed_selector.set_current_seed(selector_current_seed.clone().into());
+                                                            seed_selector.set_chosen_seed(selector_current_seed.clone().into());
                                                             let seeds = Rc::new(VecModel::from(seeds));
                                                             seed_selector.set_seeds(ModelRc::from(seeds));
                                                             let _ = seed_selector.hide();
