@@ -100,17 +100,20 @@ async fn configure_logger() {
 }
 
 async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selector_handle: Weak<SeedSelector>, ap_data: APData) {
-    let launcher = launcher_handle.unwrap();
-    let seed_selector = seed_selector_handle.unwrap();
+    let launcher = launcher_handle.clone().unwrap();
 
     launcher.set_seed_selected(ap_data.seed_selected());
     launcher.set_current_seed(ap_data.seed_name().into());
 
-    let launcher_select_seed_handle = launcher.as_weak();
-    let launcher_close_handle = launcher.as_weak();
+    let launcher_select_seed_handle = launcher_handle.clone();
+    let launcher_restore_handle = launcher_handle.clone();
+    let launcher_close_handle = launcher_handle.clone();
+
+    let seed_selector_select_handle = seed_selector_handle.clone().unwrap();
+    let seed_selector_restore_handle = seed_selector_handle.clone().unwrap();
 
     launcher.on_select_seed(move || {
-        let _ = seed_selector.show();
+        let _ = seed_selector_select_handle.show();
 
         let launcher = launcher_select_seed_handle.unwrap();
         let _ = launcher.hide();
@@ -125,6 +128,43 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
         let _ = slint::spawn_local(async move {
             let _ = tokio::spawn(async move { launch_game().await }).await.unwrap();
         });
+    });
+
+    launcher.on_restore(move || {
+        let launcher = launcher_restore_handle.unwrap();
+        let mut launcher_error_message = "".to_string();
+
+         match AP_DATA.lock() {
+            Ok(mut ap_data_lock) => {
+                match ap_data_lock.as_mut() {
+                    Some(ap_data) => {
+                        match ap_data.restore_original_files() {
+                            Ok(_) => {
+                                launcher.set_seed_selected(ap_data.seed_selected());
+                                launcher.set_current_seed(ap_data.seed_name().into());
+
+                                seed_selector_restore_handle.set_current_seed(ap_data.seed_name().into());
+                                seed_selector_restore_handle.set_chosen_seed(ap_data.seed_name().into());
+                            },
+                            Err(e) => {
+                                launcher_error_message = "Failed to Restore Original Files".to_string();
+                                debug!("{}: {:?}", launcher_error_message, e);
+                            }
+                        }
+                    },
+                    None => {
+                        launcher_error_message = "AP Data doesn't exist".to_string();
+                        debug!("{}", launcher_error_message);
+                    }
+                }
+            },
+            Err(e) => {
+                launcher_error_message = "Failed To Acquire AP Lock".to_string();
+                debug!("{}: {:?}", launcher_error_message, e);
+            }
+        }
+
+        launcher.set_error_message(launcher_error_message.into());
     });
 
     launcher.on_connect_to_archipelago(move || {

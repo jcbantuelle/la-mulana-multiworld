@@ -50,13 +50,13 @@ export component SeedSelector inherits Window {
     callback delete();
     callback add-seed();
     VerticalLayout {
-        if seeds.length > 0: HorizontalBox {
-            if !load-seed-error.is-empty: VerticalBox {
-                Text {
-                    text: "\{root.load-seed-error}";
-                    color: red;
-                }
+        if !load-seed-error.is-empty: VerticalBox {
+            Text {
+                text: "\{root.load-seed-error}";
+                color: red;
             }
+        }
+        if seeds.length > 0: HorizontalBox {
             Text {
                 text: "Choose Seed:";
                 vertical-alignment: center;
@@ -193,17 +193,25 @@ export component SeedSelector inherits Window {
 export component Launcher inherits Window {
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
-    height: 80px;
+    height: 150px;
     width: 450px;
 
     in-out property <bool> seed-selected;
     in-out property <string> current-seed;
+    in-out property <string> error-message;
 
     callback close();
     callback connect-to-archipelago();
     callback launch-game();
     callback select-seed();
+    callback restore();
     VerticalLayout {
+        if !error-message.is-empty: VerticalBox {
+            Text {
+                text: "\{root.error-message}";
+                color: red;
+            }
+        }
         HorizontalBox {
             Text {
                 text: "Current Seed:";
@@ -239,10 +247,20 @@ export component Launcher inherits Window {
                     root.connect-to-archipelago();
                 }
             }
+        }
+        HorizontalBox {
             Button {
                 height: 30px;
                 width: 100px;
-                text: "Done";
+                text: "Restore Files";
+                clicked => {
+                    root.restore();
+                }
+            }
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Exit";
                 clicked => {
                     root.close();
                 }

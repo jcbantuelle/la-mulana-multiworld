@@ -100,6 +100,12 @@ impl APData {
         }
     }
 
+    pub fn restore_original_files(&mut self) -> Result<(), String> {
+        self.rotate_files("source".to_string())?;
+        self.active_game = None;
+        self.serialize_data()
+    }
+
     pub fn delete_game(&mut self, seed: String) -> Result<(), String> {
         self.games.retain(|game| game.seed != seed);
         if let Some(active) = &self.active_game {

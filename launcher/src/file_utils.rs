@@ -106,17 +106,21 @@ pub fn update_game_files(seed: String, save_destination: String) -> Result<(), S
     let seed_file_path = format!("{}{}/", AP_PATH, seed);
 
     let rcd_path = format!("{}script.rcd", seed_file_path);
-    let dat_path = format!("{}script_code.dat", seed_file_path);
-    let effects_path = format!("{}01effect.png", seed_file_path);
-    let app_config_path = format!("{}lamulana-config.toml", seed_file_path);
-
     let _ = copy_file(&rcd_path, ORIGINAL_RCD_PATH)?;
-    let _ = copy_file(&dat_path, ORIGINAL_DAT_PATH)?;
-    let _ = copy_file(&effects_path, ORIGINAL_EFFECTS_PATH)?;
-    let _ = copy_file(&app_config_path, "./lamulana-config.toml")?;
 
-    let save_path = format!("{}save/", seed_file_path);
-    move_saves(save_path, save_destination)?;
+    let dat_path = format!("{}script_code.dat", seed_file_path);
+    let _ = copy_file(&dat_path, ORIGINAL_DAT_PATH)?;
+
+    let effects_path = format!("{}01effect.png", seed_file_path);
+    let _ = copy_file(&effects_path, ORIGINAL_EFFECTS_PATH)?;
+
+    if seed != "source" {
+        let app_config_path = format!("{}lamulana-config.toml", seed_file_path);
+        let _ = copy_file(&app_config_path, "./lamulana-config.toml")?;
+
+        let save_path = format!("{}save/", seed_file_path);
+        move_saves(save_path, save_destination)?;
+    }
 
     Ok(())
 }
