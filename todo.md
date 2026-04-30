@@ -1,12 +1,5 @@
 # Launcher
 
-## Make seed selection dynamic
-* Add Delete Seed Button
-
-## Implement original file restore button on launcher
-* Wire up button
-* Move files
-
 ## Implement connect to AP window to display updates
 * Wire up button
 * Create new layout
