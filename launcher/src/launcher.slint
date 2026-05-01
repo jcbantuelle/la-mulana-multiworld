@@ -1,4 +1,4 @@
-import { Button, ComboBox, LineEdit, VerticalBox, HorizontalBox} from "std-widgets.slint";
+import { Button, ComboBox, HorizontalBox, LineEdit, ScrollView, VerticalBox} from "std-widgets.slint";
 
 export component ErrorMessage inherits Window {
     in-out property <string> error_message;
@@ -21,7 +21,7 @@ export component ErrorMessage inherits Window {
             wrap: word-wrap;
         }
         Button {
-            text: "Done";
+            text: "Exit";
             height: 30px;
             width: 60px;
             clicked => {
@@ -264,6 +264,25 @@ export component Launcher inherits Window {
                 clicked => {
                     root.close();
                 }
+            }
+        }
+    }
+}
+
+export component ServerLog inherits Window {
+    in-out property <string> log-messages;
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("images/lmmw.png");
+    height: 500px;
+    width: 600px;
+    VerticalLayout {
+        ScrollView {
+            height: parent.height;
+            width: parent.width - 10px;
+            Text {
+                width: parent.width;
+                text: log-messages;
+                wrap: word-wrap;
             }
         }
     }

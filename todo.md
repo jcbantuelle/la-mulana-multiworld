@@ -1,12 +1,3 @@
-# Launcher
-
-## Implement connect to AP window to display updates
-* Wire up button
-* Create new layout
-* Connect to AP
-* Write data to text window
-* Live update on message received
-
 ## File Gen Mods
 * Add Inactive Ankh Graphic to boss rooms
 * Shuffle coin chests into item pool

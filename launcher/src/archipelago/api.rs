@@ -240,7 +240,7 @@ pub struct RoomUpdate {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PrintJSON {
     pub data: Vec<JSONMessagePart>,
-    pub r#type: String,
+    pub r#type: Option<String>,
     pub receiving: Option<i64>,
     pub item: Option<NetworkItem>,
     pub found: Option<bool>,

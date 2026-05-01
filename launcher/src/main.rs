@@ -65,8 +65,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             let launcher = Launcher::new().unwrap();
             let seed_selector = SeedSelector::new().unwrap();
+            let server_log = ServerLog::new().unwrap();
 
-            configure_launcher_window(launcher.as_weak(), seed_selector.as_weak(), ap_data.clone()).await;
+            configure_launcher_window(launcher.as_weak(), seed_selector.as_weak(), server_log.as_weak(), ap_data.clone()).await;
             configure_seed_selector_window(seed_selector.as_weak(), launcher.as_weak(), ap_data.clone()).await;
 
             launcher.run()?;
@@ -99,7 +100,7 @@ async fn configure_logger() {
     log4rs::init_config(log_config).unwrap();
 }
 
-async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selector_handle: Weak<SeedSelector>, ap_data: APData) {
+async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selector_handle: Weak<SeedSelector>, server_log_handle: Weak<ServerLog>, ap_data: APData) {
     let launcher = launcher_handle.clone().unwrap();
 
     launcher.set_seed_selected(ap_data.seed_selected());
@@ -111,6 +112,8 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
 
     let seed_selector_select_handle = seed_selector_handle.clone().unwrap();
     let seed_selector_restore_handle = seed_selector_handle.clone().unwrap();
+
+    let server_log_handle = server_log_handle.clone();
 
     launcher.on_select_seed(move || {
         let _ = seed_selector_select_handle.show();
@@ -168,12 +171,75 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
     });
 
     launcher.on_connect_to_archipelago(move || {
-        // let _ = slint::spawn_local(async move {
-        //     let _ = tokio::spawn(async move {
-        //         let ap_connection = APConnection::new();
-        //         ap_connection.connect_to_archipelago().await
-        //     }).await.unwrap();
-        // });
+        let server_log_connect_handle = server_log_handle.clone();
+        let server_log_read_handle = server_log_handle.clone();
+        let server_log_read_error_handle = server_log_handle.clone();
+
+        let _ = slint::spawn_local(async move {
+            let _ = tokio::spawn(async move {
+                let active_game = match AP_DATA.lock() {
+                    Ok(ap_data_lock) => {
+                        match ap_data_lock.as_ref() {
+                            Some(ap_data) => {
+                                Ok(ap_data.active_game.as_ref().unwrap().clone())
+                            },
+                            None => {
+                                let error_message = "AP Data doesn't exist".to_string();
+                                debug!("{}", error_message.clone());
+                                Err(error_message.clone())
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        let error_message = "Failed To Acquire AP Lock".to_string();
+                        debug!("{}: {:?}", error_message.clone(), e);
+                        Err(error_message.clone())
+                    }
+                };
+
+                match active_game {
+                    Ok(connection_details) => {
+                        let ap_connection = APConnection::new();
+                        match ap_connection.connect_to_archipelago(connection_details.you.name, connection_details.server_url, connection_details.password, connection_details.you.id).await {
+                            Ok(mut ap_client) => {
+                                let mut log_messages: String = "".to_string();
+                                let _ = server_log_connect_handle.upgrade_in_event_loop(move |server_log| {
+                                    let _ = server_log.show();
+                                }).unwrap();
+                                loop {
+                                    match ap_client.read().await {
+                                        Ok(payload) => {
+                                            match payload {
+                                                ServerPayload::PrintJSON(print_json) => {
+                                                    let message = print_json.data.first().unwrap().text.as_ref().unwrap();
+                                                    log_messages.push_str(&format!("{}\n", message));
+                                                    let shared_log_messages = log_messages.clone();
+
+                                                    let _ = server_log_read_handle.upgrade_in_event_loop(move |server_log| {
+                                                        server_log.set_log_messages(shared_log_messages.into());
+                                                    }).unwrap();
+                                                },
+                                                _ => ()
+                                            }
+                                        },
+                                        Err(APError::NoConnection) => {
+                                            debug!("{}", "Connection to AP Server Lost");
+                                            let _ = server_log_read_error_handle.unwrap().hide();
+                                            return;
+                                        },
+                                        _ => ()
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                debug!("{}: {:?}", "Failed to connect to AP Server", e);
+                            }
+                        }
+                    },
+                    _ => ()
+                }
+            }).await.unwrap();
+        });
     });
 }
 
