@@ -37,8 +37,8 @@ pub struct Zone {
 #[bitfield]
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectHeader {
-    test_operations_length: B4,
-    write_operations_length: B4
+    write_operations_length: B4,
+    test_operations_length: B4
 }
 
 #[binrw]
