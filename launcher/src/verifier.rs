@@ -81,6 +81,7 @@ fn verify_game_files(lm_config: LaMulanaConfig) -> Result<(), String> {
 
     if !seeds_dir_exists {
         let _ = file_utils::create_dir(&SOURCE_FILES_PATH)?;
+        let _ = file_utils::create_dir(&format!("{}save/", &SOURCE_FILES_PATH.to_string()))?;
         let _ = file_utils::copy_file(ORIGINAL_RCD_PATH, &SOURCE_RCD_PATH)?;
         let _ = file_utils::copy_file(ORIGINAL_DAT_PATH, &SOURCE_DAT_PATH)?;
         let _ = file_utils::copy_file(ORIGINAL_EFFECTS_PATH, &SOURCE_EFFECTS_PATH)?;

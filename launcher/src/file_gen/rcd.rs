@@ -299,9 +299,9 @@ impl Rcd {
         let start_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
         let starting_weapon = STARTING_WEAPONS[&starting_weapon_id].to_string();
 
-        for (flag_counter, item_name) in starting_inventory.iter().enumerate() {
-            if item_name == &starting_weapon { continue; }
+        let filtered_inventory = starting_inventory.iter().filter(|&item_name| item_name != &starting_weapon);
 
+        for (flag_counter, item_name) in filtered_inventory.enumerate() {
             let item = item_table[item_name].clone();
 
             let obtain_flag = item.obtain_flag.ok_or_else(|| {
@@ -330,7 +330,7 @@ impl Rcd {
                     Operation {
                         id: obtain_flag,
                         op_value: 2,
-                        operation: WRITE_OPERATIONS["add"]
+                        operation: WRITE_OPERATIONS["assign"]
                     }
                 ],
                 parameters: vec![item.game_code, 160, 120, 39]

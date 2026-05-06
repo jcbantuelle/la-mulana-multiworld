@@ -371,10 +371,11 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                 match verify_new_seed(server_url.clone(), password.clone(), player_id_text.clone(), player_name.clone()).await {
                     Ok(slot_data) => {
                         let app_config = AppConfig::new(server_url.clone(), password.clone(), slot_data.player_id.clone(), slot_data.players.clone());
-                        match generator::generate_files(app_config, slot_data.clone()) {
+                        let local_seed_name = format!("{}-{}", slot_data.seed.clone(), slot_data.player_id.clone());
+                        match generator::generate_files(app_config, slot_data.clone(), local_seed_name.clone()) {
                             Ok(_) => {
                                 let game = Game {
-                                    seed: slot_data.seed.clone(),
+                                    seed: local_seed_name.clone(),
                                     server_url: server_url.clone(),
                                     you: Player { id: slot_data.player_id.clone(), name: player_name.clone() },
                                     password: password.clone()
