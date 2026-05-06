@@ -1,0 +1,289 @@
+import { Button, ComboBox, HorizontalBox, LineEdit, ScrollView, VerticalBox} from "std-widgets.slint";
+
+export component ErrorMessage inherits Window {
+    in-out property <string> error_message;
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("images/lmmw.png");
+    height: 300px;
+    width: 430px;
+    callback close();
+    VerticalBox {
+        Text {
+            text: "There were issues detected with your setup that are preventing the Randomizer from working properly.\n\nPlease review and correct these problems to proceed. If you continue to have problems, please open an issue at https://github.com/jcbantuelle/la-mulana-multiworld/issues or contact Arakida in the La-Mulana Discord (https://discord.gg/KGGxBkSTBN)";
+            wrap: word-wrap;
+        }
+        Text {
+            text: "Error:";
+            font-weight: 600;
+        }
+        Text {
+            text: "\{root.error_message}";
+            wrap: word-wrap;
+        }
+        Button {
+            text: "Exit";
+            height: 30px;
+            width: 60px;
+            clicked => {
+                root.close()
+            }
+        }
+    }
+}
+
+export component SeedSelector inherits Window {
+    in-out property <[string]> seeds;
+    in-out property <string> current-seed;
+    in-out property <string> server-url;
+    in-out property <string> password;
+    in-out property <string> player-name;
+    in-out property <string> player-id;
+    in-out property <string> add-seed-error;
+    in-out property <string> load-seed-error;
+    in-out property <string> chosen-seed;
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("images/lmmw.png");
+    height: 420px;
+    width: 540px;
+    callback close();
+    callback load();
+    callback delete();
+    callback add-seed();
+    VerticalLayout {
+        if !load-seed-error.is-empty: VerticalBox {
+            Text {
+                text: "\{root.load-seed-error}";
+                color: red;
+            }
+        }
+        if seeds.length > 0: HorizontalBox {
+            Text {
+                text: "Choose Seed:";
+                vertical-alignment: center;
+                font-weight: 600;
+            }
+            ComboBox {
+                model: seeds;
+                current-value: current-seed;
+                selected(current-value) => {
+                    root.chosen-seed = current-value;
+                }
+            }
+            Button {
+                text: "Load";
+                height: 30px;
+                width: 60px;
+                clicked => {
+                    root.load()
+                }
+            }
+            Button {
+                text: "Delete";
+                height: 30px;
+                width: 60px;
+                clicked => {
+                    root.delete()
+                }
+            }
+            Button {
+                text: "Cancel";
+                height: 30px;
+                width: 60px;
+                clicked => {
+                    root.close()
+                }
+            }
+        }
+        if seeds.length > 0: VerticalBox {
+            padding-top: 20px;
+            padding-bottom: 20px;
+            Rectangle {
+                height: 1px;
+                background: #000;
+                width: parent.width - 10px;
+                x: 5px;
+            }
+        }
+        VerticalBox {
+            Text {
+                text: "Add New Seed";
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+        }
+        if !add-seed-error.is-empty: VerticalBox {
+            Text {
+                text: "\{root.add-seed-error}";
+                color: red;
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Server URL:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Server URL With Port";
+                edited(value) => {
+                    root.server-url = value;
+                }
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Password:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Password (leave blank if no password)";
+                edited(value) => {
+                    root.password = value;
+                }
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Player ID:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Your Player ID";
+                edited(value) => {
+                    root.player-id = value;
+                }
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Player Name:";
+                vertical-alignment: center;
+                width: 80px;
+            }
+            LineEdit {
+                placeholder-text: "Your Player Name";
+                edited(value) => {
+                    root.player-name = value;
+                }
+            }
+        }
+        HorizontalBox {
+            Button {
+                text: "Add Seed";
+                height: 30px;
+                width: 100px;
+                clicked => {
+                    root.add-seed()
+                }
+            }
+            if seeds.length == 0: Button {
+                text: "Cancel";
+                height: 30px;
+                width: 100px;
+                clicked => {
+                    root.close()
+                }
+            }
+        }
+    }
+}
+
+export component Launcher inherits Window {
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("images/lmmw.png");
+    height: 150px;
+    width: 450px;
+
+    in-out property <bool> seed-selected;
+    in-out property <string> current-seed;
+    in-out property <string> error-message;
+
+    callback close();
+    callback connect-to-archipelago();
+    callback launch-game();
+    callback select-seed();
+    callback restore();
+    VerticalLayout {
+        if !error-message.is-empty: VerticalBox {
+            Text {
+                text: "\{root.error-message}";
+                color: red;
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Current Seed:";
+                font-weight: 600;
+                width: 80px;
+            }
+            Text {
+                text: "\{root.current-seed}";
+            }
+        }
+        HorizontalBox {
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Select Seed";
+                clicked => {
+                    root.select-seed();
+                }
+            }
+            if seed-selected: Button {
+                height: 30px;
+                width: 100px;
+                text: "Launch Game";
+                clicked => {
+                    root.launch-game();
+                }
+            }
+            if seed-selected: Button {
+                height: 30px;
+                width: 100px;
+                text: "Connect to AP";
+                clicked => {
+                    root.connect-to-archipelago();
+                }
+            }
+        }
+        HorizontalBox {
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Restore Files";
+                clicked => {
+                    root.restore();
+                }
+            }
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Exit";
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+    }
+}
+
+export component ServerLog inherits Window {
+    in-out property <string> log-messages;
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("images/lmmw.png");
+    height: 500px;
+    width: 600px;
+    VerticalLayout {
+        ScrollView {
+            height: parent.height;
+            width: parent.width - 10px;
+            Text {
+                width: parent.width;
+                text: log-messages;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
