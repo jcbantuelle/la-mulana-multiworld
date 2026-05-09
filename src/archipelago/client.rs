@@ -30,7 +30,7 @@ impl APClient {
 
         let connection_details = match tls_connector.connect(domain, tcp_stream_for_tls).await {
             Ok(tls_stream) => APConnectionDetails{protocol: "wss".to_string(), stream: Box::new(tls_stream)},
-            Err(e) => {
+            Err(_) => {
                 let tcp_stream = Self::tcp_connect(url).await?;
                 APConnectionDetails{protocol: "ws".to_string(), stream: Box::new(tcp_stream)}
             }

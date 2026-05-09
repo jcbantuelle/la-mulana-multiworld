@@ -2,7 +2,7 @@
 #![feature(tuple_trait)]
 
 use archipelago::api::APError;
-use log::{debug, warn, LevelFilter};
+use log::{warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use pelite::FileMap;
