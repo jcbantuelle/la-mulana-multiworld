@@ -56,7 +56,7 @@ pub struct Connect {
     pub password: String,
     pub game: String,
     pub name: String,
-    pub uuid: i64,
+    pub uuid: Option<i64>,
     pub version: NetworkVersion,
     pub items_handling: ItemHandling,
     pub tags: Vec<String>,

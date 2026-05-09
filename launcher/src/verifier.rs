@@ -28,7 +28,7 @@ fn verify_exe() -> Result<LaMulanaConfig, String> {
 
 // If it's a Steam version of the game, ensure that Steam is running and create steam_appid.txt if it doesn't exist
 fn verify_steam() -> Result<(), String> {
-    let steam_app_id_path = "steam_appid";
+    let steam_app_id_path = "steam_appid.txt";
 
     // Without the correct app id in a file in the root install, Steam will fail to launch the game
     if !file_utils::path_exists(steam_app_id_path, false)? {

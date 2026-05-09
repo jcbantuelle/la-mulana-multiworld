@@ -30,8 +30,7 @@ impl APClient {
 
         let connection_details = match tls_connector.connect(domain, tcp_stream_for_tls).await {
             Ok(tls_stream) => APConnectionDetails{protocol: "wss".to_string(), stream: Box::new(tls_stream)},
-            Err(e) => {
-                debug!("TLS Connection failed with Error {}, falling back to TCP Connection", e);
+            Err(_) => {
                 let tcp_stream = Self::tcp_connect(url).await?;
                 APConnectionDetails{protocol: "ws".to_string(), stream: Box::new(tcp_stream)}
             }
@@ -89,7 +88,6 @@ impl APClient {
 
     async fn write(&mut self, payload: ClientPayload) -> Result<(), APError> {
         let serialized_payload = serde_json::to_string(&[payload]).map_err(|_| { APError::PayloadSerializationFailure })?;
-        debug!("Sending Message To Server: {}", serialized_payload);
         let response= self.websocket.write(serialized_payload, ratchet_rs::PayloadType::Text).await;
         response.map_err(|e| {
             debug!("Failed to Write Payload to Server: {}", e);

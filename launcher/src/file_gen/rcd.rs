@@ -164,7 +164,9 @@ impl Rcd {
         // Endless Corridor Keysword Exists Twice, Once as Regular and Once as Empowered
         if old_item_id == ITEM_CODES["Key Sword"] { old_ids.push(7) };
 
-        let old_item_flag = location.obtain_flag.ok_or_else(|| {
+        let old_item_flag = location.original_obtain_flag.or_else(|| {
+            location.obtain_flag
+        }).ok_or_else(|| {
             debug!("Item Flag is missing for Rcd Location: {:?}", location);
             FileGenerationError::MalformedSlotData
         })?;

@@ -2,7 +2,7 @@
 #![feature(tuple_trait)]
 
 use archipelago::api::APError;
-use log::{debug, warn, LevelFilter};
+use log::{warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use pelite::FileMap;
@@ -112,7 +112,6 @@ fn init_app() -> Application {
 
     let randomizer = Mutex::new(Err(APError::NoConnection));
     let app_version = get_application_version();
-    debug!("Starting lamulana multiworld injection for version {}.", app_version);
 
     Application { address, randomizer, app_config, app_version}
 }

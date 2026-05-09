@@ -37,13 +37,12 @@ export component SeedSelector inherits Window {
     in-out property <string> server-url;
     in-out property <string> password;
     in-out property <string> player-name;
-    in-out property <string> player-id;
     in-out property <string> add-seed-error;
     in-out property <string> load-seed-error;
     in-out property <string> chosen-seed;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
-    height: 420px;
+    height: 310px;
     width: 540px;
     callback close();
     callback load();
@@ -145,19 +144,6 @@ export component SeedSelector inherits Window {
         }
         HorizontalBox {
             Text {
-                text: "Player ID:";
-                vertical-alignment: center;
-                width: 80px;
-            }
-            LineEdit {
-                placeholder-text: "Your Player ID";
-                edited(value) => {
-                    root.player-id = value;
-                }
-            }
-        }
-        HorizontalBox {
-            Text {
                 text: "Player Name:";
                 vertical-alignment: center;
                 width: 80px;
@@ -193,7 +179,7 @@ export component SeedSelector inherits Window {
 export component Launcher inherits Window {
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
-    height: 150px;
+    height: 90px;
     width: 450px;
 
     in-out property <bool> seed-selected;
@@ -201,7 +187,6 @@ export component Launcher inherits Window {
     in-out property <string> error-message;
 
     callback close();
-    callback connect-to-archipelago();
     callback launch-game();
     callback select-seed();
     callback restore();
@@ -239,16 +224,6 @@ export component Launcher inherits Window {
                     root.launch-game();
                 }
             }
-            if seed-selected: Button {
-                height: 30px;
-                width: 100px;
-                text: "Connect to AP";
-                clicked => {
-                    root.connect-to-archipelago();
-                }
-            }
-        }
-        HorizontalBox {
             Button {
                 height: 30px;
                 width: 100px;
@@ -264,25 +239,6 @@ export component Launcher inherits Window {
                 clicked => {
                     root.close();
                 }
-            }
-        }
-    }
-}
-
-export component ServerLog inherits Window {
-    in-out property <string> log-messages;
-    title: "La-Mulana Archipelago Launcher";
-    icon: @image-url("images/lmmw.png");
-    height: 500px;
-    width: 600px;
-    VerticalLayout {
-        ScrollView {
-            height: parent.height;
-            width: parent.width - 10px;
-            Text {
-                width: parent.width;
-                text: log-messages;
-                wrap: word-wrap;
             }
         }
     }
