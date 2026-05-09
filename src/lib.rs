@@ -112,7 +112,6 @@ fn init_app() -> Application {
 
     let randomizer = Mutex::new(Err(APError::NoConnection));
     let app_version = get_application_version();
-    debug!("Starting lamulana multiworld injection for version {}.", app_version);
 
     Application { address, randomizer, app_config, app_version}
 }

@@ -11,7 +11,7 @@ pub mod verifier;
 use dll_syringe::{process::OwnedProcess, Syringe};
 use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Config, Root};
+use log4rs::config::{Appender, Config, Logger, Root};
 use slint::{ComponentHandle, ModelRc, VecModel, Weak};
 use std::error::Error;
 use std::sync::Mutex;
@@ -93,6 +93,7 @@ async fn configure_logger() {
         .unwrap();
     let log_config = Config::builder()
         .appender(Appender::builder().build("lmmw_launcher", Box::new(file_appender)))
+        .logger(Logger::builder().build("goblin", LevelFilter::Off))
         .build(Root::builder().appender("lmmw_launcher").build(LevelFilter::Debug))
         .unwrap();
     log4rs::init_config(log_config).unwrap();
@@ -209,6 +210,7 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
                                         Ok(payload) => {
                                             match payload {
                                                 ServerPayload::PrintJSON(print_json) => {
+                                                    debug!("{:?}", print_json);
                                                     let message = print_json.data.first().unwrap().text.as_ref().unwrap();
                                                     log_messages.push_str(&format!("{}\n", message));
                                                     let shared_log_messages = log_messages.clone();
@@ -459,7 +461,7 @@ async fn verify_new_seed(server_url: String, password: String, player_name: Stri
                 debug!("Invalid Packet: {:?}", invalid_packet);
                 return Err(NewSeedError::InvalidPacket);
             },
-            _ => { debug!("Got payload other than Connected from AP Connection: {:?}", payload); }
+            _ => ()
         }
     }
 }
@@ -473,13 +475,11 @@ async fn launch_game() {
             let target_process = OwnedProcess::from_pid(process_id).unwrap();
             let syringe = Syringe::for_process(target_process);
 
-            debug!("Injecting into {} of PID {} with {}.", LAMULANA_EXECUTABLE_NAME, process_id, dll);
             match syringe.inject(dll) {
                 Ok(_) => {
-                    debug!("Injected and now waiting on process exit.");
                     p.wait().unwrap();
                 },
-                Err(e) => debug!("Could not inject: {}", e)
+                Err(e) => debug!("Failed to inject DLL: {}", e)
             }
         },
         Err(e) => {

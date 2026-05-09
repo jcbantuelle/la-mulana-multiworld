@@ -1,9 +1,5 @@
 # Launcher
 
-## Bugs
-* Console Output is incorrect for Item Send
-* DLL Injection is exploding log text
-
 ## Enhancements
 * Add Inactive Ankh Graphic to boss rooms
 * Shuffle coin chests into item pool
@@ -14,7 +10,6 @@
 * Start Rando
 * Seal Rando
 * NPC Rando
-* Improve Console Output formatting
 
 ## Code Cleanup
 * Consolidate /archipelago crates inside launcher and dll into single shared crate
