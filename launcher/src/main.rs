@@ -33,8 +33,6 @@ pub static AP_CONNECTION: Mutex<Option<APConnection>> = Mutex::new(None);
 
 #[derive(Clone, Error, Debug)]
 pub enum NewSeedError {
-    #[error("Player ID is not numeric")]
-    InvalidPlayerId,
     #[error("Unable to connect to Archipelago, please confirm Server URL")]
     ConnectionFailure,
     #[error("Archipelago connection dropped, please try again")]
@@ -200,7 +198,7 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
                 match active_game {
                     Ok(connection_details) => {
                         let ap_connection = APConnection::new();
-                        match ap_connection.connect_to_archipelago(connection_details.you.name, connection_details.server_url, connection_details.password, connection_details.you.id).await {
+                        match ap_connection.connect_to_archipelago(connection_details.you.name, connection_details.server_url, connection_details.password).await {
                             Ok(mut ap_client) => {
                                 let mut log_messages: String = "".to_string();
                                 let _ = server_log_connect_handle.upgrade_in_event_loop(move |server_log| {
@@ -358,7 +356,6 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
 
         let server_url = seed_selector.get_server_url().to_string();
         let password = seed_selector.get_password().to_string();
-        let player_id_text = seed_selector.get_player_id().to_string();
         let player_name = seed_selector.get_player_name().to_string();
 
         let seed_selector_text_handle = seed_selector_add_seed_handle.clone();
@@ -368,7 +365,7 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
         let _ = slint::spawn_local(async move {
             let _ = tokio::spawn(async move {
                 let mut seed_error_message = "".to_string();
-                match verify_new_seed(server_url.clone(), password.clone(), player_id_text.clone(), player_name.clone()).await {
+                match verify_new_seed(server_url.clone(), password.clone(), player_name.clone()).await {
                     Ok(slot_data) => {
                         let app_config = AppConfig::new(server_url.clone(), password.clone(), slot_data.player_id.clone(), slot_data.players.clone());
                         let local_seed_name = format!("{}-{}", slot_data.seed.clone(), slot_data.player_id.clone());
@@ -445,10 +442,9 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
     });
 }
 
-async fn verify_new_seed(server_url: String, password: String, player_id_text: String, player_name: String) -> Result<SlotData, NewSeedError> {
-    let player_id = player_id_text.parse::<i64>().map_err(|_| NewSeedError::InvalidPlayerId)?;
+async fn verify_new_seed(server_url: String, password: String, player_name: String) -> Result<SlotData, NewSeedError> {
     let ap_connection = APConnection::new();
-    let mut ap_client = ap_connection.connect_to_archipelago(player_name, server_url, password, player_id).await.map_err(|_| NewSeedError::ConnectionFailure)?;
+    let mut ap_client = ap_connection.connect_to_archipelago(player_name, server_url, password).await.map_err(|_| NewSeedError::ConnectionFailure)?;
     loop {
         let payload = ap_client.read().await.map_err(|_| NewSeedError::ConnectionDropped)?;
         match payload {

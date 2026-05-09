@@ -37,13 +37,12 @@ export component SeedSelector inherits Window {
     in-out property <string> server-url;
     in-out property <string> password;
     in-out property <string> player-name;
-    in-out property <string> player-id;
     in-out property <string> add-seed-error;
     in-out property <string> load-seed-error;
     in-out property <string> chosen-seed;
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
-    height: 420px;
+    height: 310px;
     width: 540px;
     callback close();
     callback load();
@@ -140,19 +139,6 @@ export component SeedSelector inherits Window {
                 placeholder-text: "Password (leave blank if no password)";
                 edited(value) => {
                     root.password = value;
-                }
-            }
-        }
-        HorizontalBox {
-            Text {
-                text: "Player ID:";
-                vertical-alignment: center;
-                width: 80px;
-            }
-            LineEdit {
-                placeholder-text: "Your Player ID";
-                edited(value) => {
-                    root.player-id = value;
                 }
             }
         }

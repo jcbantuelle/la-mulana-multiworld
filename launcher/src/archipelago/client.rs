@@ -108,7 +108,7 @@ impl APClient {
 
     // Client -> Server Communication
 
-    pub async fn connect(&mut self, password: &str, game: &str, name: &str, uuid: i64, items_handling: ItemHandling, tags: Vec<String>, slot_data: bool) -> Result<(), APError> {
+    pub async fn connect(&mut self, password: &str, game: &str, name: &str, uuid: Option<i64>, items_handling: ItemHandling, tags: Vec<String>, slot_data: bool) -> Result<(), APError> {
         let version = NetworkVersion {
             class: "Version".to_string(),
             build: 0,

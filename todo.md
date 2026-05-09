@@ -4,7 +4,6 @@
 * Custom Map flags not working properly, check other custom flag logic as well
 
 ## Enhancements
-* Remove optional fields from AP Connect Form, update Client API to make fields optional
 * Add Inactive Ankh Graphic to boss rooms
 * Shuffle coin chests into item pool
 * Shuffle traps into item pool
