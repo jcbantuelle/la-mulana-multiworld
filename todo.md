@@ -2,7 +2,6 @@
 
 ## Bugs
 * Custom Map flags not working properly, check other custom flag logic as well
-* steamappid file missing txt extension
 
 ## Enhancements
 * Update Console connect button text
