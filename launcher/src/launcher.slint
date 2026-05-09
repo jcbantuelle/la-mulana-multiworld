@@ -179,7 +179,7 @@ export component SeedSelector inherits Window {
 export component Launcher inherits Window {
     title: "La-Mulana Archipelago Launcher";
     icon: @image-url("images/lmmw.png");
-    height: 150px;
+    height: 90px;
     width: 450px;
 
     in-out property <bool> seed-selected;
@@ -187,7 +187,6 @@ export component Launcher inherits Window {
     in-out property <string> error-message;
 
     callback close();
-    callback connect-to-archipelago();
     callback launch-game();
     callback select-seed();
     callback restore();
@@ -225,16 +224,6 @@ export component Launcher inherits Window {
                     root.launch-game();
                 }
             }
-            if seed-selected: Button {
-                height: 30px;
-                width: 100px;
-                text: "Open Console";
-                clicked => {
-                    root.connect-to-archipelago();
-                }
-            }
-        }
-        HorizontalBox {
             Button {
                 height: 30px;
                 width: 100px;
@@ -250,25 +239,6 @@ export component Launcher inherits Window {
                 clicked => {
                     root.close();
                 }
-            }
-        }
-    }
-}
-
-export component ServerLog inherits Window {
-    in-out property <string> log-messages;
-    title: "La-Mulana Archipelago Launcher";
-    icon: @image-url("images/lmmw.png");
-    height: 500px;
-    width: 600px;
-    VerticalLayout {
-        ScrollView {
-            height: parent.height;
-            width: parent.width - 10px;
-            Text {
-                width: parent.width;
-                text: log-messages;
-                wrap: word-wrap;
             }
         }
     }
