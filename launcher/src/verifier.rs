@@ -39,7 +39,8 @@ fn verify_steam() -> Result<(), String> {
     let mut sys = System::new_all();
     sys.refresh_all();
     let steam_running = sys.processes().iter().any(|(_, process)| {
-        process.name().to_ascii_lowercase() == "steam.exe"
+        let process_name = process.name().to_ascii_lowercase();
+        process_name == "steam.exe" || process_name == "steam"
     });
 
     if steam_running {
