@@ -164,7 +164,6 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
             data_num: popup.encoded.len() as i32,
             font_num: (popup.encoded.len() - space_count - 1) as i32
         };
-        
     }
     application.popup_dialog_draw(popup_dialog)
 }
