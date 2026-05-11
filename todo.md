@@ -19,10 +19,10 @@
 # DLL
 
 ## Bugs
-* % in player name may crash game?
 * Ensure text overwrite persists lifetime of string to avoid text corruptions
 * Set flag from item popup window via write flags instead of manually setting, to prevent item/flag desync
 * Review logic for delivering Shields, Ankhs, Lamp of Time, and Sacred Orbs, status is not always mapping to proper delivery
+* Report of some items not appearing in AP server logs
 
 ## Enhancements
 * Decouple item delivery from dependence on Mutex (use independent reader and writer), to speed up receiving items
