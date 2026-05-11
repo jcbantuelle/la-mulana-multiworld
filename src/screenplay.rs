@@ -26,7 +26,8 @@ pub fn encode(word: String) -> Vec<u16> {
             if letter == ' ' {
                 0x0020
             } else {
-                (FONT.iter().position(|&i| i == letter).unwrap() + 0x100) as u16
+                let font_position = FONT.iter().position(|&i| i == letter).unwrap_or(21) as u16;
+                font_position + 0x100
             }
         })
         .collect::<Vec<u16>>()
