@@ -170,8 +170,13 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
 
 pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
     let application = get_application();
+    let raw_item = item as *mut TaskData;
+
+    unsafe {
+        application.original_item_symbol_init(&mut *raw_item);
+    }
+
     item.rfunc = item_symbol_back_intercept as EventWithBool;
-    application.original_item_symbol_init(item);
 }
 
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
