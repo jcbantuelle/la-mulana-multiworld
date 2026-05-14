@@ -269,7 +269,6 @@ async fn get_updates_from_server() {
     // Read Next Message From Server
     match randomizer.read().await {
         Ok(response) => {
-            debug!("Received Message From Server: {:?}", response);
             match response {
                 ServerPayload::ReceivedItems(received_items) => {
                     if received_items.index > 0 {

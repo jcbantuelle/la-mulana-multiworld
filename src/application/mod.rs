@@ -83,8 +83,6 @@ impl Application {
     }
 
     fn create_dialog_popup(&self, item_id: u32) {
-        debug!("Creating dialog popup for item ID {}", item_id);
-
         self.option_stuck(item_id);
         let popup_dialog_init: *const usize = self.read_address("popup_dialog_init");
         let set_task: &*const () = self.read_address("set_view_event_ns");
