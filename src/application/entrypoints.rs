@@ -110,8 +110,7 @@ pub fn game_loop() {
                                 });
                             }
 
-                            application.give_item(lm_item.item_id as u32);
-                            global_flags[lm_item.flag] = 2
+                            application.give_item(&lm_item);
                         }
                     }
                 },
@@ -170,8 +169,13 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
 
 pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
     let application = get_application();
+    let raw_item = item as *mut TaskData;
+
+    unsafe {
+        application.original_item_symbol_init(&mut *raw_item);
+    }
+
     item.rfunc = item_symbol_back_intercept as EventWithBool;
-    application.original_item_symbol_init(item);
 }
 
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
@@ -200,6 +204,19 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     }
 
     result
+}
+
+pub fn default_final_intercept(give_item_task: &mut TaskData) {
+    let application = get_application();
+
+    let item_flag = give_item_task.sbuff[31] as usize;
+
+    let global_flags: &mut [u8;4096] = application.read_address("global_flags");
+    global_flags[item_flag] = 2;
+
+    let default_final: &*const () = application.read_address("default_final");
+    let default_final_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(default_final) };
+    (default_final_func)(give_item_task);
 }
 
 fn display_item_if_available() {
@@ -269,7 +286,6 @@ async fn get_updates_from_server() {
     // Read Next Message From Server
     match randomizer.read().await {
         Ok(response) => {
-            debug!("Received Message From Server: {:?}", response);
             match response {
                 ServerPayload::ReceivedItems(received_items) => {
                     if received_items.index > 0 {
