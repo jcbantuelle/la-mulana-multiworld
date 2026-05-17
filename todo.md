@@ -11,9 +11,6 @@
 * Seal Rando
 * NPC Rando
 
-## Bugs
-* 4-boss shop item not appearing
-
 ## Code Cleanup
 * Split out launcher main into multiple structs for each Window
 * Split slint templates into individual files per Window
@@ -22,9 +19,6 @@
 
 ## Bugs
 * Ensure text overwrite persists lifetime of string to avoid text corruptions
-* Review logic for delivering Shields, Ankhs, Lamp of Time, and Sacred Orbs, status is not always mapping to proper delivery
-* Report of some items not appearing in AP server logs
-* Duplicate items received from server
 
 ## Enhancements
 * Decouple item delivery from dependence on Mutex (use independent reader and writer), to speed up receiving items

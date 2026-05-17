@@ -306,7 +306,7 @@ impl Dat {
             entries.splice(item_name_start_index..item_name_start_index, item_name_entries.into_iter());
 
             // Nebur's 4 boss item requires an RCD mod to her door
-            if card_id == CARDS["nebur_guardian"] {
+            if card_id == CARDS["nebur_guardian"] && location.address.unwrap_or(0) == 2359208 {
                 rcd_file.rewrite_four_guardian_shop_conditions(item_flag);
             }
         }
