@@ -36,7 +36,7 @@ pub struct PlayerItemPopup {
 
 static PLAYER_ITEMS: LazyLock<Mutex<HashMap<i32, PlayerItem>>> = LazyLock::new(|| { Mutex::new(HashMap::new()) });
 static PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-static SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
+static SYNC_REQUIRED: Mutex<bool> = Mutex::new(false);
 static GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
 static ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
 static DEFAULT_POPUP_SCRIPT: LazyLock<Vec<u16>> = LazyLock::new(|| { vec![0x100,0x000a] });
@@ -61,10 +61,6 @@ pub fn game_loop() {
                 }
             });
         });
-    } else if (system_flags[0] & 0x1000000) == 0x1000000 {
-        std::thread::spawn(move || {
-            *SYNC_REQUIRED.lock().unwrap() = true;
-        });
     } else if *game_init != 0 && global_flags[0x863] > 0 {
         display_item_if_available();
         std::thread::spawn(move || {
@@ -80,14 +76,7 @@ pub fn game_loop() {
                     let ap_item_id = ap_item.network_item.item;
                     let lm_item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item_id)).unwrap();
 
-                    let inventory_pointer: &mut usize = application.read_address("inventory_words");
-                    let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
-
-                    let give_item = if lm_item.item_id == 70 || lm_item.item_id == 19 || lm_item.item_id == 69 {
-                        global_flags[lm_item.flag] == 0
-                    } else {
-                        lm_item.item_id > 104 || inventory[lm_item.item_id] == 0
-                    };
+                    let give_item = lm_item.item_id > 104 || global_flags[lm_item.flag] == 0;
 
                     if give_item {
                         let mut rooms = ap_item.rooms.clone();
@@ -117,10 +106,6 @@ pub fn game_loop() {
                 None => ()
             }
         }
-    } else {
-        std::thread::spawn(move || {
-            *SYNC_REQUIRED.lock().unwrap() = true;
-        });
     }
     application.original_game_loop()
 }
@@ -301,11 +286,13 @@ async fn get_updates_from_server() {
                     let items_from_ap = received_items.items;
                     let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
                     for network_item in items_from_ap {
-                        let item_for_player = NetworkItemForPlayer {
-                            network_item,
-                            rooms: Vec::new()
-                        };
-                        items_to_give.push_back(item_for_player);
+                        if !items_to_give.iter().any(|item_to_give| item_to_give.network_item.item == network_item.item) {
+                            let item_for_player = NetworkItemForPlayer {
+                                network_item,
+                                rooms: Vec::new()
+                            };
+                            items_to_give.push_back(item_for_player);
+                        }
                     }
                 },
                 _ => {}
