@@ -2,12 +2,12 @@
 
 pub mod ap_connection;
 pub mod ap_data;
-pub mod archipelago;
 pub mod consts;
 pub mod file_gen;
 pub mod file_utils;
 pub mod verifier;
 
+use archipelago_api::api::*;
 use dll_syringe::{process::OwnedProcess, Syringe};
 use log::{debug, LevelFilter};
 use log4rs::append::file::FileAppender;
@@ -21,7 +21,6 @@ use thiserror::Error;
 
 use crate::ap_connection::APConnection;
 use crate::ap_data::{APData, Game, Player};
-use crate::archipelago::api::*;
 use crate::consts::*;
 use crate::file_gen::generator;
 use crate::file_gen::app_config::AppConfig;

@@ -1,3 +1,4 @@
+use archipelago_api::api::{ItemData, Location};
 use binrw::{BinRead, BinWrite, binrw};
 use binrw::helpers::args_iter;
 use log::debug;
@@ -5,7 +6,6 @@ use modular_bitfield::prelude::*;
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use crate::archipelago::api::{ItemData, Location};
 use crate::consts::SOURCE_RCD_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::{GLOBAL_FLAGS, grail_flag_by_zone, ITEM_CODES, RCD_OBJECT_PARAMS, RCD_OBJECTS, STARTING_WEAPONS, TEST_OPERATIONS, WRITE_OPERATIONS, ZONES};

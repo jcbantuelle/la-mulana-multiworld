@@ -1,8 +1,8 @@
+use archipelago_api::api::SlotData;
 use binrw::{BinRead, BinWrite};
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use crate::archipelago::api::SlotData;
 use crate::file_gen::generator::FileGenerationError;
 
 use super::lm_consts::{GLOBAL_FLAGS, INVENTORY, STARTING_WEAPONS};

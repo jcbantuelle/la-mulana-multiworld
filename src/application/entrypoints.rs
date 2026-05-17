@@ -1,10 +1,10 @@
+use archipelago_api::api::*;
+use archipelago_api::client::APClient;
 use log::{debug, warn};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use crate::get_application;
-use crate::archipelago::api::*;
-use crate::archipelago::client::APClient;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
 use crate::lm_structs::taskdata::{EventWithBool, TaskData};
@@ -36,7 +36,7 @@ pub struct PlayerItemPopup {
 
 static PLAYER_ITEMS: LazyLock<Mutex<HashMap<i32, PlayerItem>>> = LazyLock::new(|| { Mutex::new(HashMap::new()) });
 static PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
-static SYNC_REQUIRED: Mutex<bool> = Mutex::new(true);
+static SYNC_REQUIRED: Mutex<bool> = Mutex::new(false);
 static GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
 static ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
 static DEFAULT_POPUP_SCRIPT: LazyLock<Vec<u16>> = LazyLock::new(|| { vec![0x100,0x000a] });
@@ -61,10 +61,6 @@ pub fn game_loop() {
                 }
             });
         });
-    } else if (system_flags[0] & 0x1000000) == 0x1000000 {
-        std::thread::spawn(move || {
-            *SYNC_REQUIRED.lock().unwrap() = true;
-        });
     } else if *game_init != 0 && global_flags[0x863] > 0 {
         display_item_if_available();
         std::thread::spawn(move || {
@@ -80,14 +76,7 @@ pub fn game_loop() {
                     let ap_item_id = ap_item.network_item.item;
                     let lm_item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item_id)).unwrap();
 
-                    let inventory_pointer: &mut usize = application.read_address("inventory_words");
-                    let inventory: &[u16;114] = application.read_raw_address(*inventory_pointer);
-
-                    let give_item = if lm_item.item_id == 70 || lm_item.item_id == 19 || lm_item.item_id == 69 {
-                        global_flags[lm_item.flag] == 0
-                    } else {
-                        lm_item.item_id > 104 || inventory[lm_item.item_id] == 0
-                    };
+                    let give_item = lm_item.item_id > 104 || global_flags[lm_item.flag] == 0;
 
                     if give_item {
                         let mut rooms = ap_item.rooms.clone();
@@ -110,18 +99,13 @@ pub fn game_loop() {
                                 });
                             }
 
-                            application.give_item(lm_item.item_id as u32);
-                            global_flags[lm_item.flag] = 2
+                            application.give_item(&lm_item);
                         }
                     }
                 },
                 None => ()
             }
         }
-    } else {
-        std::thread::spawn(move || {
-            *SYNC_REQUIRED.lock().unwrap() = true;
-        });
     }
     application.original_game_loop()
 }
@@ -170,8 +154,13 @@ pub fn popup_dialog_draw_intercept(popup_dialog: &'static TaskData) {
 
 pub fn item_symbol_init_intercept(item: &'static mut TaskData) {
     let application = get_application();
+    let raw_item = item as *mut TaskData;
+
+    unsafe {
+        application.original_item_symbol_init(&mut *raw_item);
+    }
+
     item.rfunc = item_symbol_back_intercept as EventWithBool;
-    application.original_item_symbol_init(item);
 }
 
 pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
@@ -200,6 +189,19 @@ pub fn item_symbol_back_intercept(item: &mut TaskData) -> u32 {
     }
 
     result
+}
+
+pub fn default_final_intercept(give_item_task: &mut TaskData) {
+    let application = get_application();
+
+    let item_flag = give_item_task.sbuff[31] as usize;
+
+    let global_flags: &mut [u8;4096] = application.read_address("global_flags");
+    global_flags[item_flag] = 2;
+
+    let default_final: &*const () = application.read_address("default_final");
+    let default_final_func: extern "C" fn(&TaskData) = unsafe { std::mem::transmute(default_final) };
+    (default_final_func)(give_item_task);
 }
 
 fn display_item_if_available() {
@@ -269,7 +271,6 @@ async fn get_updates_from_server() {
     // Read Next Message From Server
     match randomizer.read().await {
         Ok(response) => {
-            debug!("Received Message From Server: {:?}", response);
             match response {
                 ServerPayload::ReceivedItems(received_items) => {
                     if received_items.index > 0 {
@@ -285,11 +286,13 @@ async fn get_updates_from_server() {
                     let items_from_ap = received_items.items;
                     let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
                     for network_item in items_from_ap {
-                        let item_for_player = NetworkItemForPlayer {
-                            network_item,
-                            rooms: Vec::new()
-                        };
-                        items_to_give.push_back(item_for_player);
+                        if !items_to_give.iter().any(|item_to_give| item_to_give.network_item.item == network_item.item) {
+                            let item_for_player = NetworkItemForPlayer {
+                                network_item,
+                                rooms: Vec::new()
+                            };
+                            items_to_give.push_back(item_for_player);
+                        }
                     }
                 },
                 _ => {}
@@ -321,7 +324,7 @@ pub async fn connect_to_server(mut randomizer: MutexGuard<'_, Result<APClient, A
             let players = app_config.players_lookup();
             let player_name = players.get(&player_id).unwrap();
             let password = &app_config.password;
-            match ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false).await {
+            match ap_client.connect(password, "La-Mulana", &player_name, Some(player_id), ItemHandling::OtherWorldsOnly, vec![], false).await {
                 Ok(_) => {},
                 Err(e) => {
                     debug!("Connect Failure with error {:?}", e);

@@ -1,3 +1,4 @@
+use archipelago_api::api::{ItemData, Location};
 use binrw::helpers::until_eof;
 use binrw::io::TakeSeekExt;
 use binrw::{BinRead, binrw, BinWrite};
@@ -6,7 +7,6 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::archipelago::api::{ItemData, Location};
 use crate::consts::SOURCE_DAT_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::{FONT, ITEM_CODES, STARTING_WEAPONS, SUBWEAPON_AMMO};
@@ -306,7 +306,7 @@ impl Dat {
             entries.splice(item_name_start_index..item_name_start_index, item_name_entries.into_iter());
 
             // Nebur's 4 boss item requires an RCD mod to her door
-            if card_id == CARDS["nebur_guardian"] {
+            if card_id == CARDS["nebur_guardian"] && location.address.unwrap_or(0) == 2359208 {
                 rcd_file.rewrite_four_guardian_shop_conditions(item_flag);
             }
         }

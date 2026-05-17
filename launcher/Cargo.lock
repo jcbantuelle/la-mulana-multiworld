@@ -228,6 +228,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "archipelago-api"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "log",
+ "log4rs",
+ "ratchet_rs",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-native-tls",
+]
+
+[[package]]
 name = "arg_enum_proc_macro"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1503,15 +1519,6 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "font-types"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39a654f404bbcbd48ea58c617c2993ee91d1cb63727a37bf2323a4edeed1b8c5"
-dependencies = [
- "bytemuck",
-]
-
-[[package]]
-name = "font-types"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b38ad915f6dadd993ced50848a8291a543bd41ca62bc10740d5e64e2ab4cfd7"
@@ -1545,7 +1552,7 @@ dependencies = [
  "objc2-core-text",
  "objc2-foundation 0.3.2",
  "parlance",
- "read-fonts 0.37.0",
+ "read-fonts",
  "roxmltree",
  "smallvec",
  "windows 0.62.2",
@@ -1922,7 +1929,7 @@ dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
  "core_maths",
- "read-fonts 0.37.0",
+ "read-fonts",
  "smallvec",
 ]
 
@@ -2088,7 +2095,7 @@ dependencies = [
  "fontique",
  "htmlparser",
  "pulldown-cmark",
- "skrifa 0.40.0",
+ "skrifa",
 ]
 
 [[package]]
@@ -2115,7 +2122,7 @@ dependencies = [
  "resvg",
  "rowan",
  "rspolib",
- "skrifa 0.40.0",
+ "skrifa",
  "smol_str 0.3.4",
  "strum",
  "swash",
@@ -2157,7 +2164,7 @@ dependencies = [
  "rgb",
  "scoped-tls-hkt",
  "scopeguard",
- "skrifa 0.40.0",
+ "skrifa",
  "slab",
  "strum",
  "swash",
@@ -2232,7 +2239,7 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "raw-window-metal",
- "read-fonts 0.37.0",
+ "read-fonts",
  "scoped-tls-hkt",
  "skia-safe",
  "softbuffer",
@@ -2257,7 +2264,7 @@ dependencies = [
  "integer-sqrt",
  "lyon_path",
  "num-traits",
- "skrifa 0.40.0",
+ "skrifa",
  "swash",
  "zeno",
 ]
@@ -2714,8 +2721,8 @@ dependencies = [
 name = "la-mulana-multiworld-launch"
 version = "0.1.0"
 dependencies = [
+ "archipelago-api",
  "binrw",
- "bytes",
  "dirs-next",
  "dll-syringe",
  "hex",
@@ -2723,17 +2730,14 @@ dependencies = [
  "log",
  "log4rs",
  "modular-bitfield",
- "ratchet_rs",
  "serde",
  "serde_json",
- "serde_repr",
  "sha2",
  "slint",
  "slint-build",
  "sysinfo",
  "thiserror 1.0.69",
  "tokio",
- "tokio-native-tls",
  "toml 0.5.11",
  "unicode-segmentation",
 ]
@@ -2805,9 +2809,9 @@ dependencies = [
 
 [[package]]
 name = "libz-sys"
-version = "1.1.23"
+version = "1.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15d118bbf3771060e7311cc7bb0545b01d08a8b4a7de949198dec1fa0ca1c0f7"
+checksum = "fc3a226e576f50782b3305c5ccf458698f92798987f551c6a02efe8276721e22"
 dependencies = [
  "cc",
  "pkg-config",
@@ -3672,15 +3676,14 @@ dependencies = [
 
 [[package]]
 name = "openssl"
-version = "0.10.75"
+version = "0.10.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08838db121398ad17ab8531ce9de97b244589089e290a384c900cb9ff7434328"
+checksum = "a45fa2aa886c42762255da344f0a0d313e254066c46aad76f300c3d3da62d967"
 dependencies = [
  "bitflags 2.10.0",
  "cfg-if",
  "foreign-types 0.3.2",
  "libc",
- "once_cell",
  "openssl-macros",
  "openssl-sys",
 ]
@@ -3704,9 +3707,9 @@ checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.111"
+version = "0.9.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82cab2d520aa75e3c58898289429321eb788c3106963d0dc886ec7a5f4adc321"
+checksum = "f28a22dc7140cda5f096e5e7724a6962ca81a7f8bfd2979f9b18c11af56318c4"
 dependencies = [
  "cc",
  "libc",
@@ -3808,7 +3811,7 @@ dependencies = [
  "linebender_resource_handle",
  "parlance",
  "parley_data",
- "skrifa 0.40.0",
+ "skrifa",
 ]
 
 [[package]]
@@ -4118,9 +4121,9 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "rand"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
@@ -4190,7 +4193,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "ratchet_ext",
  "sha-1",
  "thiserror 1.0.69",
@@ -4327,23 +4330,13 @@ dependencies = [
 
 [[package]]
 name = "read-fonts"
-version = "0.35.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6717cf23b488adf64b9d711329542ba34de147df262370221940dfabc2c91358"
-dependencies = [
- "bytemuck",
- "font-types 0.10.1",
-]
-
-[[package]]
-name = "read-fonts"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b634fabf032fab15307ffd272149b622260f55974d9fad689292a5d33df02e5"
 dependencies = [
  "bytemuck",
  "core_maths",
- "font-types 0.11.3",
+ "font-types",
 ]
 
 [[package]]
@@ -4561,9 +4554,9 @@ dependencies = [
 
 [[package]]
 name = "schannel"
-version = "0.1.28"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891d81b926048e76efe18581bf793546b4c0eaf8448d72be8de2bbee5fd166e1"
+checksum = "91c1b7e4904c873ef0710c1f407dde2e6287de2bebc1bbbf7d430bb7cbffd939"
 dependencies = [
  "windows-sys 0.61.2",
 ]
@@ -4634,9 +4627,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework-sys"
-version = "2.15.0"
+version = "2.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc1f0cbffaac4852523ce30d8bd3c5cdc873501d96ff467ca09b6767bb8cd5c0"
+checksum = "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -4870,22 +4863,12 @@ dependencies = [
 
 [[package]]
 name = "skrifa"
-version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c31071dedf532758ecf3fed987cdb4bd9509f900e026ab684b4ecb81ea49841"
-dependencies = [
- "bytemuck",
- "read-fonts 0.35.0",
-]
-
-[[package]]
-name = "skrifa"
 version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fbdfe3d2475fbd7ddd1f3e5cf8288a30eb3e5f95832829570cd88115a7434ac"
 dependencies = [
  "bytemuck",
- "read-fonts 0.37.0",
+ "read-fonts",
 ]
 
 [[package]]
@@ -5060,12 +5043,12 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.6.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17129e116933cf371d018bb80ae557e889637989d8638274fb25622827b03881"
+checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5172,7 +5155,7 @@ version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "842f3cd369c2ba38966204f983eaa5e54a8e84a7d7159ed36ade2b6c335aae64"
 dependencies = [
- "skrifa 0.37.0",
+ "skrifa",
  "yazi",
  "zeno",
 ]
@@ -5619,9 +5602,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.22"
+version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f30143827ddab0d256fd843b7a66d164e9f271cfa0dde49142c5ca0ca291f1e"
+checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
  "matchers",
  "nu-ansi-term",
@@ -6775,11 +6758,11 @@ version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f12725b0845073e20b04e79b500dbfb465904d7cbd84883a1f1bbd084debc515"
 dependencies = [
- "font-types 0.11.3",
+ "font-types",
  "indexmap",
  "kurbo",
  "log",
- "read-fonts 0.37.0",
+ "read-fonts",
 ]
 
 [[package]]
