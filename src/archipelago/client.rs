@@ -7,7 +7,8 @@ use tokio::net::TcpStream;
 use tokio_native_tls::native_tls::TlsConnector;
 
 pub struct APClient {
-    websocket: WebSocket<Box<dyn WebSocketStream>, Deflate>
+    websocket: WebSocket<Box<dyn WebSocketStream>, Deflate>,
+    message_queue: Vec<ServerPayload>
 }
 
 pub struct APConnectionDetails {
@@ -41,7 +42,7 @@ impl APClient {
 
         match websocket_stream {
             Ok(websocket_stream) => {
-                Ok(APClient{ websocket: websocket_stream.into_websocket() })
+                Ok(APClient{ websocket: websocket_stream.into_websocket(), message_queue: Vec::new() })
             },
             Err(e) => {
                 debug!("Websocket Connection Failed: {}", e);
@@ -58,30 +59,38 @@ impl APClient {
     }
 
     pub async fn read(&mut self) -> Result<ServerPayload, APError> {
-        let mut buf = BytesMut::new();
-        let message = self.websocket.read(&mut buf).await.map_err(|_| { APError::PayloadReadFailure })?;
-        match message {
-            Message::Text => {
-                let payload = str::from_utf8(&buf).map_err(|e| {
-                    debug!("Unable to Convert Payload to String: {}", e);
-                    APError::ResponseFormatFailure
-                })?;
+        match self.message_queue.pop() {
+            Some(message) => {
+                Ok(message)
+            },
+            None => {
+                let mut buf = BytesMut::new();
+                let message = self.websocket.read(&mut buf).await.map_err(|_| { APError::PayloadReadFailure })?;
+                match message {
+                    Message::Text => {
+                        let payload = str::from_utf8(&buf).map_err(|e| {
+                            debug!("Unable to Convert Payload to String: {}", e);
+                            APError::ResponseFormatFailure
+                        })?;
 
-                let response = serde_json::from_str::<Vec<ServerPayload>>(payload).map_err(|e| {
-                    debug!("Parse Error on Payload {}: {}", payload, e);
-                    APError::ResponseParseFailure
-                })?;
+                        let mut response = serde_json::from_str::<Vec<ServerPayload>>(payload).map_err(|e| {
+                            debug!("Parse Error on Payload {}: {}", payload, e);
+                            APError::ResponseParseFailure
+                        })?;
 
-                Ok(response.first().unwrap().clone())
-            },
-            Message::Binary => {
-                Err(APError::BinaryData)
-            },
-            Message::Close(_) => {
-                Err(APError::NoConnection)
-            },
-            _ => {
-                Err(APError::PingPong)
+                        self.message_queue.append(&mut response);
+                        Ok(self.message_queue.pop().unwrap())
+                    },
+                    Message::Binary => {
+                        Err(APError::BinaryData)
+                    },
+                    Message::Close(_) => {
+                        Err(APError::NoConnection)
+                    },
+                    _ => {
+                        Err(APError::PingPong)
+                    }
+                }
             }
         }
     }
