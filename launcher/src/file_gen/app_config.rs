@@ -1,7 +1,7 @@
+use archipelago_api::api::{ArchipelagoPlayer, ItemData, Location};
 use log::debug;
 use serde::{Serialize, Deserialize};
 
-use crate::archipelago::api::{ArchipelagoPlayer, ItemData, Location};
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::{GLOBAL_FLAGS, ITEM_CODES};
 

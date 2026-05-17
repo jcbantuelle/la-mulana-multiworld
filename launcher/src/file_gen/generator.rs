@@ -1,6 +1,6 @@
+use archipelago_api::api::SlotData;
 use thiserror::Error;
 
-use crate::archipelago::api::{ItemData, SlotData};
 use crate::consts::AP_PATH;
 use crate::file_gen::app_config::AppConfig;
 use crate::file_gen::dat::Dat;
@@ -52,24 +52,6 @@ pub enum FileGenerationError {
     AppConfigSerializeFailure,
     #[error("Failed to write lamulana-config.toml")]
     AppConfigWriteFailure
-}
-
-impl Default for ItemData {
-    fn default() -> Self {
-        ItemData {
-            category: "Unknown".to_string(),
-            code: 0,
-            progression: false,
-            useful: false,
-            trap: false,
-            number: 0,
-            game_code: 0,
-            cost: Some(10),
-            quantity: 1,
-            obtain_flag: None,
-            obtain_value: None
-        }
-    }
 }
 
 pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData, seed_name: String) -> Result<(), FileGenerationError>{

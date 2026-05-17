@@ -1,5 +1,5 @@
-use crate::archipelago::api::*;
-use crate::archipelago::client::APClient;
+use archipelago_api::api::*;
+use archipelago_api::client::APClient;
 
 #[derive(Clone, Debug)]
 pub struct APConnection {

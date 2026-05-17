@@ -1,10 +1,10 @@
+use archipelago_api::api::*;
+use archipelago_api::client::APClient;
 use log::{debug, warn};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use crate::get_application;
-use crate::archipelago::api::*;
-use crate::archipelago::client::APClient;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
 use crate::lm_structs::script_header::{ScriptHeader, ScriptSubHeader};
 use crate::lm_structs::taskdata::{EventWithBool, TaskData};
@@ -337,7 +337,7 @@ pub async fn connect_to_server(mut randomizer: MutexGuard<'_, Result<APClient, A
             let players = app_config.players_lookup();
             let player_name = players.get(&player_id).unwrap();
             let password = &app_config.password;
-            match ap_client.connect(password, "La-Mulana", &player_name, player_id, ItemHandling::OtherWorldsOnly, vec![], false).await {
+            match ap_client.connect(password, "La-Mulana", &player_name, Some(player_id), ItemHandling::OtherWorldsOnly, vec![], false).await {
                 Ok(_) => {},
                 Err(e) => {
                     debug!("Connect Failure with error {:?}", e);

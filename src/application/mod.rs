@@ -1,5 +1,7 @@
 pub mod entrypoints;
 
+use archipelago_api::api::APError;
+use archipelago_api::client::APClient;
 use log::{error, trace};
 use retour::{Function, static_detour, StaticDetour};
 use std::collections::HashMap;
@@ -15,8 +17,6 @@ use crate::application::entrypoints::{
     item_symbol_init_intercept,
     popup_dialog_draw_intercept
 };
-use crate::archipelago::api::APError;
-use crate::archipelago::client::APClient;
 use crate::lm_structs::items::Item;
 use crate::lm_structs::taskdata::TaskData;
 use crate::utils::show_message_box;

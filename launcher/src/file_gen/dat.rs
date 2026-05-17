@@ -1,3 +1,4 @@
+use archipelago_api::api::{ItemData, Location};
 use binrw::helpers::until_eof;
 use binrw::io::TakeSeekExt;
 use binrw::{BinRead, binrw, BinWrite};
@@ -6,7 +7,6 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::archipelago::api::{ItemData, Location};
 use crate::consts::SOURCE_DAT_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::{FONT, ITEM_CODES, STARTING_WEAPONS, SUBWEAPON_AMMO};
