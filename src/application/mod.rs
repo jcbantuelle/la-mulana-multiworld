@@ -12,6 +12,14 @@ use crate::archipelago::client::APClient;
 use crate::lm_structs::taskdata::TaskData;
 use crate::utils::show_message_box;
 
+use std::ffi::c_void;
+
+use windows::Win32::System::Memory::{VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS};
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH;
+use windows::core::BOOL;
+
+
 static_detour! {
     static GameLoopDetour: extern "C" fn();
 }
@@ -184,47 +192,41 @@ impl Application {
         }
     }
 
-    // use std::ffi::c_void;
-    // use windows::Win32::Foundation::HANDLE;
-    // use windows::Win32::System::Memory::{VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS};
-    // use windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH;
-    // use windows::Win32::Foundation::BOOL;
-
     // Shop Orb patch, 1.0.0.1
     // shop_interior_update
     // 005c406b - 005c4073
 
-    // unsafe fn patch_shop_sacred_orb() {
-    //     // 1. Target address in memory (EXAMPLE ONLY - NEED REAL ADDRESS)
-    //     let target_address: *mut u8 = 0x00401000 as *mut u8;
+    unsafe fn patch_shop_sacred_orb() {
+        // 1. Target address in memory (EXAMPLE ONLY - NEED REAL ADDRESS)
+        let target_address: *mut u8 = 0x005c406b as *mut u8;
 
-    //     // 2. New instructions (e.g., NOPs or a JMP)
-    //     let new_instructions: [u8; 2] = [0x90, 0x90]; // NOP NOP
+        // 2. New instructions (e.g., NOPs or a JMP)
+        let new_instructions: [u8; 2] = [0x90, 0x90]; // NOP NOP
 
-    //     // 3. Make memory writable
-    //     let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
-    //     VirtualProtect(
-    //         target_address as *const c_void,
-    //         new_instructions.len(),
-    //         PAGE_EXECUTE_READWRITE,
-    //         &mut old_protect,
-    //     ).unwrap();
+        // 3. Make memory writable
+        let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
+        VirtualProtect(
+            target_address as *const c_void,
+            new_instructions.len(),
+            PAGE_EXECUTE_READWRITE,
+            &mut old_protect,
+        ).unwrap();
 
-    //     // 4. Overwrite
-    //     std::ptr::copy_nonoverlapping(
-    //         new_instructions.as_ptr(),
-    //         target_address,
-    //         new_instructions.len(),
-    //     );
+        // 4. Overwrite
+        std::ptr::copy_nonoverlapping(
+            new_instructions.as_ptr(),
+            target_address,
+            new_instructions.len(),
+        );
 
-    //     // 5. Restore original protection
-    //     VirtualProtect(
-    //         target_address as *const c_void,
-    //         new_instructions.len(),
-    //         old_protect,
-    //         &mut old_protect,
-    //     ).unwrap();
-    // }
+        // 5. Restore original protection
+        VirtualProtect(
+            target_address as *const c_void,
+            new_instructions.len(),
+            old_protect,
+            &mut old_protect,
+        ).unwrap();
+    }
 
     // Weapon Swap patch, 1.0.0.1
     // main_logic_update
