@@ -1,7 +1,8 @@
-#![feature(unboxed_closures)]
+#![allow(non_snake_case)]
 #![feature(tuple_trait)]
+#![feature(unboxed_closures)]
 
-use archipelago::api::APError;
+use archipelago_api::api::APError;
 use log::{warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
@@ -22,7 +23,6 @@ use winapi::um::processthreadsapi::ExitProcess;
 use crate::application::Application;
 
 pub mod application;
-pub mod archipelago;
 pub mod lm_structs;
 pub mod screenplay;
 pub mod utils;
