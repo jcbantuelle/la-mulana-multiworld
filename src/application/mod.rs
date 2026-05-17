@@ -1,14 +1,23 @@
 pub mod entrypoints;
 
-use log::{debug, error, trace};
+use log::{error, trace};
 use retour::{Function, static_detour, StaticDetour};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
 use crate::AppConfig;
-use crate::application::entrypoints::{item_symbol_init_intercept, game_loop, popup_dialog_draw_intercept, FnGameLoop, FnPopupDialogDrawIntercept, FnItemSymbolInitIntercept};
+use crate::application::entrypoints::{
+    default_final_intercept,
+    FnGameLoop,
+    FnItemSymbolInitIntercept,
+    FnPopupDialogDrawIntercept,
+    game_loop,
+    item_symbol_init_intercept,
+    popup_dialog_draw_intercept
+};
 use crate::archipelago::api::APError;
 use crate::archipelago::client::APClient;
+use crate::lm_structs::items::Item;
 use crate::lm_structs::taskdata::TaskData;
 use crate::utils::show_message_box;
 
@@ -67,18 +76,25 @@ impl Application {
         &self.app_config
     }
 
-    fn give_item(&self, item: u32) {
-        debug!("Giving item ID {}", item);
+    fn give_item(&self, lm_item: &Item) {
+        let item_id = lm_item.item_id as u32;
 
         self.option_pos(0.0, 0.0);
-        self.option_stuck(item);
+        self.option_stuck(item_id);
         self.option_stuck(160);
         self.option_stuck(120);
         self.option_stuck(39);
         let item_get_area_init: *const usize = self.read_address("item_get_area_init");
         let set_view_event_ns: &*const () = self.read_address("set_view_event_ns");
-        let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *const TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
-        (set_view_event_ns_func)(16, item_get_area_init);
+        let set_view_event_ns_func: extern "C" fn(u16, *const usize) -> *mut TaskData = unsafe { std::mem::transmute(set_view_event_ns) };
+        unsafe {
+            let give_item_task = &mut *(set_view_event_ns_func)(16, item_get_area_init);
+
+            let item_flag_to_set = lm_item.flag as i32;
+            give_item_task.sbuff[31] = item_flag_to_set;
+
+            give_item_task.finalfunc = default_final_intercept as *mut usize;
+        }
         trace!("set_view_event_ns_func called");
     }
 
@@ -205,6 +221,7 @@ impl Application {
     pub const ADDRESS_LOOKUP: LazyLock<HashMap<&str, HashMap<&str, usize>>> = LazyLock::new(|| {
         let version_1_0_0_1 = HashMap::from([
             ("set_se",                0x00417600),
+            ("default_final",         0x00476cc0),
             ("item_get_area_init",    0x004b8950),
             ("item_symbol_init",      0x004b8ae0),
             ("item_symbol_back",      0x004b8e70),
@@ -237,6 +254,7 @@ impl Application {
             ("popup_dialog_init",     0x00593670),
             ("popup_dialog_draw",     0x00593900),
             ("game_loop",             0x00609fb0),
+            ("default_final",         0x00620950),
             ("se",                    0x006de844),
             ("script_header_pointer", 0x006deb2c),
             ("inventory_words",       0x006e1820),
