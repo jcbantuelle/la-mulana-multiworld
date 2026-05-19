@@ -22,8 +22,6 @@
 
 ## Enhancements
 * Decouple item delivery from dependence on Mutex (use independent reader and writer), to speed up receiving items
-* Prevent crash when swapping without main weapon
-* Prevent multiple Sacred Orb purchases
 * Overwrite to real item name when for another player
 * Swap Map/Grail for custom item w/ custom image
 * Allow any item to appear in torude scan
