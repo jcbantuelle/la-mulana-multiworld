@@ -9,7 +9,7 @@ La-Mulana:
   RandomizeCursedChests: true
   CursedChestCount: 4
   RandomizeDracuetsShop: false
-  HellTempleReward: true
+  HellTempleReward: false
   RandomizeSeals: false
   StartingLocation:
     surface: 1
