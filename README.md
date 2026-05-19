@@ -27,6 +27,7 @@ The project is built in Rust. If you don't already have an environment configure
 * StartingLocation
 * RandomizeTransitions
 * RandomizeBacksideDoors
+* HellTempleReward
 * Deathlink
 
 ## Known Issues/Behaviors
