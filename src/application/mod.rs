@@ -49,6 +49,7 @@ impl Application {
         if let Some(_) = Application::ADDRESS_LOOKUP.get(version) {
             unsafe {
                 self.patch_shop_sacred_orb();
+                self.patch_weapon_swap_crash();
 
                 let game_loop_addr: FnGameLoop = std::mem::transmute(self.extract_offset("game_loop"));
                 let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
@@ -213,6 +214,21 @@ impl Application {
         self.patch_exe(target_address, new_instructions);
     }
 
+    unsafe fn patch_weapon_swap_crash(&self) {
+        let target_address = self.read_address("weapon_swap_patch1");
+        let new_instructions = [0x0f, 0xbe, 0x46, 0x06, 0xb2, 0x05, 0x40, 0x83, 0xf8, 0x04, 0x7e, 0x02, 0x31, 0xc0, 0x8a, 0x0c, 0x30, 0xfe, 0xca, 0x74, 0x04, 0x38, 0xd9, 0x74, 0xed];
+        self.patch_exe(target_address, new_instructions);
+
+        let target_address = self.read_address("weapon_swap_patch2");
+
+        let new_instructions = HashMap::from([
+            ("1.0.0.1", [0x0f, 0xbe, 0x46, 0x06, 0xb1, 0x05, 0x0f, 0x1f, 0x40, 0x00, 0x48, 0x79, 0x05, 0xb8, 0x04, 0x00, 0x00, 0x00, 0xfe, 0xc9, 0x74, 0x05, 0x38, 0x1c, 0x30, 0x74, 0xef, 0x8a, 0x14, 0x30]),
+            ("1.6.6.2", [0x0f, 0xbe, 0x46, 0x06, 0xb1, 0x05, 0x48, 0x79, 0x03, 0x83, 0xc0, 0x05, 0x8a, 0x14, 0x30, 0xfe, 0xc9, 0x74, 0x04, 0x38, 0xda, 0x74, 0xef, 0x88, 0x56, 0x05, 0xb9, 0x0f, 0x00, 0x00])
+        ]).get(self.application_version()).unwrap().clone();
+
+        self.patch_exe(target_address, new_instructions);
+    }
+
     unsafe fn patch_exe<const N: usize>(&self, target_address: *mut u8, new_instructions: [u8;N]) {
         let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
 
@@ -240,15 +256,6 @@ impl Application {
             debug!("Failed to configure code at {:p} as read-only after patching with error: {}", target_address, e);
         }).unwrap();
     }
-
-    // Weapon Swap patch, 1.0.0.1
-    // main_logic_update
-    // 00679323 - 0067933b
-    // 00679356 - 0067935e
-    // 00679360 - 00679370
-    // 00679373
-    // unsafe fn patch_weapon_swap() {
-    // }
 
     fn read_address<T>(&self, offset_name: &str) -> &mut T {
         let address = self.extract_offset(offset_name);
@@ -282,6 +289,8 @@ impl Application {
             ("popup_dialog_draw",     0x005917b0),
             ("shop_orb_patch",        0x005c406b),
             ("game_loop",             0x00607b70),
+            ("weapon_swap_patch1",    0x00679323),
+            ("weapon_swap_patch2",    0x00679356),
             ("se",                    0x006d2708),
             ("script_header_pointer", 0x006d296c),
             ("inventory_words",       0x006d5650),
@@ -309,6 +318,8 @@ impl Application {
             ("shop_orb_patch",        0x005c676a),
             ("game_loop",             0x00609fb0),
             ("default_final",         0x00620950),
+            ("weapon_swap_patch1",    0x0067b435),
+            ("weapon_swap_patch2",    0x0067b463),
             ("se",                    0x006de844),
             ("script_header_pointer", 0x006deb2c),
             ("inventory_words",       0x006e1820),
