@@ -202,25 +202,13 @@ impl Application {
         }
     }
 
-    // Shop Orb patch
-    // shop_interior_update
-
-    // 1.0.0.1
-    // 005c406b - 005c4073
-    // 74 27 83 f8 45 74 22 eb 1b
-
-    // 1.6.6.2
-    // 005c676a - 005c6772
-    // 74 23 83 f8 45 74 1e eb 17
-
     unsafe fn patch_shop_sacred_orb(&self) {
         let target_address = self.read_address("shop_orb_patch");
 
-        let new_instructions = if self.application_version() == "1.0.0.1" {
-            [0x74, 0x27, 0x83, 0xf8, 0x45, 0x74, 0x22, 0xeb, 0x1b]
-        } else {
-            [0x74, 0x23, 0x83, 0xf8, 0x45, 0x74, 0x1e, 0xeb, 0x17]
-        };
+        let new_instructions = HashMap::from([
+            ("1.0.0.1", [0x74, 0x27, 0x83, 0xf8, 0x45, 0x74, 0x22, 0xeb, 0x1b]),
+            ("1.6.6.2", [0x74, 0x23, 0x83, 0xf8, 0x45, 0x74, 0x1e, 0xeb, 0x17])
+        ]).get(self.application_version()).unwrap().clone();
 
         self.patch_exe(target_address, new_instructions);
     }
