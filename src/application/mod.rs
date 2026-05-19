@@ -2,10 +2,12 @@ pub mod entrypoints;
 
 use archipelago_api::api::APError;
 use archipelago_api::client::APClient;
-use log::{error, trace};
+use log::{debug, error, trace};
 use retour::{Function, static_detour, StaticDetour};
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::sync::{LazyLock, Mutex};
+use windows::Win32::System::Memory::{VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS};
 
 use crate::AppConfig;
 use crate::application::entrypoints::{
@@ -20,14 +22,6 @@ use crate::application::entrypoints::{
 use crate::lm_structs::items::Item;
 use crate::lm_structs::taskdata::TaskData;
 use crate::utils::show_message_box;
-
-use std::ffi::c_void;
-
-use windows::Win32::System::Memory::{VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS};
-use windows::Win32::Foundation::HANDLE;
-use windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH;
-use windows::core::BOOL;
-
 
 static_detour! {
     static GameLoopDetour: extern "C" fn();
@@ -54,6 +48,8 @@ impl Application {
 
         if let Some(_) = Application::ADDRESS_LOOKUP.get(version) {
             unsafe {
+                self.patch_shop_sacred_orb();
+
                 let game_loop_addr: FnGameLoop = std::mem::transmute(self.extract_offset("game_loop"));
                 let _ = self.enable_detour(GameLoopDetour.initialize(game_loop_addr, game_loop), "GameLoopDetour");
 
@@ -206,40 +202,55 @@ impl Application {
         }
     }
 
-    // Shop Orb patch, 1.0.0.1
+    // Shop Orb patch
     // shop_interior_update
+
+    // 1.0.0.1
     // 005c406b - 005c4073
+    // 74 27 83 f8 45 74 22 eb 1b
 
-    unsafe fn patch_shop_sacred_orb() {
-        // 1. Target address in memory (EXAMPLE ONLY - NEED REAL ADDRESS)
-        let target_address: *mut u8 = 0x005c406b as *mut u8;
+    // 1.6.6.2
+    // 005c676a - 005c6772
+    // 74 23 83 f8 45 74 1e eb 17
 
-        // 2. New instructions (e.g., NOPs or a JMP)
-        let new_instructions: [u8; 2] = [0x90, 0x90]; // NOP NOP
+    unsafe fn patch_shop_sacred_orb(&self) {
+        let target_address = self.read_address("shop_orb_patch");
 
-        // 3. Make memory writable
+        let new_instructions = if self.application_version() == "1.0.0.1" {
+            [0x74, 0x27, 0x83, 0xf8, 0x45, 0x74, 0x22, 0xeb, 0x1b]
+        } else {
+            [0x74, 0x23, 0x83, 0xf8, 0x45, 0x74, 0x1e, 0xeb, 0x17]
+        };
+
+        self.patch_exe(target_address, new_instructions);
+    }
+
+    unsafe fn patch_exe<const N: usize>(&self, target_address: *mut u8, new_instructions: [u8;N]) {
         let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
+
         VirtualProtect(
             target_address as *const c_void,
             new_instructions.len(),
             PAGE_EXECUTE_READWRITE,
             &mut old_protect,
-        ).unwrap();
+        ).map_err(|e| {
+            debug!("Failed to configure code at {:p} as writeable for patching with error: {}", target_address, e);
+        }).unwrap();
 
-        // 4. Overwrite
         std::ptr::copy_nonoverlapping(
             new_instructions.as_ptr(),
             target_address,
             new_instructions.len(),
         );
 
-        // 5. Restore original protection
-        VirtualProtect(
+         VirtualProtect(
             target_address as *const c_void,
             new_instructions.len(),
             old_protect,
             &mut old_protect,
-        ).unwrap();
+        ).map_err(|e| {
+            debug!("Failed to configure code at {:p} as read-only after patching with error: {}", target_address, e);
+        }).unwrap();
     }
 
     // Weapon Swap patch, 1.0.0.1
@@ -281,6 +292,7 @@ impl Application {
             ("set_view_event_ns",     0x00507160),
             ("popup_dialog_init",     0x00591520),
             ("popup_dialog_draw",     0x005917b0),
+            ("shop_orb_patch",        0x005c406b),
             ("game_loop",             0x00607b70),
             ("se",                    0x006d2708),
             ("script_header_pointer", 0x006d296c),
@@ -306,6 +318,7 @@ impl Application {
             ("set_view_event_ns",     0x00509530),
             ("popup_dialog_init",     0x00593670),
             ("popup_dialog_draw",     0x00593900),
+            ("shop_orb_patch",        0x005c676a),
             ("game_loop",             0x00609fb0),
             ("default_final",         0x00620950),
             ("se",                    0x006de844),
