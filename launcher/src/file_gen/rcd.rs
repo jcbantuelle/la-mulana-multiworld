@@ -3,12 +3,25 @@ use binrw::{BinRead, BinWrite, binrw};
 use binrw::helpers::args_iter;
 use log::debug;
 use modular_bitfield::prelude::*;
+use rand::prelude::*;
+use rand::distr::weighted::WeightedIndex;
 use std::collections::HashMap;
 use std::io::Cursor;
 
 use crate::consts::SOURCE_RCD_PATH;
 use crate::file_gen::generator::FileGenerationError;
-use crate::file_gen::lm_consts::{GLOBAL_FLAGS, grail_flag_by_zone, ITEM_CODES, RCD_OBJECT_PARAMS, RCD_OBJECTS, STARTING_WEAPONS, TEST_OPERATIONS, WRITE_OPERATIONS, ZONES};
+use crate::file_gen::lm_consts::{
+    DOUBLE_CHEST_ADDRESSES,
+    GLOBAL_FLAGS,
+    grail_flag_by_zone,
+    ITEM_CODES,
+    RCD_OBJECT_PARAMS,
+    RCD_OBJECTS,
+    STARTING_WEAPONS,
+    TEST_OPERATIONS,
+    WRITE_OPERATIONS,
+    ZONES
+};
 use crate::file_utils;
 
 #[derive(Debug, BinRead, BinWrite)]
@@ -145,7 +158,7 @@ impl Rcd {
         Ok(Rcd { rcd_file, cursed_chests })
     }
 
-    pub fn place_item(&mut self, location: &Location, item_id: i16, new_item_flag: i16) -> Result<(), FileGenerationError> {
+    pub fn place_item(&mut self, location: &Location, original_item_id: i16, new_item_flag: i16) -> Result<(), FileGenerationError> {
         let item_type = location.object_type.ok_or_else(|| {
             debug!("Object Type Missing for Rcd Location: {:?}", location);
             FileGenerationError::MalformedSlotData
@@ -186,6 +199,9 @@ impl Rcd {
             FileGenerationError::MalformedSlotData
         })?;
 
+        // Convert filler chest items to coin chests
+        let item_id = if item_type == RCD_OBJECTS["chest"] && original_item_id == ITEM_CODES["Shell Horn"] { -10 } else { original_item_id };
+
         for zone in zones {
             let item_screen = &mut self.rcd_file.zones[zone].rooms[room].screens[screen];
 
@@ -208,6 +224,39 @@ impl Rcd {
                         let target_item_id = screen_object.parameters[item_params.param_index] - item_params.item_mod;
                         if old_ids.contains(&target_item_id) {
                             if item_type == RCD_OBJECTS["chest"] {
+                                let address = location.address.unwrap_or(0);
+
+                                // Screens with multiple chests need an additional position check
+                                let skip = DOUBLE_CHEST_ADDRESSES.get(&address).map_or(false, |x_pos| {
+                                    screen_object.x_pos != *x_pos
+                                });
+
+                                if skip {
+                                    continue;
+                                }
+                                // Coin Chest
+                                if item_id == -10 {
+                                    let coin_chest_quantities = [(200, 1), (100, 2), (50, 1), (30, 4), (10, 6), (1, 2)];
+                                    let distribution = WeightedIndex::new(coin_chest_quantities.iter().map(|quantity| quantity.1)).unwrap();
+                                    let mut rng = rand::rng();
+                                    let quantity = coin_chest_quantities[distribution.sample(&mut rng)].0;
+
+                                    screen_object.parameters[1] = quantity;
+                                    screen_object.parameters[2] = 0;
+                                    screen_object.write_operations[0].op_value = 1;
+                                    screen_object.write_operations[3].id = GLOBAL_FLAGS["coin_chests"];
+                                    screen_object.write_operations[3].operation = WRITE_OPERATIONS["add"];
+                                    screen_object.write_operations[3].op_value = 1;
+                                // Item Chest
+                                } else {
+                                    screen_object.parameters[1] = 1;
+                                    screen_object.parameters[2] = 1;
+                                    screen_object.write_operations[0].op_value = 2;
+                                    screen_object.write_operations[3].id = new_item_flag;
+                                    screen_object.write_operations[3].operation = WRITE_OPERATIONS["assign"];
+                                    screen_object.write_operations[3].op_value = 2;
+                                }
+                                // Mark Chest as Cursed
                                 if self.cursed_chests.contains(&location.name) {
                                     screen_object.parameters[3] = 1;
                                     screen_object.parameters[4] = 1;

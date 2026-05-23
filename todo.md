@@ -2,7 +2,6 @@
 
 ## Enhancements
 * Add Inactive Ankh Graphic to boss rooms
-* Shuffle coin chests into item pool
 * Shuffle traps into item pool
 * Allow Mantras to complete in any order
 * Transition Rando
