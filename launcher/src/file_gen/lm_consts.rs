@@ -10,6 +10,7 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("screen_flag_0d", 0x0d),
         ("screen_flag_2e", 0x2e),
         ("screen_flag_2f", 0x2f),
+        ("coin_chests", 0x77),
         ("knife_found", 0x7f),
         ("keysword_found", 0x80),
         ("axe_found", 0x81),
@@ -319,6 +320,17 @@ pub const RCD_OBJECT_PARAMS: LazyLock<HashMap<i16, RcdParams>> = LazyLock::new(|
         (RCD_OBJECTS["naked_item"], RcdParams { param_index: 1, item_mod: 0 }),
         (RCD_OBJECTS["instant_item"], RcdParams { param_index: 0, item_mod: 0 }),
         (RCD_OBJECTS["scan"], RcdParams { param_index: 3, item_mod: 0 }),
+    ])
+});
+
+pub const DOUBLE_CHEST_ADDRESSES: LazyLock<HashMap<i64, i16>> = LazyLock::new(|| {
+    HashMap::from([
+        (2359125, 45),  // Gate of Guidance Left Coin Chest [00-02-01]
+        (2359126, 55),  // Gate of Guidance Right Coin Chest [00-02-01]
+        (2359106, 29),  // Gate of Illusion Coin Chest [10-06-00]
+        (2359056, 2),   // Gate of Illusion Fairy Clothes Chest [10-06-00]
+        (2359040, 10),  // Chamber of Extinction Map Chest [06-03-00]
+        (2359101, 19)   // Chamber of Extinction Coin Chest [06-03-00]
     ])
 });
 

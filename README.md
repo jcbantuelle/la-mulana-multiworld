@@ -38,7 +38,8 @@ There are several quirks of the current state of the project. While everything s
 * There can be a minor delay (up to 30ish seconds) in item send/receive with the AP server
 * AP items for another player appear as `Holy Grail (Full)` from chests, and as `Map` from shops
 * All shop items default to 10g
-* Ankh Jewels are tied to specific bosses. When you don't have the ankh jewel for a boss, the Ankh will not appear
+* `Ankh Jewels` are tied to specific bosses. When you don't have the `Ankh Jewel` for a boss, that Bosses' `Ankh` will not appear
+* Filler items appear as `Shell Horn` everywhere except Chests, which appear as Coin Chests
 
 ## Credits
 
@@ -48,6 +49,6 @@ Thank you to [Planeswater](https://github.com/Planeswater), who ported all of th
 
 Thank you to [smurfton](https://github.com/smurfton) for your work reverse engineering the game's binary file formats and documenting them. This reference was invaluable for enabling this project.
 
-Thank you to Squiggly, Forte, DainBread, Megarush, Lurch, Roy, SallyRoses, Jen_theHuman, BlasphemousRoar, Burning Seething Jealousy, Kaz, Wizzrobe, Emmanating, MrCarter, cleartonic, Exuno, Goost, bs9594, ace, Athebyne, EpicFunkyMode, Cmil, JSG, Crownmuri, kubikill, WHYYOUHERE, Kaktus021, and Knux for braving the Alpha build to provide testing and feedback.
+Thank you to Squiggly, Forte, DainBread, Megarush, Lurch, Roy, SallyRoses, Jen_theHuman, BlasphemousRoar, Burning Seething Jealousy, Kaz, Wizzrobe, Emmanating, MrCarter, cleartonic, Exuno, Goost, bs9594, ace, Athebyne, EpicFunkyMode, Cmil, JSG, Crownmuri, kubikill, WHYYOUHERE, Kaktus021, Knux, and KillerHUD for braving the Alpha build to provide testing and feedback.
 
 Finally, I'm forever indebted to [worsety](https://github.com/worsety) and SeerSkye, without whom this project would literally not exist. Thank you both for your constant and detailed answers to my questions, your encyclopedic knowledge of the game source, and your guidance and support throughout this process. The La-Mulana community is lucky to have you both.
