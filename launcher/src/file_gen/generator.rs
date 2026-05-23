@@ -1,5 +1,4 @@
 use archipelago_api::api::SlotData;
-use log::debug;
 use thiserror::Error;
 
 use crate::consts::AP_PATH;
