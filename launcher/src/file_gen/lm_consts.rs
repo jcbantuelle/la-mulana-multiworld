@@ -217,6 +217,7 @@ pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
         ("chest", 0x2c),
         ("ankh", 0x2e),
         ("naked_item", 0x2f),
+        ("trigger_seal", 0x34),
         ("big_anubis", 0x6b),
         ("vimana", 0x71),
         ("texture_draw_animation", 0x93),

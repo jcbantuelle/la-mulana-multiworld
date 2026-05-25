@@ -291,8 +291,8 @@ impl Rcd {
 
                     // Same Screen Object Customizations
 
-                    // Destructible Cover customization
-                    if screen_object.id == RCD_OBJECTS["hitbox_generator"] || screen_object.id == RCD_OBJECTS["room_spawner"] {
+                    // Removable Cover customization
+                    if screen_object.id == RCD_OBJECTS["hitbox_generator"] || screen_object.id == RCD_OBJECTS["room_spawner"] || screen_object.id == RCD_OBJECTS["trigger_seal"] {
                         Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
                         Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, None);
                     }
