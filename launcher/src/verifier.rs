@@ -117,20 +117,31 @@ fn fetch_config(digest: String) -> Result<LaMulanaConfig, String> {
             dat_digest: "E9F34854D82EBA1E72DD80C573DB1202AA15524FAAC3FC82C8D9F9943BD9F31C".to_string(),
             effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
         })
-    } else if digest == "94228016FFFF8A0BA6325140F0CFF6896E2BD0579BB2099D234508DEDE65923F" {
+    } else {
         let documents_dir = match dirs_next::document_dir() {
             Some(doc_path) => doc_path.into_os_string().into_string().unwrap_or(String::new()),
             None => String::new()
         };
+        let save_path = format!("{}/nigoro/la-mulana/save/", documents_dir);
 
-        Ok(LaMulanaConfig {
-            version: "1.6.6.2".to_string(),
-            save_path: format!("{}/nigoro/la-mulana/save/", documents_dir),
-            rcd_digest: "583DCE2B2BB41E7A1927C6052F7A6AEFEE3F021A792E1AC587E2103C8B5D4CAC".to_string(),
-            dat_digest: "89A2AA21E2CB2DAD6DB5F2EEA474903927980384DE4BC868A9494B1DA3DFED2B".to_string(),
-            effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
-        })
-    } else {
-        Err(format!("Your version of {} appears to be an unsupported version or modded. Please ensure it's an unaltered copy and that it's either version 1.0.0.1 or 1.6.6.2", *LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION))
+        if digest == "E4B5EBE57017C5838DAB44D51C6330902B4FB333AD4714C0E8C8BD37FD354BC8" {
+            Ok(LaMulanaConfig {
+                version: "1.6.6.1".to_string(),
+                save_path: save_path,
+                rcd_digest: "583DCE2B2BB41E7A1927C6052F7A6AEFEE3F021A792E1AC587E2103C8B5D4CAC".to_string(),
+                dat_digest: "89A2AA21E2CB2DAD6DB5F2EEA474903927980384DE4BC868A9494B1DA3DFED2B".to_string(),
+                effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
+            })
+        } else if digest == "94228016FFFF8A0BA6325140F0CFF6896E2BD0579BB2099D234508DEDE65923F" {
+            Ok(LaMulanaConfig {
+                version: "1.6.6.2".to_string(),
+                save_path: save_path,
+                rcd_digest: "583DCE2B2BB41E7A1927C6052F7A6AEFEE3F021A792E1AC587E2103C8B5D4CAC".to_string(),
+                dat_digest: "89A2AA21E2CB2DAD6DB5F2EEA474903927980384DE4BC868A9494B1DA3DFED2B".to_string(),
+                effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
+            })
+        } else {
+            Err(format!("Your version of {} appears to be an unsupported version or modded. Please ensure it's an unaltered copy and that it's either version 1.0.0.1, 1.6.6.1, or 1.6.6.2", *LAMULANA_EXECUTABLE_NAME_WITH_EXTENSION))
+        }
     }
 }

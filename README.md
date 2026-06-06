@@ -4,7 +4,7 @@ This project modifies La-Mulana to enable Multiworld support. It is very much in
 
 ## Requirements to Play
 
-* La-Mulana Version 1.0.0.1 or 1.6.6.2 (Steam), unmodded
+* La-Mulana Version 1.0.0.1, 1.6.6.1 (GOG), or 1.6.6.2 (Steam), unmodded
 * A running Archipelago Server with the [La-Mulana world](https://github.com/jcbantuelle/Archipelago/tree/lamulana) included
 
 ## Setup Instructions
