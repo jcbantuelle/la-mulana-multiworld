@@ -322,8 +322,8 @@ impl Application {
             ("shop_orb_patch",        0x005c49da),
             ("game_loop",             0x00608670),
             ("default_final",         0x00473450),
-            ("weapon_swap_patch1",    0x0067a0ea), // this code is different! Check your patching code
-            ("weapon_swap_patch2",    0x0067a11b), // this code is different! Check your patching code
+            ("weapon_swap_patch1",    0x0067a0ea),
+            ("weapon_swap_patch2",    0x0067a11b),
             ("se",                    0x006d4708),
             ("script_header_pointer", 0x006d49f0),
             ("inventory_words",       0x006d76e4),
