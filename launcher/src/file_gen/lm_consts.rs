@@ -76,6 +76,7 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("mulana_talisman", 0x105),
         ("swimsuit_found", 0x106),
         ("amphisbaena_ankh_puzzle", 0x133),
+        ("guidance_gate_open", 0x15d),
         ("sakit_ankh_puzzle", 0x164),
         ("hardmode", 0x16a),
         ("ellmac_ankh_puzzle", 0x178),
@@ -331,6 +332,55 @@ pub const DOUBLE_CHEST_ADDRESSES: LazyLock<HashMap<i64, i16>> = LazyLock::new(||
         (2359056, 2),   // Gate of Illusion Fairy Clothes Chest [10-06-00]
         (2359040, 10),  // Chamber of Extinction Map Chest [06-03-00]
         (2359101, 19)   // Chamber of Extinction Coin Chest [06-03-00]
+    ])
+});
+
+#[derive(Clone, Debug)]
+pub struct Door {
+    pub zone: i16,
+    pub room: i16,
+    pub screen: i16,
+    pub x_pos: i16,
+    pub y_pos: i16
+}
+
+#[derive(Clone, Debug)]
+pub struct DoorRequirement {
+    pub boss_flag: i16
+}
+
+pub const DOORS: LazyLock<HashMap<&str, Door>> = LazyLock::new(|| {
+    HashMap::from([
+        ("Surface Door", Door {zone: 1, room: 8, screen: 0, x_pos: 200, y_pos: 320}),
+        ("Guidance Door", Door {zone: 0, room: 5, screen: 0, x_pos: 180, y_pos: 160}),
+        ("Mausoleum Door", Door {zone: 2, room: 4, screen: 0, x_pos: 80, y_pos: 320}),
+        ("Sun Door", Door {zone: 3, room: 6, screen: 0, x_pos: 460, y_pos: 160}),
+        ("Inferno Viy Door", Door {zone: 5, room: 8, screen: 0, x_pos: 140, y_pos: 160}),
+        ("Inferno Spikes Door", Door {zone: 5, room: 9, screen: 0, x_pos: 60, y_pos: 80}),
+        ("Extinction Key Door", Door {zone: 6, room: 7, screen: 0, x_pos: 300, y_pos: 80}),
+        ("Extinction Magatama Door", Door {zone: 6, room: 0, screen: 0, x_pos: 40, y_pos: 80}),
+        ("Endless One-way Exit", Door {zone: 8, room: 0, screen: 1, x_pos: 400, y_pos: 180}),
+        ("Illusion Door", Door {zone: 10, room: 3, screen: 0, x_pos: 40, y_pos: 80}),
+        ("Graveyard Door", Door {zone: 11, room: 3, screen: 0, x_pos: 80, y_pos: 160}),
+        ("Moonlight Door", Door {zone: 12, room: 4, screen: 2, x_pos: 200, y_pos: 240}),
+        ("Goddess Door", Door {zone: 13, room: 0, screen: 1, x_pos: 300, y_pos: 400}),
+        ("Ruin Top Door", Door {zone: 14, room: 8, screen: 1, x_pos: 300, y_pos: 120}),
+        ("Ruin Lower Door", Door {zone: 14, room: 2, screen: 1, x_pos: 300, y_pos: 240}),
+        ("Birth Door", Door {zone: 15, room: 0, screen: 1, x_pos: 300, y_pos: 400}),
+        ("Dimensional Door", Door {zone: 17, room: 0, screen: 0, x_pos: 300, y_pos: 320}),
+        ("Retromausoleum Door", Door {zone: 19, room: 0, screen: 1, x_pos: 300, y_pos: 320})
+    ])
+});
+
+pub const DOOR_REQUIREMENTS: LazyLock<HashMap<&str, i16>> = LazyLock::new(|| {
+    HashMap::from([
+        ("Amphisbaena", GLOBAL_FLAGS["amphisbaena_state"]),
+        ("Sakit", GLOBAL_FLAGS["sakit_state"]),
+        ("Ellmac", GLOBAL_FLAGS["ellmac_state"]),
+        ("Bahamut", GLOBAL_FLAGS["bahamut_state"]),
+        ("Viy", GLOBAL_FLAGS["viy_state"]),
+        ("Palenque", GLOBAL_FLAGS["palenque_state"]),
+        ("Baphomet", GLOBAL_FLAGS["baphomet_state"])
     ])
 });
 

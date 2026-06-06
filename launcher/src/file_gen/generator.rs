@@ -113,7 +113,7 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData, seed_name:
         slot_data.options["StartingWeapon"],
         slot_data.item_table.clone()
     )?;
-    rcd_file.apply_mods(slot_data.options)?;
+    rcd_file.apply_mods(slot_data)?;
 
     let effect_bytes = graphics::generate_effects()?;
 

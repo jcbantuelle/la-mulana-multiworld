@@ -1,11 +1,11 @@
 # Launcher
 
 ## Enhancements
+* Talk to Planeswater about generation failure with backside doors enabled
 * Add Inactive Ankh Graphic to boss rooms
 * Shuffle traps into item pool
 * Allow Mantras to complete in any order
 * Transition Rando
-* Door Rando
 * Start Rando
 * Seal Rando
 * NPC Rando

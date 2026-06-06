@@ -1,4 +1,4 @@
-use archipelago_api::api::{ItemData, Location};
+use archipelago_api::api::{ItemData, Location, SlotData};
 use binrw::{BinRead, BinWrite, binrw};
 use binrw::helpers::args_iter;
 use log::debug;
@@ -11,16 +11,7 @@ use std::io::Cursor;
 use crate::consts::SOURCE_RCD_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::{
-    DOUBLE_CHEST_ADDRESSES,
-    GLOBAL_FLAGS,
-    grail_flag_by_zone,
-    ITEM_CODES,
-    RCD_OBJECT_PARAMS,
-    RCD_OBJECTS,
-    STARTING_WEAPONS,
-    TEST_OPERATIONS,
-    WRITE_OPERATIONS,
-    ZONES
+    DOOR_REQUIREMENTS, DOORS, DOUBLE_CHEST_ADDRESSES, GLOBAL_FLAGS, ITEM_CODES, RCD_OBJECT_PARAMS, RCD_OBJECTS, STARTING_WEAPONS, TEST_OPERATIONS, WRITE_OPERATIONS, ZONES, grail_flag_by_zone
 };
 use crate::file_utils;
 
@@ -424,7 +415,9 @@ impl Rcd {
         }
     }
 
-    pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
+    pub fn apply_mods(&mut self, slot_data: SlotData) -> Result<(), FileGenerationError> {
+        let options = slot_data.options.clone();
+
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();
         self.rewrite_slushfund_conversation_conditions();
@@ -456,6 +449,14 @@ impl Rcd {
 
         if options.get("AlternateMotherAnkh").is_some_and(|option| *option > 0) {
             self.create_alternate_mother_ankh();
+        }
+
+        if options.get("RandomizeBacksideDoors").is_some_and(|option| *option > 0) {
+            let door_map = slot_data.door_map.clone().ok_or_else(|| {
+                debug!("Door Map is missing from Slot Data: {:?}", slot_data);
+                FileGenerationError::MalformedSlotData
+            })?;
+            self.randomize_doors(door_map)?;
         }
 
         Ok(())
@@ -1465,6 +1466,59 @@ impl Rcd {
             };
             surface_screen.objects_without_position.push(flag_timer);
         }
+    }
+
+    fn randomize_doors(&mut self, door_map: HashMap<String, [String;2]>) -> Result<(), FileGenerationError> {
+        for (source_door_name, [destination_door_name, door_requirement_name]) in door_map.clone() {
+
+            // The Endless Corridor Exit is tracked for mapping purposes, but doesn't have a Warp Door to update
+            if source_door_name == "Endless One-way Exit" { continue; }
+
+            let source_door = DOORS.get(source_door_name.as_str()).ok_or_else(|| {
+                debug!("Source Door {} Doesn't Exist", source_door_name);
+                FileGenerationError::MalformedSlotData
+            })?.clone();
+
+            let destination_door = DOORS.get(destination_door_name.as_str()).ok_or_else(|| {
+                debug!("Destination Door {} Doesn't Exist", source_door_name);
+                FileGenerationError::MalformedSlotData
+            })?.clone();
+
+            let door_screen = &mut self.rcd_file.zones[source_door.zone as usize].rooms[source_door.room as usize].screens[source_door.screen as usize];
+
+            for screen_object in door_screen.objects_with_position.iter_mut() {
+                if screen_object.id == RCD_OBJECTS["warp_door"] {
+                    screen_object.parameters[1] = destination_door.zone;
+                    screen_object.parameters[2] = destination_door.room;
+                    screen_object.parameters[3] = destination_door.screen;
+                    screen_object.parameters[4] = destination_door.x_pos;
+                    screen_object.parameters[5] = destination_door.y_pos;
+
+                    if door_requirement_name == "Open" {
+                        screen_object.test_operations = vec![];
+                    } else if door_requirement_name == "Key" {
+
+                    } else {
+                        let door_requirement = DOOR_REQUIREMENTS.get(door_requirement_name.as_str()).ok_or_else(|| {
+                            debug!("Door Requirement {} Doesn't Exist", door_requirement_name);
+                            FileGenerationError::MalformedSlotData
+                        })?.clone();
+
+                        if screen_object.test_operations.len() == 0 {
+
+                        } else {
+                            Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, None);
+                            screen_object.write_operations[0].id = door_requirement;
+                        }
+                    }
+                } else if screen_object.id == RCD_OBJECTS["flag_timer"] {
+                    Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                }
+            }
+        }
+        debug!("{:?}", door_map);
+
+        Ok(())
     }
 
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
