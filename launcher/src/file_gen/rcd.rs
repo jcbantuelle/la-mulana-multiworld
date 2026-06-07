@@ -427,6 +427,7 @@ impl Rcd {
     pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();
+        self.rewrite_sun_lights_hitbox();
         self.rewrite_slushfund_conversation_conditions();
         self.rewrite_stray_fairy_events();
         self.rewrite_fishman_alt_shop();
@@ -608,6 +609,16 @@ impl Rcd {
                     op_value: 9,
                     operation: TEST_OPERATIONS["neq"]
                 });
+            }
+        }
+    }
+
+    fn rewrite_sun_lights_hitbox(&mut self) {
+        let lights_screen = &mut self.rcd_file.zones[3].rooms[0].screens[0];
+
+        for screen_object in lights_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["hitbox_generator"] {
+                screen_object.x_pos = 20;
             }
         }
     }
