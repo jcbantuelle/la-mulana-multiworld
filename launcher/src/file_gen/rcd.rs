@@ -243,7 +243,12 @@ impl Rcd {
 
                                     screen_object.parameters[1] = quantity;
                                     screen_object.parameters[2] = 0;
-                                    screen_object.write_operations[0].op_value = 1;
+                                    screen_object.write_operations[0].id = new_item_flag;
+                                    screen_object.write_operations[0].op_value = 2;
+                                    screen_object.write_operations[0].operation = WRITE_OPERATIONS["assign"];
+                                    screen_object.write_operations[2].id = new_item_flag;
+                                    screen_object.write_operations[2].operation = WRITE_OPERATIONS["assign"];
+                                    screen_object.write_operations[2].op_value = 2;
                                     screen_object.write_operations[3].id = GLOBAL_FLAGS["coin_chests"];
                                     screen_object.write_operations[3].operation = WRITE_OPERATIONS["add"];
                                     screen_object.write_operations[3].op_value = 1;
