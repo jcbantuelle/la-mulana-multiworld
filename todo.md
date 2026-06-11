@@ -1,13 +1,16 @@
 # Launcher
 
 ## Enhancements
-* Talk to Planeswater about generation failure with backside doors enabled
-* Add Inactive Ankh Graphic to boss rooms
+
+* Accurately report coin chests to AP logs (Currently says shell horn sent)
+* Door Rando
+* Start Rando
+* Transition Rando
+* Seal Rando
+* Hell Temple Reward
 * Shuffle traps into item pool
 * Allow Mantras to complete in any order
-* Transition Rando
-* Start Rando
-* Seal Rando
+* Add Inactive Ankh Graphic to boss rooms
 * NPC Rando
 
 ## Code Cleanup
@@ -24,6 +27,7 @@
 * Overwrite to real item name when for another player
 * Swap Map/Grail for custom item w/ custom image
 * Allow any item to appear in torude scan
+* Implement better filler items (weights, coins, ammo)
 * Add Overlay for Ankh Jewel status when in Inventory screen
 * Add Deathlink support
 * Automatic Item Hinting

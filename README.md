@@ -4,7 +4,7 @@ This project modifies La-Mulana to enable Multiworld support. It is very much in
 
 ## Requirements to Play
 
-* La-Mulana Version 1.0.0.1 or 1.6.6.2 (Steam), unmodded
+* La-Mulana Version 1.0.0.1, 1.6.6.1 (GOG), or 1.6.6.2 (Steam), unmodded
 * A running Archipelago Server with the [La-Mulana world](https://github.com/jcbantuelle/Archipelago/tree/lamulana) included
 
 ## Setup Instructions
@@ -20,15 +20,14 @@ The project is built in Rust. If you don't already have an environment configure
 
 ## Currently Unsupported Options
 
-* RandomizeCoinChests
-* RandomizeTrapItems
-* RandomizeNPCs
-* RandomizeSeals
+* RandomizeBacksideDoors
 * StartingLocation
 * RandomizeTransitions
-* RandomizeBacksideDoors
+* RandomizeSeals
 * HellTempleReward
 * Deathlink
+* RandomizeTrapItems
+* RandomizeNPCs
 
 ## Known Issues/Behaviors
 
@@ -49,6 +48,6 @@ Thank you to [Planeswater](https://github.com/Planeswater), who ported all of th
 
 Thank you to [smurfton](https://github.com/smurfton) for your work reverse engineering the game's binary file formats and documenting them. This reference was invaluable for enabling this project.
 
-Thank you to Squiggly, Forte, DainBread, Megarush, Lurch, Roy, SallyRoses, Jen_theHuman, BlasphemousRoar, Burning Seething Jealousy, Kaz, Wizzrobe, Emmanating, MrCarter, cleartonic, Exuno, Goost, bs9594, ace, Athebyne, EpicFunkyMode, Cmil, JSG, Crownmuri, kubikill, WHYYOUHERE, Kaktus021, Knux, and KillerHUD for braving the Alpha build to provide testing and feedback.
+Thank you to Squiggly, Forte, DainBread, Megarush, Lurch, Roy, SallyRoses, Jen_theHuman, BlasphemousRoar, Burning Seething Jealousy, Kaz, Wizzrobe, Emmanating, MrCarter, cleartonic, Exuno, Goost, bs9594, ace, Athebyne, EpicFunkyMode, Cmil, JSG, Crownmuri, kubikill, WHYYOUHERE, Kaktus021, Knux, and KillerHUD, TerminusOoze, authorblues, and Lizstar for braving the Alpha build to provide testing and feedback.
 
 Finally, I'm forever indebted to [worsety](https://github.com/worsety) and SeerSkye, without whom this project would literally not exist. Thank you both for your constant and detailed answers to my questions, your encyclopedic knowledge of the game source, and your guidance and support throughout this process. The La-Mulana community is lucky to have you both.
