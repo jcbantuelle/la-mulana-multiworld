@@ -243,7 +243,12 @@ impl Rcd {
 
                                     screen_object.parameters[1] = quantity;
                                     screen_object.parameters[2] = 0;
-                                    screen_object.write_operations[0].op_value = 1;
+                                    screen_object.write_operations[0].id = new_item_flag;
+                                    screen_object.write_operations[0].op_value = 2;
+                                    screen_object.write_operations[0].operation = WRITE_OPERATIONS["assign"];
+                                    screen_object.write_operations[2].id = new_item_flag;
+                                    screen_object.write_operations[2].operation = WRITE_OPERATIONS["assign"];
+                                    screen_object.write_operations[2].op_value = 2;
                                     screen_object.write_operations[3].id = GLOBAL_FLAGS["coin_chests"];
                                     screen_object.write_operations[3].operation = WRITE_OPERATIONS["add"];
                                     screen_object.write_operations[3].op_value = 1;
@@ -291,8 +296,8 @@ impl Rcd {
 
                     // Same Screen Object Customizations
 
-                    // Destructible Cover customization
-                    if screen_object.id == RCD_OBJECTS["hitbox_generator"] || screen_object.id == RCD_OBJECTS["room_spawner"] {
+                    // Removable Cover customization
+                    if screen_object.id == RCD_OBJECTS["hitbox_generator"] || screen_object.id == RCD_OBJECTS["room_spawner"] || screen_object.id == RCD_OBJECTS["trigger_seal"] {
                         Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
                         Self::update_operations(&mut screen_object.write_operations, old_item_flag, new_item_flag, None, None, None, None);
                     }
@@ -324,6 +329,13 @@ impl Rcd {
                     // Yagostr Dais customization
                     if old_item_flag == GLOBAL_FLAGS["yagostr_found"] {
                         if screen_object.id == RCD_OBJECTS["trigger_dais"] {
+                            Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                        }
+                    }
+
+                    // Shrine of the Mother Diary Room Pillar
+                    if old_item_flag == GLOBAL_FLAGS["diary_found"] {
+                        if screen_object.id == RCD_OBJECTS["xelpud_pillar"] {
                             Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
                         }
                     }
@@ -427,6 +439,7 @@ impl Rcd {
     pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();
+        self.rewrite_sun_lights_hitbox();
         self.rewrite_slushfund_conversation_conditions();
         self.rewrite_stray_fairy_events();
         self.rewrite_fishman_alt_shop();
@@ -471,8 +484,14 @@ impl Rcd {
         {
             // Remove Diary conversation door from Xelpud conversations
             let xelpud_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
-            _ = xelpud_screen.objects_with_position.extract_if(.., |object| {
+
+            let _ = xelpud_screen.objects_with_position.extract_if(.., |object| {
                 object.id == RCD_OBJECTS["language_conversation"] && object.parameters[4] == 913
+            }).collect::<Vec<_>>();
+
+            // Remove Diary Puzzle Timer
+            let _ = xelpud_screen.objects_without_position.extract_if(.., |object| {
+                object.id == RCD_OBJECTS["flag_timer"] && object.test_operations.len() > 1 && object.test_operations[1].id == GLOBAL_FLAGS["diary_found"]
             }).collect::<Vec<_>>();
 
             // Add new Talisman Xelpud Timer
@@ -608,6 +627,16 @@ impl Rcd {
                     op_value: 9,
                     operation: TEST_OPERATIONS["neq"]
                 });
+            }
+        }
+    }
+
+    fn rewrite_sun_lights_hitbox(&mut self) {
+        let lights_screen = &mut self.rcd_file.zones[3].rooms[0].screens[0];
+
+        for screen_object in lights_screen.objects_with_position.iter_mut() {
+            if screen_object.id == RCD_OBJECTS["hitbox_generator"] {
+                screen_object.x_pos = 20;
             }
         }
     }
@@ -1357,7 +1386,7 @@ impl Rcd {
             let sun_ankh_jewel_screen = &mut self.rcd_file.zones[3].rooms[7].screens[0];
             for screen_object in sun_ankh_jewel_screen.objects_with_position.iter_mut() {
                 if screen_object.id == RCD_OBJECTS["trigger_dais"] {
-                    let _ = screen_object.write_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["ankh_jewel_sun"] }).collect::<Vec<_>>();
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["ankh_jewel_sun"] }).collect::<Vec<_>>();
                 }
             }
         }

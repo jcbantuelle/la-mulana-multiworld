@@ -1,13 +1,15 @@
 # Launcher
 
 ## Enhancements
-* Add Inactive Ankh Graphic to boss rooms
-* Shuffle traps into item pool
-* Allow Mantras to complete in any order
-* Transition Rando
+* Accurately report coin chests to AP logs (Currently says shell horn sent)
 * Door Rando
 * Start Rando
+* Transition Rando
 * Seal Rando
+* Hell Temple Reward
+* Shuffle traps into item pool
+* Allow Mantras to complete in any order
+* Add Inactive Ankh Graphic to boss rooms
 * NPC Rando
 
 ## Code Cleanup
