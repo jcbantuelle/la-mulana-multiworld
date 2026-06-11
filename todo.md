@@ -6,6 +6,7 @@
 * Start Rando
 * Transition Rando
 * Seal Rando
+* Hell Temple Reward
 * Shuffle traps into item pool
 * Allow Mantras to complete in any order
 * Add Inactive Ankh Graphic to boss rooms
