@@ -1373,7 +1373,7 @@ impl Rcd {
             let sun_ankh_jewel_screen = &mut self.rcd_file.zones[3].rooms[7].screens[0];
             for screen_object in sun_ankh_jewel_screen.objects_with_position.iter_mut() {
                 if screen_object.id == RCD_OBJECTS["trigger_dais"] {
-                    let _ = screen_object.write_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["ankh_jewel_sun"] }).collect::<Vec<_>>();
+                    let _ = screen_object.test_operations.extract_if(..,|op| { op.id == GLOBAL_FLAGS["ankh_jewel_sun"] }).collect::<Vec<_>>();
                 }
             }
         }
