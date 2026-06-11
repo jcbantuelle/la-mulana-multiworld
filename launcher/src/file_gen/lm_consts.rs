@@ -230,6 +230,7 @@ pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
         ("fairy_keyspot", 0xa7),
         ("explosion", 0xb4),
         ("instant_item", 0xb5),
+        ("xelpud_pillar", 0xbb),
         ("mother_ankh", 0xc0),
         ("scan", 0xc3),
     ])

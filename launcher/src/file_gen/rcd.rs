@@ -332,6 +332,13 @@ impl Rcd {
                             Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
                         }
                     }
+
+                    // Shrine of the Mother Diary Room Pillar
+                    if old_item_flag == GLOBAL_FLAGS["diary_found"] {
+                        if screen_object.id == RCD_OBJECTS["xelpud_pillar"] {
+                            Self::update_operations(&mut screen_object.test_operations, old_item_flag, new_item_flag, None, None, None, None);
+                        }
+                    }
                 }
             }
         }
@@ -477,8 +484,14 @@ impl Rcd {
         {
             // Remove Diary conversation door from Xelpud conversations
             let xelpud_screen = &mut self.rcd_file.zones[1].rooms[2].screens[1];
-            _ = xelpud_screen.objects_with_position.extract_if(.., |object| {
+
+            let _ = xelpud_screen.objects_with_position.extract_if(.., |object| {
                 object.id == RCD_OBJECTS["language_conversation"] && object.parameters[4] == 913
+            }).collect::<Vec<_>>();
+
+            // Remove Diary Puzzle Timer
+            let _ = xelpud_screen.objects_without_position.extract_if(.., |object| {
+                object.id == RCD_OBJECTS["flag_timer"] && object.test_operations.len() > 1 && object.test_operations[1].id == GLOBAL_FLAGS["diary_found"]
             }).collect::<Vec<_>>();
 
             // Add new Talisman Xelpud Timer
