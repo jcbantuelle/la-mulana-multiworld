@@ -1,6 +1,6 @@
 # La-Mulana Multiworld Randomizer
 
-This project modifies La-Mulana to enable Multiworld support. It is very much in an alpha state at the moment and is likely to have both logic and gameplay bugs. If you encounter a problem, please [open an issue](https://github.com/jcbantuelle/Archipelago/issues) with as much detail as possible about what you experienced vs what the expected behavior was. Additionally, please provide the downloaded zip containing your config, rcd, and dat files.
+This project modifies La-Mulana to enable Archipelago Multiworld support. It is currently in Beta, meaning games should be relative stable and completable. It's likely you'll encounter a bug here or there, and potentially need to use the Archipelago Admin console to send any items that fail to deliver. If you encounter a bug, please [open an issue](https://github.com/jcbantuelle/Archipelago/issues) with as much detail as possible about what you experienced vs what the expected behavior was. Additionally, please zip up and include the generated seed files in your La-Mulana game folder, under `/ap/<seedname>`.
 
 ## Requirements to Play
 
@@ -20,7 +20,6 @@ The project is built in Rust. If you don't already have an environment configure
 
 ## Currently Unsupported Options
 
-* RandomizeBacksideDoors
 * StartingLocation
 * RandomizeTransitions
 * RandomizeSeals
@@ -34,7 +33,7 @@ The project is built in Rust. If you don't already have an environment configure
 There are several quirks of the current state of the project. While everything should function, there are some behaviors that might be initially surprising.
 
 * torude scans may show a blank item popup, although the item is properly received
-* There can be a minor delay (up to 30ish seconds) in item send/receive with the AP server
+* There can be a delay (up to 30ish seconds) in item send/receive with the AP server
 * AP items for another player appear as `Holy Grail (Full)` from chests, and as `Map` from shops
 * All shop items default to 10g
 * `Ankh Jewels` are tied to specific bosses. When you don't have the `Ankh Jewel` for a boss, that Bosses' `Ankh` will not appear

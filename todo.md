@@ -3,7 +3,6 @@
 ## Enhancements
 
 * Accurately report coin chests to AP logs (Currently says shell horn sent)
-* Door Rando
 * Start Rando
 * Transition Rando
 * Seal Rando
