@@ -1,3 +1,7 @@
+# 2026-09-09
+
+* Bug Fix: File Verification now works correctly on 1.0.0.1
+
 # 2026-07-06
 
 * Feature: Implement `RandomizeBacksideDoors`
