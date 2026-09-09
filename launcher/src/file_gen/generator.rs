@@ -131,13 +131,13 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData, seed_name:
     file_utils::write_file(&dat_file_path, dat_updater.write_file()?).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
 
     let save_file_path = format!("{}/{}", save_file_dir, "lm_00.sav");
-    file_utils::write_file(&save_file_path, sav_file.to_bytes()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
+    file_utils::write_file(&save_file_path, sav_file.write_file()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
 
     let effects_file_path = format!("{}/{}", new_seed_path, "01effect.png");
     file_utils::write_file(&effects_file_path, effect_bytes).map_err(|_| FileGenerationError::EffectsFileWriteFailure)?;
 
     let app_config_file_path = format!("{}/{}", new_seed_path, "lamulana-config.toml");
-    file_utils::write_file(&app_config_file_path, app_config.to_bytes()?).map_err(|_| FileGenerationError::AppConfigWriteFailure)?;
+    file_utils::write_file(&app_config_file_path, app_config.write_file()?).map_err(|_| FileGenerationError::AppConfigWriteFailure)?;
 
     Ok(())
 }

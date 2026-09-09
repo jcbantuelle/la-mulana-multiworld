@@ -73,7 +73,7 @@ impl AppConfig {
         Ok(flag)
     }
 
-    pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
+    pub fn write_file(&self) -> Result<Vec<u8>, FileGenerationError> {
         let app_config = toml::to_vec(&self).map_err(|e| {
             debug!("Serilization Failure with error: {}", e);
             FileGenerationError::AppConfigSerializeFailure
