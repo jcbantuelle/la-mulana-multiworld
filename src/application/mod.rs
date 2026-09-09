@@ -241,7 +241,7 @@ impl Application {
             new_instructions.len(),
             PAGE_EXECUTE_READWRITE,
             &mut old_protect,
-        ).map_err(|e| {
+        ).inspect_err(|e| {
             debug!("Failed to configure code at {:p} as writeable for patching with error: {}", target_address, e);
         }).unwrap();
 
@@ -256,7 +256,7 @@ impl Application {
             new_instructions.len(),
             old_protect,
             &mut old_protect,
-        ).map_err(|e| {
+        ).inspect_err(|e| {
             debug!("Failed to configure code at {:p} as read-only after patching with error: {}", target_address, e);
         }).unwrap();
     }

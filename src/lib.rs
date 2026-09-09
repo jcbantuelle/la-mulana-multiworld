@@ -104,7 +104,7 @@ fn init_logger(app_config: &AppConfig) {
 fn init_app() -> Application {
     let address = unsafe { GetModuleHandleW(null_mut()).cast::<u8>().wrapping_sub(0x400000) } as usize;
 
-    let app_config = read_config().map_err(|err| {
+    let app_config = read_config().inspect_err(|err| {
         show_message_box(&err);
         unsafe{ ExitProcess(1) };
     }).unwrap();

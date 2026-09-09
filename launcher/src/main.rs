@@ -50,26 +50,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     match verifier::verify_install() {
         Ok(lm_config) => {
-            let ap_data = APData::new(lm_config)?;
+            let ap_data = APData::new(lm_config).inspect_err(|e| { debug!("Failed to initialize AP_DATA: {:?}", e); })?;
             match AP_DATA.lock() {
                 Ok(mut ap_data_lock) => {
                     *ap_data_lock = Some(ap_data.clone());
                 },
                 Err(e) => {
-                    let generate_ap_data_error_message = "Failed To Acquire AP Lock".to_string();
-                    debug!("{}: {:?}", generate_ap_data_error_message, e);
+                    debug!("Failed to acquire AP_DATA lock during initialization: {:?}", e);
                 }
             }
-            let launcher = Launcher::new().unwrap();
-            let seed_selector = SeedSelector::new().unwrap();
+            let launcher = Launcher::new().inspect_err(|e| { debug!("Launcher window failed to initialize: {:?}", e); })?;
+            let seed_selector = SeedSelector::new().inspect_err(|e| { debug!("Seed Selector window failed to initialize: {:?}", e); })?;
 
             configure_launcher_window(launcher.as_weak(), seed_selector.as_weak(), ap_data.clone()).await;
             configure_seed_selector_window(seed_selector.as_weak(), launcher.as_weak(), ap_data.clone()).await;
 
-            launcher.run()?;
+            launcher.run().inspect_err(|e| { debug!("Launcher window failed to run: {:?}", e); })?;
         },
         Err(error_message) => {
-            let error_message_window = ErrorMessage::new()?;
+            let error_message_window = ErrorMessage::new().inspect_err(|e| { debug!("Verification Issue window failed to initialize: {:?}", e); })?;
             error_message_window.set_error_message(error_message.into());
             let error_message_window_handle = error_message_window.as_weak();
 
@@ -78,7 +77,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let _ = error_message_window.hide();
             });
 
-            error_message_window.run()?;
+            error_message_window.run().inspect_err(|e| { debug!("Verification Issue window failed to run: {:?}", e); })?;
         }
     }
 
@@ -145,19 +144,18 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
                                 seed_selector_restore_handle.set_chosen_seed(ap_data.seed_name().into());
                             },
                             Err(e) => {
-                                launcher_error_message = "Failed to Restore Original Files".to_string();
-                                debug!("{}: {:?}", launcher_error_message, e);
+                                debug!("Failed to restore original files: {:?}", e);
                             }
                         }
                     },
                     None => {
-                        launcher_error_message = "AP Data doesn't exist".to_string();
+                        launcher_error_message = "AP_DATA doesn't exist during original file restore".to_string();
                         debug!("{}", launcher_error_message);
                     }
                 }
             },
             Err(e) => {
-                launcher_error_message = "Failed To Acquire AP Lock".to_string();
+                launcher_error_message = "Failed To acquire AP_DATA lock during original file restore".to_string();
                 debug!("{}: {:?}", launcher_error_message, e);
             }
         }
@@ -216,19 +214,19 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                                 seed_selector.set_seeds(ModelRc::from(seeds));
                             },
                             Err(e) => {
-                                seed_error_message = "Failed to Delete Chosen Seed".to_string();
+                                seed_error_message = "Failed to delete chosen seed".to_string();
                                 debug!("{}: {:?}", seed_error_message, e);
                             }
                         }
                     },
                     None => {
-                        seed_error_message = "AP Data doesn't exist".to_string();
+                        seed_error_message = "AP_DATA doesn't exist during seed deletion".to_string();
                         debug!("{}", seed_error_message);
                     }
                 }
             },
             Err(e) => {
-                seed_error_message = "Failed To Acquire AP Lock".to_string();
+                seed_error_message = "Failed To Acquire AP_DATA Lock during seed deletion".to_string();
                 debug!("{}: {:?}", seed_error_message, e);
             }
         }
@@ -256,19 +254,19 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                                 let _ = seed_selector.hide();
                             },
                             Err(e) => {
-                                seed_error_message = "Failed to Load Chosen Seed".to_string();
+                                seed_error_message = "Failed to load chosen seed".to_string();
                                 debug!("{}: {:?}", seed_error_message, e);
                             }
                         }
                     },
                     None => {
-                        seed_error_message = "AP Data doesn't exist".to_string();
+                        seed_error_message = "AP_DATA doesn't exist during seed load".to_string();
                         debug!("{}", seed_error_message);
                     }
                 }
             },
             Err(e) => {
-                seed_error_message = "Failed To Acquire AP Lock".to_string();
+                seed_error_message = "Failed To Acquire AP_DATA lock during seed load".to_string();
                 debug!("{}: {:?}", seed_error_message, e);
             }
         }
@@ -330,31 +328,31 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
                                                         }).unwrap();
                                                     },
                                                     Err(e) => {
-                                                        seed_error_message = "Failed to Configure Files for New Game".to_string();
+                                                        seed_error_message = "Failed to configure files for new seed".to_string();
                                                         debug!("{}: {:?}", seed_error_message, e);
                                                     }
                                                 }
                                             },
                                             None => {
-                                                seed_error_message = "AP Data doesn't exist".to_string();
+                                                seed_error_message = "AP_DATA doesn't exist during new seed file generation".to_string();
                                                 debug!("{}", seed_error_message);
                                             }
                                         }
                                     },
                                     Err(e) => {
-                                        seed_error_message = "Failed To Acquire AP Lock".to_string();
+                                        seed_error_message = "Failed To acquire AP_DATA lock during new seed file generation".to_string();
                                         debug!("{}: {:?}", seed_error_message, e);
                                     }
                                 }
                             },
                             Err(e) => {
-                                seed_error_message = "Files failed to Generate".to_string();
+                                seed_error_message = "New seed files failed to generate".to_string();
                                 debug!("{}: {:?}", seed_error_message, e);
                             }
                         }
                     },
                     Err(e) => {
-                        seed_error_message = "Seed Failed to Validate".to_string();
+                        seed_error_message = "New seed failed to validate".to_string();
                         debug!("{}: {:?}", seed_error_message, e);
                     }
                 }
@@ -395,12 +393,16 @@ async fn launch_game() {
             let dll = "LaMulanaMW.dll";
 
             let process_id = p.id();
-            let target_process = OwnedProcess::from_pid(process_id).unwrap();
+            let target_process = OwnedProcess::from_pid(process_id).inspect_err(|e| {
+                debug!("Failed to retrieve LaMulanaWin process from launched pid: {:?}", e);
+            }).unwrap();
             let syringe = Syringe::for_process(target_process);
 
             match syringe.inject(dll) {
                 Ok(_) => {
-                    p.wait().unwrap();
+                    p.wait().inspect_err(|e| {
+                        debug!("Launcher failed while waiting on LaMulanaWin process to exit: {:?}", e);
+                    }).unwrap();
                 },
                 Err(e) => debug!("Failed to inject DLL: {}", e)
             }
