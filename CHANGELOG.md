@@ -1,3 +1,7 @@
+# 2026-07-06
+
+* Feature: Implement `RandomizeBacksideDoors`
+
 # 2026-06-11
 
 * Bug Fix: Gate of Illusion Coin Chest now randomizes contents
