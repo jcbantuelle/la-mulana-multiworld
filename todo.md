@@ -2,7 +2,6 @@
 
 ## Enhancements
 
-* Add Robust Logging
 * Start Rando
 * Transition Rando
 * Send Yiegah Kungfu Shop Item 1 (Little Brother Weights) to AP as obtained
