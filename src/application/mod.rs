@@ -182,25 +182,19 @@ impl Application {
     }
 
     unsafe fn enable_detour<'a, T: Function>(&self, detour_result: Result<&'a StaticDetour<T>, retour::Error>, detour_name: &str) -> &'a StaticDetour<T> {
-        match detour_result {
-            Ok(e) => {
-                match e.enable() {
-                    Ok(_) => {
-                        e
-                    },
-                    Err(e) => {
-                        let error_message = format!("Error enabling detour {}: {}", detour_name, e);
-                        error!("{}", error_message);
-                        panic!("{}", error_message)
-                    }
-                }
-            },
-            Err(e) => {
-                let error_message = format!("Error attaching to detour {}: {}", detour_name, e);
-                error!("{}", error_message);
-                panic!("{}", error_message)
-            }
-        }
+        let detour = detour_result.inspect_err(|e| {
+            let error_message = format!("Error attaching to detour {}: {}", detour_name, e);
+            error!("{}", error_message);
+            panic!("{}", error_message)
+        }).unwrap();
+
+        let _ = detour.enable().inspect_err(|e| {
+            let error_message = format!("Error enabling detour {}: {}", detour_name, e);
+            error!("{}", error_message);
+            panic!("{}", error_message)
+        });
+
+        detour
     }
 
     unsafe fn patch_shop_sacred_orb(&self) {
