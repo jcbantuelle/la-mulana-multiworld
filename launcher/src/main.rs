@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             error_message_window.set_error_message(error_message.into());
             let error_message_window_handle = error_message_window.as_weak();
 
-            error_message_window.on_close(move || {
+            error_message_window.on_close_window(move || {
                 let error_message_window = error_message_window_handle.unwrap();
                 let _ = error_message_window.hide();
             });
@@ -116,7 +116,7 @@ async fn configure_launcher_window(launcher_handle: Weak<Launcher>, seed_selecto
         let _ = launcher.hide();
     });
 
-    launcher.on_close(move || {
+    launcher.on_close_window(move || {
         let launcher = launcher_close_handle.unwrap();
         let _ = launcher.hide();
     });
@@ -182,7 +182,7 @@ async fn configure_seed_selector_window(seed_selector_handle: Weak<SeedSelector>
     let launcher_delete = launcher_handle.clone().unwrap();
     let launcher_add_seed_handle = launcher_handle.clone();
 
-    seed_selector.on_close(move || {
+    seed_selector.on_close_window(move || {
         let _ = launcher_close.show();
 
         let seed_selector = seed_selector_close_handle.unwrap();

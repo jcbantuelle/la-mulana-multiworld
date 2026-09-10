@@ -10,7 +10,7 @@ export component Launcher inherits Window {
     in-out property <string> current-seed;
     in-out property <string> error-message;
 
-    callback close();
+    callback close-window();
     callback launch-game();
     callback select-seed();
     callback restore();
@@ -61,7 +61,7 @@ export component Launcher inherits Window {
                 width: 100px;
                 text: "Exit";
                 clicked => {
-                    root.close();
+                    root.close-window();
                 }
             }
         }

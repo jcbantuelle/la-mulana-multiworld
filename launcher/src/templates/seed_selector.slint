@@ -13,7 +13,7 @@ export component SeedSelector inherits Window {
     icon: @image-url("../images/lmmw.png");
     height: 310px;
     width: 540px;
-    callback close();
+    callback close-window();
     callback load();
     callback delete();
     callback add-seed();
@@ -58,7 +58,7 @@ export component SeedSelector inherits Window {
                 height: 30px;
                 width: 60px;
                 clicked => {
-                    root.close()
+                    root.close-window()
                 }
             }
         }
@@ -138,7 +138,7 @@ export component SeedSelector inherits Window {
                 height: 30px;
                 width: 100px;
                 clicked => {
-                    root.close()
+                    root.close-window()
                 }
             }
         }
