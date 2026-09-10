@@ -1,3 +1,3 @@
 fn main() {
-    slint_build::compile("src/launcher.slint").unwrap();
+    slint_build::compile("src/templates/main.slint").unwrap();
 }

@@ -1,0 +1,69 @@
+import { Button, HorizontalBox, VerticalBox} from "std-widgets.slint";
+
+export component Launcher inherits Window {
+    title: "La-Mulana Archipelago Launcher";
+    icon: @image-url("../images/lmmw.png");
+    height: 90px;
+    width: 450px;
+
+    in-out property <bool> seed-selected;
+    in-out property <string> current-seed;
+    in-out property <string> error-message;
+
+    callback close();
+    callback launch-game();
+    callback select-seed();
+    callback restore();
+    VerticalLayout {
+        if !error-message.is-empty: VerticalBox {
+            Text {
+                text: "\{root.error-message}";
+                color: red;
+            }
+        }
+        HorizontalBox {
+            Text {
+                text: "Current Seed:";
+                font-weight: 600;
+                width: 80px;
+            }
+            Text {
+                text: "\{root.current-seed}";
+            }
+        }
+        HorizontalBox {
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Select Seed";
+                clicked => {
+                    root.select-seed();
+                }
+            }
+            if seed-selected: Button {
+                height: 30px;
+                width: 100px;
+                text: "Launch Game";
+                clicked => {
+                    root.launch-game();
+                }
+            }
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Restore Files";
+                clicked => {
+                    root.restore();
+                }
+            }
+            Button {
+                height: 30px;
+                width: 100px;
+                text: "Exit";
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+    }
+}
