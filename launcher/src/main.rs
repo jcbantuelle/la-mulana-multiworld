@@ -16,6 +16,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::ap_data::{APData, LaMulanaConfig};
 
+use crate::windows::error_message::ErrorMessageWindow;
 use crate::windows::launcher::LauncherWindow;
 use crate::windows::seed_selector::SeedSelectorWindow;
 
@@ -40,16 +41,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             launcher_window.open();
         },
         Err(error_message) => {
-            let error_message_window = ErrorMessage::new().inspect_err(|e| { debug!("Verification Issue window failed to initialize: {:?}", e); })?;
-            error_message_window.set_error_message(error_message.into());
-            let error_message_window_handle = error_message_window.as_weak();
-
-            error_message_window.on_close_window(move || {
-                let error_message_window = error_message_window_handle.unwrap();
-                let _ = error_message_window.hide();
-            });
-
-            error_message_window.run().inspect_err(|e| { debug!("Verification Issue window failed to run: {:?}", e); })?;
+            let error_message_window = ErrorMessageWindow::new();
+            error_message_window.configure(error_message).await;
+            error_message_window.open();
         }
     }
 
