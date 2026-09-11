@@ -13,11 +13,6 @@
 * Add Inactive Ankh Graphic to boss rooms
 * NPC Rando
 
-## Code Cleanup
-
-* Split out launcher main into multiple structs for each Window
-* Split slint templates into individual files per Window
-
 # DLL
 
 ## Bugs
