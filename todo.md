@@ -1,8 +1,8 @@
 # Launcher
 
 ## Enhancements
+
 * Accurately report coin chests to AP logs (Currently says shell horn sent)
-* Door Rando
 * Start Rando
 * Transition Rando
 * Seal Rando
@@ -26,6 +26,7 @@
 * Overwrite to real item name when for another player
 * Swap Map/Grail for custom item w/ custom image
 * Allow any item to appear in torude scan
+* Implement better filler items (weights, coins, ammo)
 * Add Overlay for Ankh Jewel status when in Inventory screen
 * Add Deathlink support
 * Automatic Item Hinting

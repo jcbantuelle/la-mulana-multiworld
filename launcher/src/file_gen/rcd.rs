@@ -1,4 +1,4 @@
-use archipelago_api::api::{ItemData, Location};
+use archipelago_api::api::{ItemData, Location, SlotData};
 use binrw::{BinRead, BinWrite, binrw};
 use binrw::helpers::args_iter;
 use log::debug;
@@ -11,16 +11,19 @@ use std::io::Cursor;
 use crate::consts::SOURCE_RCD_PATH;
 use crate::file_gen::generator::FileGenerationError;
 use crate::file_gen::lm_consts::{
+    DOOR_REQUIREMENTS,
+    DOORS,
     DOUBLE_CHEST_ADDRESSES,
     GLOBAL_FLAGS,
-    grail_flag_by_zone,
     ITEM_CODES,
     RCD_OBJECT_PARAMS,
     RCD_OBJECTS,
+    RcdComparisonFlag,
     STARTING_WEAPONS,
     TEST_OPERATIONS,
     WRITE_OPERATIONS,
-    ZONES
+    ZONES,
+    grail_flag_by_zone
 };
 use crate::file_utils;
 
@@ -107,7 +110,7 @@ pub struct Exit{
     screen_id: i8,
 }
 
-#[derive(Debug, BinRead, BinWrite)]
+#[derive(Clone, Debug, BinRead, BinWrite)]
 pub struct Operation {
     id: i16,
     op_value: i8,
@@ -436,7 +439,9 @@ impl Rcd {
         }
     }
 
-    pub fn apply_mods(&mut self, options: HashMap<String, u64>) -> Result<(), FileGenerationError> {
+    pub fn apply_mods(&mut self, slot_data: SlotData) -> Result<(), FileGenerationError> {
+        let options = slot_data.options.clone();
+
         self.rewrite_diary_events();
         self.rewrite_mulbruk_doors();
         self.rewrite_sun_lights_hitbox();
@@ -469,6 +474,14 @@ impl Rcd {
 
         if options.get("AlternateMotherAnkh").is_some_and(|option| *option > 0) {
             self.create_alternate_mother_ankh();
+        }
+
+        if options.get("RandomizeBacksideDoors").is_some_and(|option| *option > 0) {
+            let door_map = slot_data.door_map.clone().ok_or_else(|| {
+                debug!("Door Map is missing from Slot Data: {:?}", slot_data);
+                FileGenerationError::MalformedSlotData
+            })?;
+            self.randomize_doors(door_map)?;
         }
 
         Ok(())
@@ -1496,6 +1509,233 @@ impl Rcd {
         }
     }
 
+    fn randomize_doors(&mut self, door_map: HashMap<String, [String;2]>) -> Result<(), FileGenerationError> {
+        for (source_door_name, [destination_door_name, door_requirement_name]) in door_map.clone() {
+
+            // The Endless Corridor Exit is tracked for mapping purposes, but doesn't have a Warp Door to update
+            if source_door_name == "Endless One-way Exit" { continue; }
+
+            let source_door = DOORS.get(source_door_name.as_str()).ok_or_else(|| {
+                debug!("Source Door {} Doesn't Exist", source_door_name);
+                FileGenerationError::MalformedSlotData
+            })?.clone();
+
+            let destination_door = DOORS.get(destination_door_name.as_str()).ok_or_else(|| {
+                debug!("Destination Door {} Doesn't Exist", source_door_name);
+                FileGenerationError::MalformedSlotData
+            })?.clone();
+
+            let door_screen = &mut self.rcd_file.zones[source_door.zone as usize].rooms[source_door.room as usize].screens[source_door.screen as usize];
+
+            // Remove existing Door assets to ensure consistent application of new door
+            let _ = door_screen.objects_with_position.extract_if(.., |object| {
+                object.id == RCD_OBJECTS["warp_door"] ||
+                source_door.remove_with_position.iter().any(|removal_object| {
+                    removal_object.rcd_id == object.id &&
+                    Self::flag_match(object.test_operations.clone(), removal_object.test_flags.clone()) &&
+                    Self::flag_match(object.write_operations.clone(), removal_object.write_flags.clone())
+                })
+            }).collect::<Vec<_>>();
+
+            let _ = door_screen.objects_without_position.extract_if(.., |object| {
+                source_door.remove_without_position.iter().any(|removal_object| {
+                    removal_object.rcd_id == object.id &&
+                    Self::flag_match(object.test_operations.clone(), removal_object.test_flags.clone()) &&
+                    Self::flag_match(object.write_operations.clone(), removal_object.write_flags.clone())
+                })
+            }).collect::<Vec<_>>();
+
+            let mut door_test_ops: Vec<Operation> = Vec::new();
+            let door_req = DOOR_REQUIREMENTS.get(door_requirement_name.as_str()).ok_or_else(|| {
+                debug!("Door Requirement Missing for : {:?}", door_requirement_name);
+                FileGenerationError::MalformedSlotData
+            })?.clone();
+
+            if let Some(primary_flag) = door_req.primary_flag {
+                let op_value = if door_requirement_name == "Key" { 1 } else { 3 };
+                door_test_ops.push(Operation { id: primary_flag, op_value, operation: TEST_OPERATIONS["eq"] });
+            }
+
+            if let Some(mirror_flag) = door_req.mirror_flag {
+                door_test_ops.push(Operation { id: mirror_flag, op_value: 1, operation: TEST_OPERATIONS["eq"] });
+            }
+
+            let header_bytes = (door_test_ops.len() << 4) as u8;
+
+            let door = ObjectWithPosition {
+                id: RCD_OBJECTS["warp_door"],
+                header: ObjectHeader::from_bytes([header_bytes]),
+                x_pos: source_door.x_pos,
+                y_pos: source_door.y_pos,
+                test_operations: door_test_ops,
+                write_operations: vec![],
+                parameters: vec![
+                    0,
+                    destination_door.zone,
+                    destination_door.room,
+                    destination_door.screen,
+                    destination_door.x_pos,
+                    destination_door.y_pos
+                ]
+            };
+            door_screen.objects_with_position.push(door);
+
+            if source_door.zone != 19 {
+                let image_x = match source_door.zone {
+                    6 => 80,
+                    10 => 160,
+                    13 => 240,
+                    _ => 0
+                };
+
+                let door_graphic = ObjectWithPosition {
+                    id: RCD_OBJECTS["texture_draw_animation"],
+                    header: ObjectHeader::from_bytes([0b0]),
+                    x_pos: source_door.x_pos - 1,
+                    y_pos: source_door.y_pos - 2,
+                    test_operations: vec![],
+                    write_operations: vec![],
+                    parameters: vec![-1, -1, image_x, 512, 80, 80, 0, 0, 1, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 1]
+                };
+                door_screen.objects_with_position.push(door_graphic);
+            }
+
+            if let Some(primary_flag) = door_req.primary_flag {
+                let graphic_index = door_req.graphic_index.ok_or_else(|| {
+                    debug!("Graphic Index Missing for : {:?}", door_requirement_name);
+                    FileGenerationError::MalformedSlotData
+                })?;
+
+                if let Some(mirror_flag) = door_req.mirror_flag {
+                    // Place Mirror Cover Effects
+                    let door_cover_animation = ObjectWithPosition {
+                        id: RCD_OBJECTS["texture_draw_animation"],
+                        header: ObjectHeader::from_bytes([0b00100001]),
+                        x_pos: source_door.x_pos,
+                        y_pos: source_door.y_pos,
+                        test_operations: vec![
+                            Operation { id: primary_flag, op_value: 0, operation: TEST_OPERATIONS["eq"] },
+                            Operation { id: GLOBAL_FLAGS["bronze_mirror_found"], op_value: 2, operation: TEST_OPERATIONS["eq"] }
+                        ],
+                        write_operations: vec![Operation { id: primary_flag, op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                        parameters: vec![0, -1, 0, 360, 40, 40, 1, 7, 6, 1, 0, 0, 5, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 1]
+                    };
+                    door_screen.objects_with_position.push(door_cover_animation);
+
+                    let door_req_graphic = ObjectWithPosition {
+                        id: RCD_OBJECTS["texture_draw_animation"],
+                        header: ObjectHeader::from_bytes([0b00010000]),
+                        x_pos: source_door.x_pos - 1,
+                        y_pos: source_door.y_pos - 2,
+                        test_operations: vec![Operation { id: mirror_flag, op_value: 0, operation: TEST_OPERATIONS["gt"] }],
+                        write_operations: vec![],
+                        parameters: vec![0, -1, 50 * graphic_index, 592, 50, 36, 0, 0, 1, 0, 0, 0, 5, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 1]
+                    };
+                    door_screen.objects_with_position.push(door_req_graphic);
+                } else {
+                    // Place Key Fairy Effects
+                    let fairy_keyspot = ObjectWithPosition {
+                        id: RCD_OBJECTS["fairy_keyspot"],
+                        header: ObjectHeader::from_bytes([0b00010011]),
+                        x_pos: source_door.x_pos,
+                        y_pos: source_door.y_pos - 2,
+                        test_operations: vec![Operation { id: primary_flag, op_value: 0, operation: TEST_OPERATIONS["eq"] }],
+                        write_operations: vec![
+                            Operation { id: primary_flag, op_value: 1, operation: WRITE_OPERATIONS["assign"] },
+                            Operation { id: GLOBAL_FLAGS["screen_flag_29"], op_value: 1, operation: WRITE_OPERATIONS["assign"] },
+                            Operation { id: GLOBAL_FLAGS["keyfairy_point_gate_of_time"], op_value: 1, operation: WRITE_OPERATIONS["assign"] }
+                        ],
+                        parameters: vec![0, 40, 40]
+                    };
+                    door_screen.objects_with_position.push(fairy_keyspot);
+
+                    let door_cover_animation = ObjectWithPosition {
+                        id: RCD_OBJECTS["texture_draw_animation"],
+                        header: ObjectHeader::from_bytes([0b00010001]),
+                        x_pos: source_door.x_pos,
+                        y_pos: source_door.y_pos,
+                        test_operations: vec![Operation { id: primary_flag, op_value: 0, operation: TEST_OPERATIONS["eq"] }],
+                        write_operations: vec![Operation { id: primary_flag, op_value: 1, operation: WRITE_OPERATIONS["assign"] }],
+                        parameters: vec![0, -1, 0, 360, 40, 40, 1, 7, 6, 1, 0, 0, 5, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 1]
+                    };
+                    door_screen.objects_with_position.push(door_cover_animation);
+
+                    let door_req_graphic = ObjectWithPosition {
+                        id: RCD_OBJECTS["texture_draw_animation"],
+                        header: ObjectHeader::from_bytes([0b00000000]),
+                        x_pos: source_door.x_pos - 1,
+                        y_pos: source_door.y_pos - 2,
+                        test_operations: vec![],
+                        write_operations: vec![],
+                        parameters: vec![0, -1, 50 * graphic_index, 592, 50, 36, 0, 0, 1, 0, 0, 0, 5, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 1]
+                    };
+                    door_screen.objects_with_position.push(door_req_graphic);
+
+                    let keyfairy_timer = ObjectWithoutPosition {
+                        id: RCD_OBJECTS["flag_timer"],
+                        header: ObjectHeader::from_bytes([0b00010010]),
+                        test_operations: vec![Operation { id: GLOBAL_FLAGS["keyfairy_point_gate_of_time"], op_value: 1, operation: TEST_OPERATIONS["eq"] }],
+                        write_operations: vec![
+                            Operation { id: GLOBAL_FLAGS["keyfairy_point_gate_of_time"], op_value: 2, operation: WRITE_OPERATIONS["assign"] },
+                            Operation { id: GLOBAL_FLAGS["keyfairy_points"], op_value: 1, operation: WRITE_OPERATIONS["add"] }
+                        ],
+                        parameters: vec![]
+                    };
+                    door_screen.objects_without_position.push(keyfairy_timer);
+
+                    let keyfairy_sound = ObjectWithoutPosition {
+                        id: RCD_OBJECTS["sound_effect"],
+                        header: ObjectHeader::from_bytes([0b00010000]),
+                        test_operations: vec![Operation { id: GLOBAL_FLAGS["screen_flag_29"], op_value: 1, operation: TEST_OPERATIONS["eq"] }],
+                        write_operations: vec![],
+                        parameters: vec![0x7b, 127, 0, -1500, 115, 127, -1500, 19, 0, 0, 0, 10, 8, 2, 0]
+                    };
+                    door_screen.objects_without_position.push(keyfairy_sound);
+
+                    let door_open_woodle = ObjectWithoutPosition {
+                        id: RCD_OBJECTS["sound_effect"],
+                        header: ObjectHeader::from_bytes([0b00110000]),
+                        test_operations: vec![
+                            Operation { id: GLOBAL_FLAGS["shell_horn_found"], op_value: 2, operation: TEST_OPERATIONS["eq"] },
+                            Operation { id: primary_flag, op_value: 1, operation: TEST_OPERATIONS["eq"] },
+                            Operation { id: GLOBAL_FLAGS["screen_flag_29"], op_value: 1, operation: TEST_OPERATIONS["eq"] }
+                        ],
+                        write_operations: vec![],
+                        parameters: vec![0x1e, 120, 64, 0, 120, 64, 0, 25, 1, 5, 0, 10, 0, 0, 0]
+                    };
+                    door_screen.objects_without_position.push(door_open_woodle);
+                }
+
+                // Change Gate of Time Door Open flag to New Primary Flag for 0x93, 0x12, 0xe RCD object
+                if &source_door_name == "Extinction Key Door" {
+                    for object in door_screen.objects_with_position.iter_mut() {
+                        let matching_object = [RCD_OBJECTS["texture_draw_animation"], RCD_OBJECTS["hitbox_generator"], RCD_OBJECTS["room_spawner"], RCD_OBJECTS["scannable"]].contains(&object.id);
+                        if matching_object {
+                            let matching_op = object.test_operations.iter().any(|op| { op.id == GLOBAL_FLAGS["gate_of_time_puzzle"] });
+                            if matching_op {
+                                let door_req_value = if door_requirement_name == "Key" { 1 } else { 3 };
+                                Self::update_operations(&mut object.test_operations, GLOBAL_FLAGS["gate_of_time_puzzle"], primary_flag, None, Some(TEST_OPERATIONS["eq"]), None, Some(door_req_value));
+                                if let Some(mirror_flag) = door_req.mirror_flag {
+                                    object.test_operations.push(Operation { id: mirror_flag, op_value: 1, operation: TEST_OPERATIONS["eq"] });
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Remove Gate of Time Closed Objects
+                if &source_door_name == "Extinction Key Door" {
+                    let _ = door_screen.objects_with_position.extract_if(.., |object| {
+                        [RCD_OBJECTS["texture_draw_animation"], RCD_OBJECTS["hitbox_generator"], RCD_OBJECTS["room_spawner"], RCD_OBJECTS["scannable"]].contains(&object.id) &&
+                        object.test_operations.iter().any(|op| { op.id == GLOBAL_FLAGS["gate_of_time_puzzle"] })
+                    });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn update_operations(operations: &mut Vec<Operation>, old_flag: i16, new_flag: i16, old_operation: Option<i8>, new_operation: Option<i8>, old_op_value: Option<i8>, new_op_value: Option<i8>) {
         for op in operations.iter_mut() {
             let flag_match = op.id == old_flag;
@@ -1522,6 +1762,16 @@ impl Rcd {
                 }
             }
         }
+    }
+
+    fn flag_match(object_flags: Vec<Operation>, comparison_flags: Vec<RcdComparisonFlag>) -> bool {
+        comparison_flags.is_empty() || comparison_flags.iter().all(|comparison_flag| {
+            object_flags.iter().any(|object_flag| {
+                comparison_flag.id == object_flag.id &&
+                comparison_flag.op.is_none_or(|op| op == object_flag.operation) &&
+                comparison_flag.value.is_none_or(|value| value == object_flag.op_value)
+            })
+        })
     }
 }
 

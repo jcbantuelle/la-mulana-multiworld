@@ -426,7 +426,11 @@ pub struct SlotData {
     pub locations: Vec<Location>,
     pub item_table: HashMap<String, ItemData>,
     pub player_id: i64,
-    pub players: Vec<ArchipelagoPlayer>
+    pub players: Vec<ArchipelagoPlayer>,
+    pub door_map: Option<HashMap<String, [String;2]>>,
+    pub transition_map: Option<HashMap<String, String>>,
+    pub seal_map: Option<HashMap<String, i16>>,
+    pub npc_map: Option<HashMap<String, String>>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

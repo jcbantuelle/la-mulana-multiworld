@@ -6,8 +6,11 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("screen_flag_00", 0x00),
         ("screen_flag_01", 0x01),
         ("screen_flag_02", 0x02),
+        ("screen_flag_0b", 0x0b),
         ("screen_flag_0c", 0x0c),
         ("screen_flag_0d", 0x0d),
+        ("screen_flag_28", 0x28),
+        ("screen_flag_29", 0x29),
         ("screen_flag_2e", 0x2e),
         ("screen_flag_2f", 0x2f),
         ("coin_chests", 0x77),
@@ -32,7 +35,9 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("baphomet_ankh_jewel_found", 0x94),
         ("tiamat_ankh_jewel_found", 0x95),
         ("talisman_found", 0xa4),
+        ("shell_horn_found", 0xa7),
         ("crucifix_found", 0xab),
+        ("bronze_mirror_found", 0xae),
         ("plane_found", 0xb4),
         ("guidance_orb_found", 0xc7),
         ("surface_map", 0xd1),
@@ -76,8 +81,16 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("mulana_talisman", 0x105),
         ("swimsuit_found", 0x106),
         ("amphisbaena_ankh_puzzle", 0x133),
+        ("surface_gate_exposed", 0x152),
+        ("surface_gate_open", 0x153),
+        ("guidance_gate_exposed", 0x15c),
+        ("guidance_gate_open", 0x15d),
         ("sakit_ankh_puzzle", 0x164),
+        ("mausoleum_gate_exposed", 0x16d),
+        ("mausoleum_gate_open", 0x16e),
         ("hardmode", 0x16a),
+        ("sun_gate_exposed", 0x175),
+        ("sun_gate_open", 0x176),
         ("ellmac_ankh_puzzle", 0x178),
         ("sun_map_chest_ladder_despawned", 0x183),
         ("sun_map_chest_ladder_restored", 0x188),
@@ -87,8 +100,13 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("chain_whip_dais_left", 0x1b1),
         ("chain_whip_dais_right", 0x1b2),
         ("viy_ankh_puzzle", 0x1b4),
+        ("inferno_viy_gate_exposed", 0x1bd),
+        ("inferno_viy_gate_open", 0x1be),
+        ("inferno_echidna_gate_open", 0x1c0),
         ("palenque_ankh_puzzle", 0x1c3),
+        ("gate_of_time_puzzle", 0x1c9),
         ("palenque_screen_mural", 0x1ca),
+        ("extinction_gate_open", 0x1d0),
         ("baphomet_ankh_puzzle", 0x1e0),
         ("little_brother_purchase_counter", 0x1ea),
         ("endless_fairyqueen", 0x1f5),
@@ -101,6 +119,7 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("cog_puzzle", 0x23a),
         ("moonlight_to_twin_breakable_floor", 0x25e),
         ("flail_whip_puzzle", 0x27b),
+        ("birth_gate_exposed", 0x2b9),
         ("ushumgallu_state", 0x2cc),
         ("dimensional_angel_shield_dais_left", 0x2d2),
         ("dimensional_angel_shield_dais_right", 0x2d3),
@@ -120,6 +139,9 @@ pub const GLOBAL_FLAGS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| 
         ("orb_count_incremented_guidance", 0x355),
         ("mulbruk_conversation_unknown", 0x36a),
         ("escape", 0x382),
+        ("keyfairy_points", 0x386),
+        ("keyfairy_point_gate_of_time", 0x38c),
+        ("inferno_echidna_gate_exposed", 0x3b7),
         ("kill_flag", 0x3e9),
         ("grail_tablet_surface", 0x54e),
         ("starting_items", 0x84f),
@@ -213,6 +235,7 @@ pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
         ("crusher", 0x11),
         ("hitbox_generator", 0x12),
         ("lemeza_detector", 0x14),
+        ("spinning_shine", 0x22),
         ("counterweight_platform", 0x33),
         ("chest", 0x2c),
         ("ankh", 0x2e),
@@ -222,6 +245,7 @@ pub const RCD_OBJECTS: LazyLock<HashMap<&'static str, i16>> = LazyLock::new(|| {
         ("vimana", 0x71),
         ("texture_draw_animation", 0x93),
         ("warp_door", 0x98),
+        ("sound_effect", 0x9b),
         ("use_item", 0x9c),
         ("scannable", 0x9e),
         ("grail_point", 0x9f),
@@ -333,6 +357,515 @@ pub const DOUBLE_CHEST_ADDRESSES: LazyLock<HashMap<i64, i16>> = LazyLock::new(||
         (2359056, 2),   // Gate of Illusion Fairy Clothes Chest [10-06-00]
         (2359040, 10),  // Chamber of Extinction Map Chest [06-03-00]
         (2359101, 19)   // Chamber of Extinction Coin Chest [06-03-00]
+    ])
+});
+
+#[derive(Clone, Debug)]
+pub struct Door {
+    pub zone: i16,
+    pub room: i16,
+    pub screen: i16,
+    pub x_pos: i16,
+    pub y_pos: i16,
+    pub remove_with_position: Vec<RcdComparison>,
+    pub remove_without_position: Vec<RcdComparison>
+}
+
+#[derive(Clone, Debug)]
+pub struct RcdComparison {
+    pub rcd_id: i16,
+    pub test_flags: Vec<RcdComparisonFlag>,
+    pub write_flags: Vec<RcdComparisonFlag>
+}
+
+#[derive(Clone, Debug)]
+pub struct RcdComparisonFlag {
+    pub id: i16,
+    pub op: Option<i8>,
+    pub value: Option<i8>
+}
+
+pub const DOORS: LazyLock<HashMap<&str, Door>> = LazyLock::new(|| {
+    HashMap::from([
+        ("Surface Door", Door {
+            zone: 1, room: 8, screen: 0,
+            x_pos: 200, y_pos: 320,
+            remove_with_position: vec![
+                RcdComparison { rcd_id: RCD_OBJECTS["texture_draw_animation"], test_flags: vec![], write_flags: vec![] }
+            ],
+            remove_without_position: vec![
+                RcdComparison { rcd_id: RCD_OBJECTS["sound_effect"], test_flags: vec![], write_flags: vec![] },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["surface_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["surface_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ]
+        }),
+        ("Guidance Door", Door {
+            zone: 0, room: 5, screen: 0,
+            x_pos: 180, y_pos: 160,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Mausoleum Door", Door {
+            zone: 2, room: 4, screen: 0,
+            x_pos: 80, y_pos: 320,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Sun Door", Door {
+            zone: 3, room: 6, screen: 0,
+            x_pos: 460, y_pos: 160,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Inferno Viy Door", Door {
+            zone: 5, room: 8, screen: 0,
+            x_pos: 140, y_pos: 160,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Inferno Spikes Door", Door {
+            zone: 5, room: 9, screen: 0,
+            x_pos: 60, y_pos: 80,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_echidna_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_echidna_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_echidna_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_echidna_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Extinction Key Door", Door {
+            zone: 6, room: 7, screen: 0,
+            x_pos: 300, y_pos: 80,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["spinning_shine"],
+                    test_flags: vec![RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_0b"], op: None, value: Some(1)}],
+                    write_flags: vec![]
+                },
+                RcdComparison {rcd_id: RCD_OBJECTS["fairy_keyspot"], test_flags: vec![], write_flags: vec![]}
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_0b"], op: None, value: Some(1)}],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![RcdComparisonFlag{id: GLOBAL_FLAGS["keyfairy_points"], op: None, value: Some(1)}]
+                }
+            ]
+        }),
+        ("Extinction Magatama Door", Door {
+            zone: 6, room: 0, screen: 0,
+            x_pos: 40, y_pos: 80,
+            remove_with_position: vec![],
+            remove_without_position: vec![]
+        }),
+        ("Endless One-way Exit", Door {
+            zone: 8, room: 0, screen: 1,
+            x_pos: 400, y_pos: 180,
+            remove_with_position: vec![],
+            remove_without_position: vec![]
+        }),
+        ("Illusion Door", Door {
+            zone: 10, room: 3, screen: 0,
+            x_pos: 40, y_pos: 80,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["guidance_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Graveyard Door", Door {
+            zone: 11, room: 3, screen: 0,
+            x_pos: 80, y_pos: 160,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["mausoleum_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Moonlight Door", Door {
+            zone: 12, room: 4, screen: 2,
+            x_pos: 200, y_pos: 240,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["sun_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Goddess Door", Door {
+            zone: 13, room: 0, screen: 1,
+            x_pos: 300, y_pos: 400,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["surface_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["surface_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["surface_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["surface_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Ruin Top Door", Door {
+            zone: 14, room: 8, screen: 1,
+            x_pos: 300, y_pos: 120,
+            remove_with_position: vec![],
+            remove_without_position: vec![]
+        }),
+        ("Ruin Lower Door", Door {
+            zone: 14, room: 2, screen: 1,
+            x_pos: 300, y_pos: 240,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_0c"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_28"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["inferno_viy_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Birth Door", Door {
+            zone: 15, room: 0, screen: 1,
+            x_pos: 300, y_pos: 400,
+            remove_with_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["texture_draw_animation"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["birth_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["extinction_gate_open"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                }
+            ],
+            remove_without_position: vec![
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["sound_effect"],
+                    test_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["screen_flag_29"], op: None, value: None}
+                    ],
+                    write_flags: vec![]
+                },
+                RcdComparison {
+                    rcd_id: RCD_OBJECTS["flag_timer"],
+                    test_flags: vec![],
+                    write_flags: vec![
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["birth_gate_exposed"], op: None, value: None},
+                        RcdComparisonFlag{id: GLOBAL_FLAGS["extinction_gate_open"], op: None, value: None}
+                    ]
+                }
+            ]
+        }),
+        ("Dimensional Door", Door {
+            zone: 17, room: 0, screen: 0,
+            x_pos: 300, y_pos: 320,
+            remove_with_position: vec![],
+            remove_without_position: vec![]
+        }),
+        ("Retromausoleum Door", Door {
+            zone: 19, room: 0, screen: 1,
+            x_pos: 300, y_pos: 320,
+            remove_with_position: vec![],
+            remove_without_position: vec![]
+        })
+    ])
+});
+
+#[derive(Clone, Debug)]
+pub struct DoorCondition {
+    pub primary_flag: Option<i16>,
+    pub mirror_flag: Option<i16>,
+    pub graphic_index: Option<i16>
+}
+
+pub const DOOR_REQUIREMENTS: LazyLock<HashMap<&str, DoorCondition>> = LazyLock::new(|| {
+    HashMap::from([
+        ("Amphisbaena", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["amphisbaena_state"]),
+            mirror_flag: Some(GLOBAL_FLAGS["guidance_gate_open"]),
+            graphic_index: Some(0)
+        }),
+        ("Sakit", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["sakit_state"]),
+            mirror_flag: Some(GLOBAL_FLAGS["mausoleum_gate_open"]),
+            graphic_index: Some(1)
+        }),
+        ("Ellmac", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["ellmac_state"]),
+            mirror_flag: Some(GLOBAL_FLAGS["sun_gate_open"]),
+            graphic_index: Some(2)
+        }),
+        ("Bahamut", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["bahamut_state"]),
+            mirror_flag: Some(GLOBAL_FLAGS["inferno_viy_gate_open"]),
+            graphic_index: Some(3)
+        }),
+        ("Viy", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["viy_state"]),
+            mirror_flag: Some(GLOBAL_FLAGS["surface_gate_open"]),
+            graphic_index: Some(4)
+        }),
+        ("Palenque", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["palenque_state"]),
+            mirror_flag: Some(GLOBAL_FLAGS["extinction_gate_open"]),
+            graphic_index: Some(5)
+        }),
+        ("Baphomet", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["baphomet_state"]),
+            mirror_flag: Some(GLOBAL_FLAGS["inferno_echidna_gate_open"]),
+            graphic_index: Some(6)
+        }),
+        ("Key", DoorCondition {
+            primary_flag: Some(GLOBAL_FLAGS["gate_of_time_puzzle"]),
+            mirror_flag: None,
+            graphic_index: Some(9)
+        }),
+        ("Open", DoorCondition {
+            primary_flag: None,
+            mirror_flag: None,
+            graphic_index: None
+        })
     ])
 });
 
