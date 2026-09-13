@@ -1,151 +1,25 @@
 use archipelago_api::api::{ItemData, Location};
-use binrw::helpers::until_eof;
-use binrw::io::TakeSeekExt;
-use binrw::{BinRead, binrw, BinWrite};
 use log::debug;
 use std::collections::HashMap;
-use std::io::Cursor;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::consts::SOURCE_DAT_PATH;
+use crate::file_gen::dat::lm_dat::*;
 use crate::file_gen::generator::FileGenerationError;
-use crate::file_gen::lm_consts::{FONT, ITEM_CODES, STARTING_WEAPONS, SUBWEAPON_AMMO};
-use crate::file_gen::rcd::Rcd;
+use crate::file_gen::lm_consts::{CARDS, FONT, GLOBAL_FLAGS, HEADERS, ITEM_CODES, STARTING_WEAPONS, SUBWEAPON_AMMO};
+use crate::file_gen::rcd::rcd_updater::RcdUpdater;
 use crate::file_utils;
 
-use super::lm_consts::{CARDS, GLOBAL_FLAGS, HEADERS};
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct LaMulanaDat {
-    num_cards: i16,
-    #[br(count = num_cards)]
-    cards: Vec<Card>
-}
-
-#[binrw]
-#[derive(Clone, Debug)]
-pub struct Card {
-    #[bw(calc = calculate_contents_size(contents))]
-    len_contents: u16,
-    #[br(map_stream = |s| s.take_seek(len_contents as u64), parse_with = until_eof)]
-    contents: Vec<Entry>
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Entry {
-    header: u16,
-    #[br(args(header))]
-    contents: EntryContents
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-#[br(import(header: u16))]
-pub enum EntryContents {
-    #[br(pre_assert(header == 0x0040))]
-    Flag(Flag),
-    #[br(pre_assert(header == 0x0041))]
-    Flag2(Flag2),
-    #[br(pre_assert(header == 0x0042))]
-    Item(Item),
-    #[br(pre_assert(header == 0x0046))]
-    Pose(Pose),
-    #[br(pre_assert(header == 0x0047))]
-    Mantra(Mantra),
-    #[br(pre_assert(header == 0x004a))]
-    Color(Color),
-    #[br(pre_assert(header == 0x004d))]
-    ItemName(ItemName),
-    #[br(pre_assert(header == 0x004e))]
-    Data(Data),
-    #[br(pre_assert(header == 0x004f))]
-    Anime(Anime),
-    #[br(pre_assert(true))]
-    Noop(Noop)
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Flag {
-    address: i16,
-    value: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Flag2 {
-    address: i16,
-    value: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Item {
-    value: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Pose {
-    value: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Mantra {
-    value: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Color {
-    red: i16,
-    green: i16,
-    blue: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct ItemName {
-    value: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Data {
-    num_values: i16,
-    #[br(count = num_values)]
-    values: Vec<i16>
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Anime {
-    value: i16
-}
-
-#[derive(BinRead, BinWrite, Clone, Debug)]
-pub struct Noop {}
-
-fn calculate_contents_size(contents: &Vec<Entry>) -> u16 {
-    contents.iter().fold(0, |bytes, entry| {
-        let entry_bytes = match &entry.contents {
-            EntryContents::Flag(_) => 4,
-            EntryContents::Flag2(_) => 4,
-            EntryContents::Item(_) => 2,
-            EntryContents::Pose(_) => 2,
-            EntryContents::Mantra(_) => 2,
-            EntryContents::Color(_) => 6,
-            EntryContents::ItemName(_) => 2,
-            EntryContents::Data(data) => 2 + (data.num_values * 2) as u16 ,
-            EntryContents::Anime(_) => 2,
-            EntryContents::Noop(_) => 0
-        };
-        bytes + entry_bytes + 2
-    })
-}
-
-pub struct Dat {
+pub struct DatUpdater {
     shop_placements: HashMap<usize,[String;3]>,
     dat_file: LaMulanaDat
 }
 
-impl Dat {
+impl DatUpdater {
     pub fn new() -> Result<Self, FileGenerationError> {
         let raw_file = file_utils::read_file(&SOURCE_DAT_PATH).map_err(|_| FileGenerationError::DatFileReadFailure)?;
-        let mut reader = Cursor::new(raw_file);
-        let dat_file = LaMulanaDat::read_be(&mut reader).map_err(|_| FileGenerationError::DatFileParseFailure)?;
-        Ok(Dat {
+        let dat_file = LaMulanaDat::load_file(raw_file)?;
+        Ok(DatUpdater {
             shop_placements: HashMap::new(),
             dat_file
         })
@@ -163,7 +37,7 @@ impl Dat {
         Ok(())
     }
 
-    pub fn place_conversation_item(&mut self, rcd_file: &mut Rcd, location: &Location, new_item_id: i16, new_flag: i16) -> Result<(), FileGenerationError> {
+    pub fn place_conversation_item(&mut self, rcd_updater: &mut RcdUpdater, location: &Location, new_item_id: i16, new_flag: i16) -> Result<(), FileGenerationError> {
         let cards = location.cards.clone().ok_or_else(|| {
             debug!("Cards were not set for Dat Location: {:?}", location);
             FileGenerationError::MalformedSlotData
@@ -206,14 +80,14 @@ impl Dat {
 
             // Mekuri Master's item requires an RCD mod to the door
             if card_index == CARDS["mekuri_conversation"] {
-                rcd_file.rewrite_mekuri_door(new_flag);
+                rcd_updater.rewrite_mekuri_door(new_flag);
             }
         }
 
         Ok(())
     }
 
-    pub fn place_shop_item(&mut self, rcd_file: &mut Rcd, location: &Location, item_id: i16, item_flag: i16, slot: usize, mut item: ItemData, options: &HashMap<String, u64>) -> Result<(), FileGenerationError> {
+    pub fn place_shop_item(&mut self, rcd_updater: &mut RcdUpdater, location: &Location, item_id: i16, item_flag: i16, slot: usize, mut item: ItemData, options: &HashMap<String, u64>) -> Result<(), FileGenerationError> {
         let cards = location.cards.clone().ok_or_else(|| {
             debug!("Cards were not set for Dat Location: {:?}", location);
             FileGenerationError::MalformedSlotData
@@ -307,7 +181,7 @@ impl Dat {
 
             // Nebur's 4 boss item requires an RCD mod to her door
             if card_id == CARDS["nebur_guardian"] && location.address.unwrap_or(0) == 2359208 {
-                rcd_file.rewrite_four_guardian_shop_conditions(item_flag);
+                rcd_updater.rewrite_four_guardian_shop_conditions(item_flag);
             }
         }
 
@@ -351,10 +225,8 @@ impl Dat {
         Ok(())
     }
 
-    pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
-        let mut writer = Cursor::new(Vec::new());
-        self.dat_file.write_be(&mut writer).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
-        Ok(writer.into_inner())
+    pub fn write_file(&self) -> Result<Vec<u8>, FileGenerationError> {
+        self.dat_file.write_file()
     }
 
     fn rewrite_xelpud_flag_checks(&mut self) -> Result<(), FileGenerationError> {

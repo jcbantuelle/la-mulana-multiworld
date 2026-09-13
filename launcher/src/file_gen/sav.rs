@@ -104,7 +104,7 @@ impl Sav {
         Ok(())
     }
 
-    pub fn to_bytes(&self) -> Result<Vec<u8>, FileGenerationError> {
+    pub fn write_file(&self) -> Result<Vec<u8>, FileGenerationError> {
         let mut writer = Cursor::new(Vec::new());
         self.save_file.write_be(&mut writer).map_err(|_| FileGenerationError::SaveFileModFailure)?;
         Ok(writer.into_inner())

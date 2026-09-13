@@ -3,10 +3,10 @@ use thiserror::Error;
 
 use crate::consts::AP_PATH;
 use crate::file_gen::app_config::AppConfig;
-use crate::file_gen::dat::Dat;
+use crate::file_gen::dat::dat_updater::DatUpdater;
 use crate::file_gen::graphics;
 use crate::file_gen::lm_consts::ITEM_CODES;
-use crate::file_gen::rcd::Rcd;
+use crate::file_gen::rcd::rcd_updater::RcdUpdater;
 use crate::file_gen::sav::Sav;
 use crate::file_utils;
 
@@ -55,10 +55,10 @@ pub enum FileGenerationError {
 }
 
 pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData, seed_name: String) -> Result<(), FileGenerationError>{
-    let mut rcd_file = Rcd::new(slot_data.cursed_chests.clone())?;
+    let mut rcd_updater = RcdUpdater::new(slot_data.cursed_chests.clone())?;
 
-    let mut dat_file = Dat::new()?;
-    dat_file.apply_mods()?;
+    let mut dat_updater = DatUpdater::new()?;
+    dat_updater.apply_mods()?;
 
     let mut sav_file = Sav::new();
     sav_file.apply_mods(&slot_data)?;
@@ -92,28 +92,28 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData, seed_name:
                 if file_type == "dat" {
                     match &slot_data_location.slot {
                         Some(slot) => {
-                            dat_file.place_shop_item(&mut rcd_file, &slot_data_location, item_id, item_flag, *slot, lm_item.clone(), &slot_data.options)?;
+                            dat_updater.place_shop_item(&mut rcd_updater, &slot_data_location, item_id, item_flag, *slot, lm_item.clone(), &slot_data.options)?;
                         },
                         None => {
-                            dat_file.place_conversation_item(&mut rcd_file, &slot_data_location, item_id, item_flag)?;
+                            dat_updater.place_conversation_item(&mut rcd_updater, &slot_data_location, item_id, item_flag)?;
                         }
                     }
                 } else if file_type == "rcd" {
-                    rcd_file.place_item(&slot_data_location, item_id, item_flag)?;
+                    rcd_updater.place_item(&slot_data_location, item_id, item_flag)?;
                 }
             },
             None => ()
         }
     }
 
-    dat_file.update_shop_bunemon_text()?;
+    dat_updater.update_shop_bunemon_text()?;
 
-    rcd_file.give_starting_items(
+    rcd_updater.give_starting_items(
         slot_data.start_inventory.clone(),
         slot_data.options["StartingWeapon"],
         slot_data.item_table.clone()
     )?;
-    rcd_file.apply_mods(slot_data)?;
+    rcd_updater.apply_mods(slot_data)?;
 
     let effect_bytes = graphics::generate_effects()?;
 
@@ -125,19 +125,19 @@ pub fn generate_files(mut app_config: AppConfig, slot_data: SlotData, seed_name:
     file_utils::create_dir(&save_file_dir).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
 
     let rcd_file_path = format!("{}/{}", new_seed_path, "script.rcd");
-    file_utils::write_file(&rcd_file_path, rcd_file.to_bytes()?).map_err(|_| FileGenerationError::RcdFileWriteFailure)?;
+    file_utils::write_file(&rcd_file_path, rcd_updater.write_file()?).map_err(|_| FileGenerationError::RcdFileWriteFailure)?;
 
     let dat_file_path = format!("{}/{}", new_seed_path, "script_code.dat");
-    file_utils::write_file(&dat_file_path, dat_file.to_bytes()?).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
+    file_utils::write_file(&dat_file_path, dat_updater.write_file()?).map_err(|_| FileGenerationError::DatFileWriteFailure)?;
 
     let save_file_path = format!("{}/{}", save_file_dir, "lm_00.sav");
-    file_utils::write_file(&save_file_path, sav_file.to_bytes()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
+    file_utils::write_file(&save_file_path, sav_file.write_file()?).map_err(|_| FileGenerationError::SaveFileWriteFailure)?;
 
     let effects_file_path = format!("{}/{}", new_seed_path, "01effect.png");
     file_utils::write_file(&effects_file_path, effect_bytes).map_err(|_| FileGenerationError::EffectsFileWriteFailure)?;
 
     let app_config_file_path = format!("{}/{}", new_seed_path, "lamulana-config.toml");
-    file_utils::write_file(&app_config_file_path, app_config.to_bytes()?).map_err(|_| FileGenerationError::AppConfigWriteFailure)?;
+    file_utils::write_file(&app_config_file_path, app_config.write_file()?).map_err(|_| FileGenerationError::AppConfigWriteFailure)?;
 
     Ok(())
 }

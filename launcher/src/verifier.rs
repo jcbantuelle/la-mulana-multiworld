@@ -1,5 +1,5 @@
 use dirs_next;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use sysinfo::System;
 
 use crate::ap_data::LaMulanaConfig;

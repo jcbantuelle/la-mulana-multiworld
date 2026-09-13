@@ -1,35 +1,4 @@
-import { Button, ComboBox, HorizontalBox, LineEdit, ScrollView, VerticalBox} from "std-widgets.slint";
-
-export component ErrorMessage inherits Window {
-    in-out property <string> error_message;
-    title: "La-Mulana Archipelago Launcher";
-    icon: @image-url("images/lmmw.png");
-    height: 300px;
-    width: 430px;
-    callback close();
-    VerticalBox {
-        Text {
-            text: "There were issues detected with your setup that are preventing the Randomizer from working properly.\n\nPlease review and correct these problems to proceed. If you continue to have problems, please open an issue at https://github.com/jcbantuelle/la-mulana-multiworld/issues or contact Arakida in the La-Mulana Discord (https://discord.gg/KGGxBkSTBN)";
-            wrap: word-wrap;
-        }
-        Text {
-            text: "Error:";
-            font-weight: 600;
-        }
-        Text {
-            text: "\{root.error_message}";
-            wrap: word-wrap;
-        }
-        Button {
-            text: "Exit";
-            height: 30px;
-            width: 60px;
-            clicked => {
-                root.close()
-            }
-        }
-    }
-}
+import { Button, ComboBox, HorizontalBox, LineEdit, VerticalBox} from "std-widgets.slint";
 
 export component SeedSelector inherits Window {
     in-out property <[string]> seeds;
@@ -41,10 +10,10 @@ export component SeedSelector inherits Window {
     in-out property <string> load-seed-error;
     in-out property <string> chosen-seed;
     title: "La-Mulana Archipelago Launcher";
-    icon: @image-url("images/lmmw.png");
+    icon: @image-url("../images/lmmw.png");
     height: 310px;
     width: 540px;
-    callback close();
+    callback close-window();
     callback load();
     callback delete();
     callback add-seed();
@@ -89,7 +58,7 @@ export component SeedSelector inherits Window {
                 height: 30px;
                 width: 60px;
                 clicked => {
-                    root.close()
+                    root.close-window()
                 }
             }
         }
@@ -169,75 +138,7 @@ export component SeedSelector inherits Window {
                 height: 30px;
                 width: 100px;
                 clicked => {
-                    root.close()
-                }
-            }
-        }
-    }
-}
-
-export component Launcher inherits Window {
-    title: "La-Mulana Archipelago Launcher";
-    icon: @image-url("images/lmmw.png");
-    height: 90px;
-    width: 450px;
-
-    in-out property <bool> seed-selected;
-    in-out property <string> current-seed;
-    in-out property <string> error-message;
-
-    callback close();
-    callback launch-game();
-    callback select-seed();
-    callback restore();
-    VerticalLayout {
-        if !error-message.is-empty: VerticalBox {
-            Text {
-                text: "\{root.error-message}";
-                color: red;
-            }
-        }
-        HorizontalBox {
-            Text {
-                text: "Current Seed:";
-                font-weight: 600;
-                width: 80px;
-            }
-            Text {
-                text: "\{root.current-seed}";
-            }
-        }
-        HorizontalBox {
-            Button {
-                height: 30px;
-                width: 100px;
-                text: "Select Seed";
-                clicked => {
-                    root.select-seed();
-                }
-            }
-            if seed-selected: Button {
-                height: 30px;
-                width: 100px;
-                text: "Launch Game";
-                clicked => {
-                    root.launch-game();
-                }
-            }
-            Button {
-                height: 30px;
-                width: 100px;
-                text: "Restore Files";
-                clicked => {
-                    root.restore();
-                }
-            }
-            Button {
-                height: 30px;
-                width: 100px;
-                text: "Exit";
-                clicked => {
-                    root.close();
+                    root.close-window()
                 }
             }
         }
