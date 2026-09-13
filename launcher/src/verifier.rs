@@ -112,9 +112,9 @@ fn fetch_config(digest: String) -> Result<LaMulanaConfig, String> {
     if digest == "390E26B6A0C1F14BCAC521D2F8E410C4DEAD0B3E2693B2192BD6CA7832CB5B17" {
         Ok(LaMulanaConfig {
             version: "1.0.0.1".to_string(),
-            save_path: "save/".to_string(),
-            rcd_digest: "87437780618A3ABDE22BC7200B793FB900169E4F018D1F37D323AC6B5B2F120E".to_string(),
-            dat_digest: "E9F34854D82EBA1E72DD80C573DB1202AA15524FAAC3FC82C8D9F9943BD9F31C".to_string(),
+            save_path: "data/save/".to_string(),
+            rcd_digest: "A95FF8AD8E84788C9558D97309514A4BB9CE79F723570BBEA9C7B3C3D15D8201".to_string(),
+            dat_digest: "009A7FDDA3318DAF0CDA81A23DC887EEFF6189493DF5F8163668D395B09DA5EF".to_string(),
             effects_digest: "7CB3D2755ECE2E90BC88A81BCEA6C05350E4695182C3798F86F967A5D4BAC466".to_string()
         })
     } else {
