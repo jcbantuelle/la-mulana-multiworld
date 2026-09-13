@@ -33,7 +33,6 @@ The project is built in Rust. If you don't already have an environment configure
 There are several quirks of the current state of the project. While everything should function, there are some behaviors that might be initially surprising.
 
 * torude scans may show a blank item popup, although the item is properly received
-* There can be a delay (up to 30ish seconds) in item send/receive with the AP server
 * AP items for another player appear as `Holy Grail (Full)` from chests, and as `Map` from shops
 * All shop items default to 10g
 * `Ankh Jewels` are tied to specific bosses. When you don't have the `Ankh Jewel` for a boss, that Bosses' `Ankh` will not appear
