@@ -1,8 +1,9 @@
 use archipelago_api::api::*;
 use archipelago_api::client::APClient;
 use log::{debug, warn};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex, MutexGuard};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use crate::get_application;
 use crate::lm_structs::items::ARCHIPELAGO_ITEM_LOOKUP;
@@ -22,7 +23,7 @@ pub struct PlayerItem {
     pub for_player: bool
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NetworkItemForPlayer {
     pub network_item: NetworkItem,
     pub rooms: Vec<String>
@@ -38,7 +39,10 @@ static PLAYER_ITEMS: LazyLock<Mutex<HashMap<i32, PlayerItem>>> = LazyLock::new(|
 static PLAYER_ITEM_POPUP: Mutex<Option<PlayerItemPopup>> = Mutex::new(None);
 static SYNC_REQUIRED: Mutex<bool> = Mutex::new(false);
 static GAME_COMPLETE: Mutex<bool> = Mutex::new(false);
-static ITEMS_TO_GIVE: Mutex<VecDeque<NetworkItemForPlayer>> = Mutex::new(VecDeque::new());
+static ITEMS_CHANNEL: LazyLock<(Sender<NetworkItemForPlayer>, Mutex<Receiver<NetworkItemForPlayer>>)> = LazyLock::new(|| {
+    let (tx, rx) = channel::<NetworkItemForPlayer>(300);
+    (tx, Mutex::new(rx))
+});
 static DEFAULT_POPUP_SCRIPT: LazyLock<Vec<u16>> = LazyLock::new(|| { vec![0x100,0x000a] });
 static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| { tokio::runtime::Runtime::new().unwrap() });
 
@@ -67,18 +71,18 @@ pub fn game_loop() {
             RUNTIME.block_on(get_updates_from_server());
         });
 
-        let item_lock = ITEMS_TO_GIVE.try_lock();
-        if item_lock.is_ok() {
-            let mut items_to_give = item_lock.unwrap();
-            let item_to_give = items_to_give.pop_front();
-            match item_to_give {
-                Some(ap_item) => {
+        let recieved = ITEMS_CHANNEL.1.try_lock();
+        if recieved.is_ok() {
+            match recieved.unwrap().try_recv() {
+                Ok(ap_item) => {
+                    debug!("Evaluating Item for Delivery: {:?}", ap_item);
                     let ap_item_id = ap_item.network_item.item;
                     let lm_item = ARCHIPELAGO_ITEM_LOOKUP.get(&(ap_item_id)).unwrap();
 
                     let give_item = lm_item.item_id > 104 || global_flags[lm_item.flag] == 0;
 
                     if give_item {
+                        debug!("Attempting to Deliver Item: {:?}", ap_item);
                         let mut rooms = ap_item.rooms.clone();
 
                         let field: &mut u8 = application.read_address("current_field");
@@ -87,23 +91,36 @@ pub fn game_loop() {
                         let room_index = format!("{},{},{}", field, scene, screen);
 
                         if rooms.contains(&room_index) {
-                            items_to_give.push_back(ap_item);
+                            debug!("Item has already been Delivered in Room {:?}, Pushing it back into Delivery Queue: {:?}", room_index, ap_item);
+                            std::thread::spawn(move || {
+                                let _ = RUNTIME.block_on(ITEMS_CHANNEL.0.send(ap_item));
+                            });
                         } else {
+                            debug!("Item has not been Delivered yet in Room {:?}: {:?}. Attempting Delivery", room_index, ap_item);
                             let player_id = ap_item.network_item.player;
-                            rooms.push(room_index);
-                            items_to_give.push_back(NetworkItemForPlayer { network_item: ap_item.network_item, rooms });
-                            if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
-                                player_items.insert(lm_item.item_id as i32, PlayerItem {
-                                    player_id,
-                                    for_player: false
-                                });
-                            }
-
-                            application.give_item(&lm_item);
+                            rooms.push(room_index.clone());
+                            std::thread::spawn(move || {
+                                application.give_item(&lm_item);
+                                debug!("Pushing Item back into Delivery Queue in case Delivery fails, with Room {:?} added. : {:?}", room_index, ap_item);
+                                let _ = RUNTIME.block_on(ITEMS_CHANNEL.0.send(NetworkItemForPlayer { network_item: ap_item.network_item, rooms }));
+                                if let Ok(ref mut player_items) = PLAYER_ITEMS.lock() {
+                                    player_items.insert(lm_item.item_id as i32, PlayerItem {
+                                        player_id,
+                                        for_player: false
+                                    });
+                                }
+                            });
                         }
+                    } else {
+                        let reason = if lm_item.item_id > 104 {
+                            "Item ID is greater than 104".to_string()
+                        } else {
+                            format!("Item Flag {:?} is non-zero: {:?}", lm_item.flag, global_flags[lm_item.flag])
+                        };
+                        debug!("Item has already been Delivered, Removing from Queue: {:?}", reason);
                     }
                 },
-                None => ()
+                Err(_) => ()
             }
         }
     }
@@ -284,16 +301,17 @@ async fn get_updates_from_server() {
                     }
 
                     let items_from_ap = received_items.items;
-                    let mut items_to_give = ITEMS_TO_GIVE.lock().unwrap();
-                    for network_item in items_from_ap {
-                        if !items_to_give.iter().any(|item_to_give| item_to_give.network_item.item == network_item.item) {
+
+                    std::thread::spawn(move || {
+                        for network_item in items_from_ap {
                             let item_for_player = NetworkItemForPlayer {
                                 network_item,
                                 rooms: Vec::new()
                             };
-                            items_to_give.push_back(item_for_player);
+                            debug!("AP reporting Item to give, adding it to Delivery Queue: {:?}", item_for_player);
+                            let _ = RUNTIME.block_on(ITEMS_CHANNEL.0.send(item_for_player));
                         }
-                    }
+                    });
                 },
                 _ => {}
             }

@@ -21,8 +21,6 @@
 
 ## Enhancements
 
-* Add Robust Logging
-* Decouple item delivery from dependence on Mutex (use independent reader and writer), to speed up receiving items
 * Overwrite to real item name when for another player
 * Swap Map/Grail for custom item w/ custom image
 * Allow any item to appear in torude scan

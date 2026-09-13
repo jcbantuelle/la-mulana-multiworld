@@ -1,10 +1,11 @@
-# 2026-09-09
+# 2026-09-13
 
 * Bug Fix: File Verification now works correctly on 1.0.0.1
-
-# 2026-07-06
-
-* Feature: Implement `RandomizeBacksideDoors`
+* Feature: `RandomizeBacksideDoors` is now implemented on the Launcher side. Please note that AP Generation frequently fails with this feature enabled. A separate AP fix will be forthcoming, so the feature is not recommended yet
+* Feature: Sending and receiving items is now substantially faster
+* Feature: The Launcher now reports additional event logging
+* Feature: The Game now reports additional event logging. Please note this can get noisy, if you're concerned about Log file size exploding you'll want to change the lamulana-config.toml setting for `log_level` from `DEBUG` to `INFO`
+* Maintenance: The Launcher codebase is significantly restructured. Please report any bugs or regressions you may notice
 
 # 2026-06-11
 
