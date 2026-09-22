@@ -10,6 +10,7 @@ use crate::ap_data::{APData, Game, Player};
 use crate::file_gen::app_config::AppConfig;
 use crate::file_gen::generator;
 use crate::windows::launcher::LauncherWindow;
+use crate::windows::launcher::Launcher as LauncherHandle;
 
 slint::include_modules!();
 
@@ -193,42 +194,7 @@ impl SeedSelectorWindow {
                                     password: password.clone()
                                 };
 
-                                match ap_data_handle.lock() {
-                                    Ok(mut ap_data_lock) => {
-                                        match ap_data_lock.as_mut() {
-                                            Some(ap_data) => {
-                                                if ap_data.add_new_game(game).is_err() {
-                                                    let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
-                                                        SeedSelectorWindow::add_seed_error(&seed_selector, "Failed to configure files for new seed");
-                                                    });
-                                                } else {
-                                                    let launcher_ap_data = ap_data.clone();
-                                                    let _ = weak_launcher.upgrade_in_event_loop(move |launcher| {
-                                                        LauncherWindow::update_ap_data(&launcher_ap_data, &launcher);
-                                                        let _ = launcher.show();
-                                                    });
-
-                                                    let seed_selector_ap_data = ap_data.clone();
-                                                    let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
-                                                        SeedSelectorWindow::add_seed_error(&seed_selector, "");
-                                                        SeedSelectorWindow::update_ap_data(&seed_selector_ap_data, &seed_selector);
-                                                        let _ = seed_selector.hide();
-                                                    });
-                                                }
-                                            },
-                                            None => {
-                                                let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
-                                                    SeedSelectorWindow::add_seed_error(&seed_selector, "AP_DATA doesn't exist during new seed file generation");
-                                                });
-                                            }
-                                        }
-                                    },
-                                    Err(_) => {
-                                        let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
-                                            SeedSelectorWindow::add_seed_error(&seed_selector, "Failed To acquire AP_DATA lock during new seed file generation");
-                                        });
-                                    }
-                                }
+                                SeedSelectorWindow::register_new_seed(game, &ap_data_handle, weak_launcher, weak_seed_selector);
                             }
                         },
                         Err(_) => {
@@ -240,6 +206,50 @@ impl SeedSelectorWindow {
                 }).await.unwrap();
             });
         });
+    }
+
+    fn register_new_seed(
+        game: Game,
+        ap_data_handle: &Arc<Mutex<Option<APData>>>,
+        weak_launcher: Weak<LauncherHandle>,
+        weak_seed_selector: Weak<SeedSelector>,
+    ) {
+        match ap_data_handle.lock() {
+            Ok(mut ap_data_lock) => {
+                match ap_data_lock.as_mut() {
+                    Some(ap_data) => {
+                        if ap_data.add_new_game(game).is_err() {
+                            let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
+                                SeedSelectorWindow::add_seed_error(&seed_selector, "Failed to configure files for new seed");
+                            });
+                        } else {
+                            let launcher_ap_data = ap_data.clone();
+                            let _ = weak_launcher.upgrade_in_event_loop(move |launcher| {
+                                LauncherWindow::update_ap_data(&launcher_ap_data, &launcher);
+                                let _ = launcher.show();
+                            });
+
+                            let seed_selector_ap_data = ap_data.clone();
+                            let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
+                                SeedSelectorWindow::add_seed_error(&seed_selector, "");
+                                SeedSelectorWindow::update_ap_data(&seed_selector_ap_data, &seed_selector);
+                                let _ = seed_selector.hide();
+                            });
+                        }
+                    },
+                    None => {
+                        let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
+                            SeedSelectorWindow::add_seed_error(&seed_selector, "AP_DATA doesn't exist during new seed file generation");
+                        });
+                    }
+                }
+            },
+            Err(_) => {
+                let _ = weak_seed_selector.upgrade_in_event_loop(move |seed_selector| {
+                    SeedSelectorWindow::add_seed_error(&seed_selector, "Failed To acquire AP_DATA lock during new seed file generation");
+                });
+            }
+        }
     }
 
     fn add_seed_error(seed_selector: &SeedSelector, error_message: &str) {
